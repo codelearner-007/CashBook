@@ -1,0 +1,87 @@
+// Shadcn-inspired design tokens — cyan primary
+
+export const LightColors = {
+  // Brand
+  primary:          '#39AAAA',          // teal-cyan
+  primaryDark:      '#2B8080',          // darker teal
+  primaryLight:     '#F4FAFA',          // barely-there teal — almost white
+  primaryMid:       '#DFF0F0',          // very soft teal border
+
+  // On-primary (text/icons sitting on top of a primary-colored surface)
+  onPrimary:        '#FFFFFF',
+  onPrimaryMuted:   'rgba(255,255,255,0.72)',
+  onPrimarySubtle:  'rgba(255,255,255,0.45)',
+  onPrimaryIconBg:  'rgba(255,255,255,0.20)',
+
+  // Semantic
+  cashIn:           '#16A34A',          // green-600
+  cashInLight:      '#DCFCE7',          // green-100
+  cashOut:          '#DC2626',          // red-600
+  cashOutLight:     '#FEE2E2',          // red-100
+
+  // Surface
+  background:       '#F8FAFC',          // slate-50
+  card:             '#FFFFFF',
+  cardAlt:          '#F1F5F9',          // slate-100
+
+  // Text
+  text:             '#0F172A',          // slate-900
+  textMuted:        '#64748B',          // slate-500
+  textSubtle:       '#94A3B8',          // slate-400
+
+  // Structure
+  border:           '#E2E8F0',          // slate-200
+  borderFocus:      '#39AAAA',
+  shadow:           '#000000',
+
+  // Misc
+  badge:            '#ECFEFF',
+  overlay:          'rgba(0,0,0,0.45)',
+  isDark:           false,
+};
+
+export const DarkColors = {
+  // Brand
+  primary:          '#4BBFBF',          // lighter teal for dark bg contrast
+  primaryDark:      '#39AAAA',          // base teal
+  primaryLight:     '#111111',          // near-black chip/badge bg
+  primaryMid:       '#222222',          // subtle border on chips
+
+  // On-primary (always white — primary surface is colored in both modes)
+  onPrimary:        '#FFFFFF',
+  onPrimaryMuted:   'rgba(255,255,255,0.65)',
+  onPrimarySubtle:  'rgba(255,255,255,0.35)',
+  onPrimaryIconBg:  'rgba(255,255,255,0.15)',
+
+  // Semantic
+  cashIn:           '#4ADE80',          // green-400
+  cashInLight:      '#052E16',          // green-950
+  cashOut:          '#F87171',          // red-400
+  cashOutLight:     '#3B0000',          // near-black red tint
+
+  // Surface — true blacks
+  background:       '#000000',          // pure black
+  card:             '#0D0D0D',          // off-black card
+  cardAlt:          '#161616',          // slightly lighter surface
+
+  // Text
+  text:             '#F5F5F5',          // near-white
+  textMuted:        '#A0A0A0',          // mid grey
+  textSubtle:       '#606060',          // dim grey
+
+  // Structure
+  border:           '#242424',          // very dark border
+  borderFocus:      '#22D3EE',
+  shadow:           '#000000',
+
+  // Misc
+  badge:            '#0D0D0D',
+  overlay:          'rgba(0,0,0,0.75)',
+  isDark:           true,
+};
+
+// Accent palette for book cards — lives here so screens import from theme, not inline
+export const CARD_ACCENTS = ['#39AAAA', '#16A34A', '#7C3AED', '#D97706', '#DB2777'];
+
+// Legacy alias — screens still on the old API keep working
+export const Colors = LightColors;

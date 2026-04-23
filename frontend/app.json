@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "CashBook",
+    "slug": "cashbook",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#3B5BDB"
+    },
+    "android": {
+      "package": "com.yourname.cashbook",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#3B5BDB"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourname.cashbook"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font"
+    ]
+  }
+}

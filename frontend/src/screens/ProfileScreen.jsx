@@ -1,0 +1,280 @@
+import { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity,
+  SafeAreaView, StatusBar, ScrollView, Alert,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useTheme } from '../hooks/useTheme';
+import { useProfile, useUpdateProfile } from '../hooks/useProfile';
+import { Font } from '../constants/fonts';
+import AppInput from '../components/ui/Input';
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
+
+const BackIcon = ({ color }) => (
+  <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 9, height: 9, borderLeftWidth: 2.5, borderBottomWidth: 2.5, borderColor: color, transform: [{ rotate: '45deg' }] }} />
+  </View>
+);
+
+const CameraIcon = ({ size = 13 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 0.82, height: size * 0.65, borderRadius: 2, borderWidth: 1.5, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: size * 0.35, height: size * 0.35, borderRadius: size * 0.175, borderWidth: 1.5, borderColor: '#fff' }} />
+    </View>
+    <View style={{ position: 'absolute', top: 0, left: size * 0.2, width: size * 0.25, height: size * 0.18, borderTopLeftRadius: 2, borderTopRightRadius: 2, borderWidth: 1.5, borderColor: '#fff', borderBottomWidth: 0 }} />
+  </View>
+);
+
+// ── Skeleton block ────────────────────────────────────────────────────────────
+
+function Skeleton({ width, height, radius = 6, style }) {
+  return (
+    <View style={[{ width, height, borderRadius: radius, backgroundColor: '#E2E8F0', opacity: 0.7 }, style]} />
+  );
+}
+
+function ProfileSkeleton({ C }) {
+  return (
+    <>
+      <View style={[skeletonStyles.avatarCard, { backgroundColor: C.card, borderColor: C.border }]}>
+        <View style={[skeletonStyles.avatarCircle, { backgroundColor: '#E2E8F0' }]} />
+        <Skeleton width={140} height={18} radius={6} style={{ marginBottom: 8 }} />
+        <Skeleton width={180} height={13} radius={6} />
+      </View>
+
+      <View style={[skeletonStyles.section, { marginTop: 24 }]}>
+        <Skeleton width={110} height={10} radius={4} style={{ marginBottom: 10, marginLeft: 2 }} />
+        <View style={[skeletonStyles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+          {[0, 1, 2].map((i) => (
+            <View key={i}>
+              <View style={skeletonStyles.fieldRow}>
+                <Skeleton width={70}  height={10} radius={4} style={{ marginBottom: 8 }} />
+                <Skeleton width={160} height={15} radius={5} />
+              </View>
+              {i < 2 && <View style={[skeletonStyles.divider, { backgroundColor: C.border }]} />}
+            </View>
+          ))}
+        </View>
+      </View>
+    </>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  avatarCard:   { alignItems: 'center', marginHorizontal: 16, borderRadius: 20, paddingVertical: 24, marginTop: -36, borderWidth: 1 },
+  avatarCircle: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
+  section:      { marginHorizontal: 16 },
+  card:         { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  fieldRow:     { paddingHorizontal: 18, paddingVertical: 16 },
+  divider:      { height: 1, marginHorizontal: 18 },
+});
+
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
+
+export default function ProfileScreen() {
+  const router = useRouter();
+  const { C }  = useTheme();
+
+  const { data: profile, isLoading, isError } = useProfile();
+  const updateProfile = useUpdateProfile();
+
+  const [name,  setName]  = useState('');
+  const [phone, setPhone] = useState('');
+
+  // Sync form when data loads
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name ?? '');
+      setPhone(profile.phone ?? '');
+    }
+  }, [profile]);
+
+  const initials = (profile?.full_name ?? '?')
+    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  const isDirty = profile
+    ? name.trim() !== (profile.full_name ?? '') || phone !== (profile.phone ?? '')
+    : false;
+
+  const handleUpdate = () => {
+    if (!name.trim()) return;
+    updateProfile.mutate(
+      { full_name: name.trim(), phone: phone.trim() || null },
+      {
+        onSuccess: () => Alert.alert('Profile Updated', 'Your changes have been saved.'),
+        onError:   () => Alert.alert('Error', 'Could not save changes. Please try again.'),
+      }
+    );
+  };
+
+  const s = makeStyles(C);
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={C.primary} />
+
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <BackIcon color="#fff" />
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Profile</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+
+        {isLoading ? (
+          <ProfileSkeleton C={C} />
+        ) : isError ? (
+          <View style={s.errorBox}>
+            <Text style={[s.errorText, { color: C.textMuted }]}>Could not load profile. Pull down to retry.</Text>
+          </View>
+        ) : (
+          <>
+            {/* Avatar card — overlaps hero */}
+            <View style={[s.avatarCard, { backgroundColor: C.card, borderColor: C.border }]}>
+              <View style={s.avatarWrap}>
+                <View style={[s.avatar, { backgroundColor: C.primary, borderColor: C.card }]}>
+                  <Text style={s.avatarInitials}>{initials}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[s.cameraBtn, { backgroundColor: C.primaryDark, borderColor: C.card }]}
+                  activeOpacity={0.8}
+                  onPress={() =>
+                    Alert.alert('Change Photo', 'Choose an option', [
+                      { text: 'Camera',  onPress: () => {} },
+                      { text: 'Gallery', onPress: () => {} },
+                      { text: 'Cancel',  style: 'cancel' },
+                    ])
+                  }
+                >
+                  <CameraIcon size={13} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[s.avatarName,  { color: C.text }]}>{profile?.full_name ?? '—'}</Text>
+              <Text style={[s.avatarEmail, { color: C.textMuted }]}>{profile?.email ?? '—'}</Text>
+            </View>
+
+            {/* Editable fields */}
+            <View style={s.sectionWrap}>
+              <Text style={[s.sectionLabel, { color: C.textMuted }]}>ACCOUNT DETAILS</Text>
+              <View style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}>
+                <AppInput
+                  label="Full Name"
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter your name"
+                />
+                <AppInput
+                  label="Email Address"
+                  value={profile?.email}
+                  editable={false}
+                  rightElement={
+                    profile?.email_verified ? (
+                      <View style={s.verifiedBadge}>
+                        <View style={s.verifiedDot} />
+                        <Text style={s.verifiedText}>Verified</Text>
+                      </View>
+                    ) : null
+                  }
+                />
+                <AppInput
+                  label="Phone Number"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  placeholder="+92 300 0000000"
+                  isLast
+                />
+              </View>
+            </View>
+
+            {/* Update button */}
+            <View style={s.btnWrap}>
+              <TouchableOpacity
+                style={[s.updateBtn, { backgroundColor: C.primary, opacity: isDirty && !updateProfile.isPending ? 1 : 0.4 }]}
+                onPress={handleUpdate}
+                disabled={!isDirty || updateProfile.isPending}
+                activeOpacity={0.85}
+              >
+                <Text style={s.updateBtnText}>
+                  {updateProfile.isPending ? 'Saving…' : 'Update Profile'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const makeStyles = (C) => StyleSheet.create({
+  safe:          { flex: 1, backgroundColor: C.background },
+  scroll:        { flex: 1 },
+  scrollContent: { paddingBottom: 48 },
+
+  header: {
+    backgroundColor: C.primary,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  backBtn:     { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontFamily: Font.bold, color: '#fff' },
+
+  avatarCard: {
+    alignItems: 'center', marginHorizontal: 16, borderRadius: 20,
+    paddingVertical: 24, marginTop: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 16, elevation: 6,
+    borderWidth: 1,
+  },
+  avatarWrap: { marginBottom: 12 },
+  avatar: {
+    width: 80, height: 80, borderRadius: 40,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 4,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
+  },
+  avatarInitials: { fontSize: 28, fontFamily: Font.extraBold, color: '#fff' },
+  cameraBtn: {
+    position: 'absolute', bottom: 0, right: -2,
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 2,
+  },
+  avatarName:  { fontSize: 18, fontFamily: Font.bold,    marginBottom: 3 },
+  avatarEmail: { fontSize: 13, fontFamily: Font.regular },
+
+  sectionWrap:  { marginHorizontal: 16, marginTop: 24, marginBottom: 16 },
+  sectionLabel: {
+    fontSize: 11, fontFamily: Font.semiBold, letterSpacing: 1,
+    textTransform: 'uppercase', marginBottom: 8, marginLeft: 2,
+  },
+  card: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
+
+  verifiedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#F0FDF4', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: '#BBF7D0', marginLeft: 8,
+  },
+  verifiedDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
+  verifiedText: { fontSize: 11, fontFamily: Font.semiBold, color: '#15803D' },
+
+  btnWrap:   { marginHorizontal: 16, marginTop: 8 },
+  updateBtn: {
+    borderRadius: 14, paddingVertical: 16, alignItems: 'center',
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4,
+  },
+  updateBtnText: { fontSize: 15, fontFamily: Font.bold, color: '#fff' },
+
+  errorBox:  { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
+  errorText: { fontSize: 14, fontFamily: Font.regular, textAlign: 'center', lineHeight: 22 },
+});
