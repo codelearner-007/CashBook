@@ -3,6 +3,17 @@
 This file is the single source of truth for AI-assisted development of the CashBook app.
 Read this fully before writing any code.
 
+## Sub-Documentation (read before touching that area)
+
+Each sub-folder has its own `CLAUDE.md` with detailed, up-to-date logic for that layer.
+**Rule:** When any code file in a folder is changed, also update that folder's `CLAUDE.md` before finishing.
+
+| Area | File | What's inside |
+|---|---|---|
+| Frontend | [frontend/CLAUDE.md](frontend/CLAUDE.md) | Screen logic, routes, hooks, API calls, state, styling |
+| Backend | [backend/CLAUDE.md](backend/CLAUDE.md) | Endpoints, Pydantic models, auth middleware, DB patterns |
+| Supabase | [supabase/CLAUDE.md](supabase/CLAUDE.md) | Schema, RLS, Storage, Auth setup, migrations |
+
 ---
 
 ## Project Identity

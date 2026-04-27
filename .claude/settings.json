@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path') or d.get('tool_response',{}).get('filePath',''); import re; m=re.search(r'/(frontend|backend|supabase)/', f); ext=re.search(r'\\.(jsx|js|py|sql)$', f); print(f'DOCS SYNC REQUIRED: update {m.group(1)}/CLAUDE.md before finishing.') if m and ext else None\" 2>/dev/null || true",
+            "statusMessage": "Checking if CLAUDE.md sync is needed..."
+          }
+        ]
+      }
+    ]
+  }
+}
