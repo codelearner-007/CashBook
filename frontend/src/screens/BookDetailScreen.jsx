@@ -788,12 +788,12 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // ── Filter chips bar ──
   filterBar: { marginTop: 10 },
   filterScroll: {
-    paddingHorizontal: 16, paddingVertical: 4, gap: 8,
-    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 10, gap: 8,
+    alignItems: 'center',
   },
   fChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 6,
+    paddingHorizontal: 14, paddingVertical: 10,
     borderRadius: 20, borderWidth: 1,
     backgroundColor: C.card, borderColor: C.border,
     maxWidth: 160,
@@ -804,7 +804,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // ── Active strip ──
   clearAllBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, marginHorizontal: 16, marginTop: 4, height: 24, borderRadius: 8,
+    gap: 5, marginHorizontal: 16, marginTop: 2, height: 20, borderRadius: 8,
   },
   clearAllText: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 18 },
 
@@ -854,7 +854,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   // Balance Card
   balanceCard: {
-    backgroundColor: C.card, marginHorizontal: 16, marginTop: 12,
+    backgroundColor: C.card, marginHorizontal: 16, marginTop: 6,
     borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: C.border,
   },
