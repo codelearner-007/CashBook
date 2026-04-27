@@ -1,20 +1,11 @@
 import { create } from 'zustand';
 
 export const useAuthStore = create((set) => ({
-  user: null,
+  user:    null,
   session: null,
 
+  /** Called after login: profile object from /api/v1/profile + Supabase session */
   setUser: (user, session = null) => set({ user, session }),
 
   clearUser: () => set({ user: null, session: null }),
 }));
-
-// Keep the mock export so other screens that still import MOCK_USER don't break
-export const MOCK_USER = {
-  id: 'u1',
-  email: 'farhan@example.com',
-  full_name: 'Farhan Ahmad',
-  avatar_url: undefined,
-  role: 'superadmin',
-  is_active: true,
-};

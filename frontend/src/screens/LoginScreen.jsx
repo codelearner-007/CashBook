@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, Dimensions, Modal, FlatList,
+  SafeAreaView, StatusBar, Dimensions, Modal, FlatList, ActivityIndicator, Alert,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { LightColors } from '../constants/colors';
-import { useAuthStore } from '../store/authStore';
-import { MOCK_USERS } from '../lib/api';
+import { supabase } from '../lib/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const C = LightColors;
 const { width, height } = Dimensions.get('window');
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
 function GoogleIcon({ size = 20 }) {
   return (
@@ -49,95 +53,140 @@ function ChevronRight({ size = 13, color = C.primary }) {
   );
 }
 
-function CheckIcon({ size = 16, color = '#fff' }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function BackgroundBlobs() {
   return (
     <Svg style={StyleSheet.absoluteFill} width={width} height={height} pointerEvents="none">
       <Circle cx={width * 0.85} cy={height * 0.12} r={130} fill="rgba(57,170,170,0.12)" />
-      <Circle cx={width * 0.05} cy={height * 0.3} r={90} fill="rgba(57,170,170,0.07)" />
-      <Circle cx={width * 0.5} cy={height * 0.82} r={160} fill="rgba(57,170,170,0.08)" />
+      <Circle cx={width * 0.05} cy={height * 0.3}  r={90}  fill="rgba(57,170,170,0.07)" />
+      <Circle cx={width * 0.5}  cy={height * 0.82} r={160} fill="rgba(57,170,170,0.08)" />
     </Svg>
   );
 }
 
-const getInitials = (name) =>
-  name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+// ── Email magic-link modal ─────────────────────────────────────────────────────
 
-const ROLE_COLORS = {
-  superadmin: { bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA' },
-  user:       { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' },
-};
+function EmailModal({ visible, onClose }) {
+  const [email, setEmail] = useState('');
+  const [sent,  setSent]  = useState(false);
+  const [loading, setLoading] = useState(false);
 
-function UserPickerModal({ visible, onClose, onSelect }) {
+  const handleSend = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      Alert.alert('Invalid Email', 'Enter a valid email address.');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({ email: trimmed });
+    setLoading(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      setSent(true);
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.pickerOverlay}>
         <View style={styles.pickerBox}>
           <View style={styles.pickerHandle} />
-          <Text style={styles.pickerTitle}>Select Account</Text>
-          <Text style={styles.pickerSub}>
-            Dev mode — pick a user to log in as
-          </Text>
-
-          <FlatList
-            data={MOCK_USERS}
-            keyExtractor={u => u.id}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={styles.pickerSep} />}
-            renderItem={({ item }) => {
-              const rc = ROLE_COLORS[item.role] ?? ROLE_COLORS.user;
-              const initials = getInitials(item.full_name);
-              return (
-                <TouchableOpacity
-                  style={styles.pickerRow}
-                  onPress={() => onSelect(item)}
-                  activeOpacity={0.75}
+          <Text style={styles.pickerTitle}>{sent ? 'Check your email' : 'Continue with Email'}</Text>
+          {sent ? (
+            <>
+              <Text style={styles.pickerSub}>
+                We sent a magic link to {email}. Tap it to sign in.
+              </Text>
+              <TouchableOpacity style={styles.pickerCancel} onPress={() => { setSent(false); setEmail(''); onClose(); }}>
+                <Text style={styles.pickerCancelText}>Done</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.pickerSub}>Enter your email to receive a sign-in link</Text>
+              <View style={styles.emailInput}>
+                <Text
+                  style={styles.emailInputText}
+                  onPress={() => {}}
                 >
-                  <View style={[styles.pickerAvatar, { backgroundColor: rc.bg, borderColor: rc.border }]}>
-                    <Text style={[styles.pickerAvatarText, { color: rc.text }]}>{initials}</Text>
-                  </View>
-                  <View style={styles.pickerInfo}>
-                    <Text style={styles.pickerName}>{item.full_name}</Text>
-                    <Text style={styles.pickerEmail}>{item.email}</Text>
-                  </View>
-                  <View style={[styles.roleBadge, { backgroundColor: rc.bg, borderColor: rc.border }]}>
-                    <Text style={[styles.roleBadgeText, { color: rc.text }]}>
-                      {item.role === 'superadmin' ? 'Admin' : 'User'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            }}
-          />
-
-          <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
-            <Text style={styles.pickerCancelText}>Cancel</Text>
-          </TouchableOpacity>
+                  {/* RN TextInput replacement using controlled state */}
+                </Text>
+              </View>
+              {/* Native TextInput */}
+              <View style={styles.inputBox}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <EmailTextInput value={email} onChangeText={setEmail} />
+              </View>
+              <TouchableOpacity
+                style={[styles.sendBtn, loading && { opacity: 0.6 }]}
+                onPress={handleSend}
+                disabled={loading}
+              >
+                {loading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.sendBtnText}>Send Magic Link</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
+                <Text style={styles.pickerCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </Modal>
   );
 }
 
-export default function LoginScreen() {
-  const router  = useRouter();
-  const setUser = useAuthStore((s) => s.setUser);
-  const [showPicker, setShowPicker] = useState(false);
+// Thin wrapper so we can import TextInput only here
+import { TextInput } from 'react-native';
+function EmailTextInput({ value, onChangeText }) {
+  return (
+    <TextInput
+      style={styles.textInput}
+      value={value}
+      onChangeText={onChangeText}
+      keyboardType="email-address"
+      autoCapitalize="none"
+      autoCorrect={false}
+      placeholder="you@example.com"
+      placeholderTextColor={C.textMuted}
+    />
+  );
+}
 
-  const handleSelectUser = (user) => {
-    setShowPicker(false);
-    setUser(user);
-    if (user.role === 'superadmin') {
-      router.replace('/(app)/dashboard');
-    } else {
-      router.replace('/(app)/books');
+// ── Main screen ───────────────────────────────────────────────────────────────
+
+export default function LoginScreen() {
+  const [loading,    setLoading]    = useState(false);
+  const [showEmail,  setShowEmail]  = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const redirectTo = makeRedirectUri({ scheme: 'cashbook', path: 'auth/callback' });
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type === 'success' && result.url) {
+          // Exchange the code from the redirect URL for a session
+          const url = new URL(result.url);
+          const code = url.searchParams.get('code');
+          if (code) {
+            await supabase.auth.exchangeCodeForSession(result.url);
+          }
+        }
+      }
+    } catch (err) {
+      Alert.alert('Sign-in failed', err?.message || 'Could not connect. Check your network.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -162,10 +211,15 @@ export default function LoginScreen() {
           <Text style={styles.cardTitle}>Welcome</Text>
           <Text style={styles.cardSub}>Login or signup to backup your data securely</Text>
 
-          {/* Google — opens user picker in dev mode */}
-          <TouchableOpacity style={styles.googleBtn} onPress={() => setShowPicker(true)} activeOpacity={0.82}>
+          {/* Google */}
+          <TouchableOpacity
+            style={[styles.googleBtn, loading && { opacity: 0.6 }]}
+            onPress={handleGoogleSignIn}
+            disabled={loading}
+            activeOpacity={0.82}
+          >
             <View style={styles.iconSlot}>
-              <GoogleIcon size={20} />
+              {loading ? <ActivityIndicator size="small" color={C.primary} /> : <GoogleIcon size={20} />}
             </View>
             <Text style={styles.googleBtnText}>Continue with Google</Text>
           </TouchableOpacity>
@@ -178,7 +232,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Email */}
-          <TouchableOpacity style={styles.emailBtn} onPress={() => setShowPicker(true)} activeOpacity={0.82}>
+          <TouchableOpacity style={styles.emailBtn} onPress={() => setShowEmail(true)} activeOpacity={0.82}>
             <EmailIcon size={18} color={C.primary} />
             <Text style={styles.emailBtnText}>Continue with Email</Text>
           </TouchableOpacity>
@@ -193,7 +247,7 @@ export default function LoginScreen() {
         </Text>
 
         {/* Other login */}
-        <TouchableOpacity style={styles.otherRow} onPress={() => setShowPicker(true)} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.otherRow} onPress={() => setShowEmail(true)} activeOpacity={0.7}>
           <Text style={styles.otherText}>Other ways to login</Text>
           <ChevronRight size={13} color={C.primary} />
         </TouchableOpacity>
@@ -206,305 +260,90 @@ export default function LoginScreen() {
 
       </View>
 
-      <UserPickerModal
-        visible={showPicker}
-        onClose={() => setShowPicker(false)}
-        onSelect={handleSelectUser}
-      />
+      <EmailModal visible={showEmail} onClose={() => setShowEmail(false)} />
     </SafeAreaView>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: C.background,
-  },
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 0,
-  },
+  safe: { flex: 1, backgroundColor: C.background },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
 
-  // Logo
-  logoBlock: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
+  logoBlock: { alignItems: 'center', marginBottom: 28 },
   logoBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
+    width: 64, height: 64, borderRadius: 18, backgroundColor: C.primary,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
   },
-  logoLetter: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: C.primary,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  tagline: {
-    fontSize: 13,
-    color: C.textMuted,
-    letterSpacing: 0.1,
-  },
+  logoLetter: { color: '#fff', fontSize: 30, fontWeight: '900', letterSpacing: -1 },
+  appName:    { fontSize: 24, fontWeight: '900', color: C.primary, letterSpacing: 0.5, marginBottom: 4 },
+  tagline:    { fontSize: 13, color: C.textMuted, letterSpacing: 0.1 },
 
-  // Card
   card: {
-    width: '100%',
-    backgroundColor: C.card,
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.09,
-    shadowRadius: 24,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: C.border,
+    width: '100%', backgroundColor: C.card, borderRadius: 24,
+    padding: 24, marginBottom: 18,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.09, shadowRadius: 24, elevation: 10,
+    borderWidth: 1, borderColor: C.border,
   },
-  cardTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: C.text,
-    textAlign: 'center',
-    marginBottom: 6,
-    letterSpacing: -0.3,
-  },
-  cardSub: {
-    fontSize: 13,
-    color: C.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
+  cardTitle: { fontSize: 26, fontWeight: '800', color: C.text, textAlign: 'center', marginBottom: 6, letterSpacing: -0.3 },
+  cardSub:   { fontSize: 13, color: C.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
 
-  // Google button
   googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.card,
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 18,
-    marginBottom: 14,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.card,
+    borderRadius: 14, paddingVertical: 13, paddingHorizontal: 18, marginBottom: 14,
+    borderWidth: 1.5, borderColor: C.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  iconSlot: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  googleBtnText: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 15,
-    fontWeight: '700',
-    color: C.text,
-    marginRight: 34,
-  },
+  iconSlot:      { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  googleBtnText: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: C.text, marginRight: 34 },
 
-  // Divider
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    gap: 10,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: C.border,
-  },
-  dividerText: {
-    fontSize: 12,
-    color: C.textSubtle,
-    fontWeight: '500',
-  },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
+  dividerText: { fontSize: 12, color: C.textSubtle, fontWeight: '500' },
 
-  // Email button
   emailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 18,
-    gap: 10,
-    borderWidth: 1.5,
-    borderColor: C.primaryMid,
-    backgroundColor: C.primaryLight,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 14, paddingVertical: 13, paddingHorizontal: 18, gap: 10,
+    borderWidth: 1.5, borderColor: C.primaryMid, backgroundColor: C.primaryLight,
   },
-  emailBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: C.primary,
-  },
+  emailBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
 
-  // Footer
-  terms: {
-    fontSize: 12,
-    color: C.textSubtle,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 14,
-    paddingHorizontal: 8,
-  },
-  link: {
-    color: C.primary,
-    fontWeight: '600',
-  },
+  terms: { fontSize: 12, color: C.textSubtle, textAlign: 'center', lineHeight: 18, marginBottom: 14, paddingHorizontal: 8 },
+  link:  { color: C.primary, fontWeight: '600' },
 
-  otherRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 20,
-  },
-  otherText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.primary,
-  },
+  otherRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 20 },
+  otherText: { fontSize: 13, fontWeight: '700', color: C.primary },
 
   trustBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#F0FDF4', borderRadius: 20, paddingVertical: 7, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: '#BBF7D0',
   },
-  trustText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#15803D',
-  },
+  trustText: { fontSize: 12, fontWeight: '600', color: '#15803D' },
 
-  // User Picker Modal
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
+  // Email modal
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   pickerBox: {
-    backgroundColor: C.card,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingTop: 12,
-    paddingBottom: 36,
+    backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingTop: 12, paddingBottom: 36,
   },
-  pickerHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: C.border,
-    alignSelf: 'center',
-    marginBottom: 20,
+  pickerHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
+  pickerTitle:  { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 4 },
+  pickerSub:    { fontSize: 13, color: C.textMuted, marginBottom: 20, lineHeight: 20 },
+  pickerCancel: { marginTop: 12, paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, alignItems: 'center' },
+  pickerCancelText: { fontSize: 15, fontWeight: '600', color: C.textMuted },
+
+  inputBox: { marginBottom: 16 },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 6 },
+  textInput: {
+    height: 48, borderWidth: 1.5, borderColor: C.border, borderRadius: 12,
+    paddingHorizontal: 14, fontSize: 15, color: C.text, backgroundColor: C.background,
   },
-  pickerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: C.text,
-    marginBottom: 4,
-    lineHeight: 28,
-  },
-  pickerSub: {
-    fontSize: 13,
-    color: C.textMuted,
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  pickerSep: {
-    height: 1,
-    backgroundColor: C.border,
-    marginVertical: 2,
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 12,
-  },
-  pickerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickerAvatarText: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  pickerInfo: {
-    flex: 1,
-  },
-  pickerName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: C.text,
-    lineHeight: 20,
-    marginBottom: 2,
-  },
-  pickerEmail: {
-    fontSize: 12,
-    color: C.textMuted,
-    lineHeight: 18,
-  },
-  roleBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-  },
-  roleBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 16,
-  },
-  pickerCancel: {
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    alignItems: 'center',
-  },
-  pickerCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: C.textMuted,
-  },
+  sendBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  sendBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  emailInput: {},
+  emailInputText: {},
 });

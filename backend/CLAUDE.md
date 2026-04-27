@@ -14,20 +14,24 @@ backend/
 │   ├── auth/
 │   │   └── jwt.py            # Supabase JWT validation, get_current_user dependency
 │   ├── routers/
-│   │   ├── books.py          # GET/POST/DELETE /api/v1/books
-│   │   ├── entries.py        # GET/POST/PUT/DELETE /api/v1/books/{id}/entries
+│   │   ├── profile.py        # GET/PUT /api/v1/profile
+│   │   ├── books.py          # GET/POST/PUT/DELETE /api/v1/books
+│   │   ├── entries.py        # GET/POST/PUT/DELETE /api/v1/books/{id}/entries + summary
+│   │   ├── admin.py          # GET/PATCH /api/v1/admin/users (superadmin only)
 │   │   ├── reports.py        # GET /api/v1/books/{id}/report/pdf + /excel
 │   │   └── upload.py         # POST /api/v1/upload/attachment
 │   ├── models/
-│   │   ├── book.py           # BookCreate, BookResponse Pydantic models
-│   │   └── entry.py          # EntryCreate, EntryUpdate, EntryResponse
+│   │   ├── profile.py        # ProfileResponse, ProfileUpdate, UserWithStats, StatusUpdate
+│   │   ├── book.py           # BookCreate, BookUpdate, BookResponse
+│   │   └── entry.py          # EntryCreate, EntryUpdate, EntryResponse, BookSummary
 │   ├── db/
-│   │   └── supabase.py       # Supabase service client (service role key)
+│   │   └── supabase.py       # Supabase service client singleton
 │   └── utils/
-│       ├── pdf.py            # generate_pdf(entries, summary) → bytes
-│       └── excel.py          # generate_excel(entries, summary) → bytes
+│       ├── pdf.py            # generate_pdf(book_name, currency, entries, summary, ...) → bytes
+│       └── excel.py          # generate_excel(book_name, currency, entries, summary, ...) → bytes
 ├── requirements.txt
 ├── Procfile                  # web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+├── .env                      # NEVER commit
 └── .env.example
 ```
 
@@ -56,24 +60,24 @@ SUPABASE_SERVICE_KEY=  # service_role key (not anon key!)
 SUPABASE_JWT_SECRET=   # JWT secret from Project Settings → API
 ```
 
-**Never use the anon key on the backend.** The service key bypasses RLS — use it only for trusted server operations and always add `user_id` filters manually.
+**Never use the anon key on the backend.** The service key bypasses RLS — always add `user_id` filters manually in every query.
 
 ---
 
 ## Auth Middleware (`app/auth/jwt.py`)
 
 ```python
-async def get_current_user(authorization: str = Header(...)):
-    token = authorization.replace("Bearer ", "")
+async def get_current_user(authorization: str = Header(...)) -> str:
+    token = authorization.removeprefix("Bearer ").strip()
     payload = jwt.decode(token, settings.SUPABASE_JWT_SECRET,
                          algorithms=["HS256"], options={"verify_aud": False})
-    user_id = payload.get("sub")   # UUID string of the authenticated user
+    user_id = payload.get("sub")   # UUID of the authenticated user
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
     return user_id
 ```
 
-**Rule:** Every protected endpoint must declare `user_id: str = Depends(get_current_user)` and filter all DB queries by that `user_id`. Never trust a `user_id` that comes from the request body or query params.
+**Rule:** Every protected endpoint must declare `user_id: str = Depends(get_current_user)` and filter all DB queries by that `user_id`. Never trust a `user_id` from the request body.
 
 ---
 
@@ -81,36 +85,37 @@ async def get_current_user(authorization: str = Header(...)):
 
 All routes are prefixed `/api/v1`. All protected routes require `Authorization: Bearer <JWT>`.
 
-### Books (`routers/books.py`)
+### Profile (`routers/profile.py`) — prefix `/api/v1/profile`
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/books` | List all books for current user | ✅ |
-| POST | `/books` | Create a new book | ✅ |
-| DELETE | `/books/{book_id}` | Delete a book (cascades entries) | ✅ |
-
-**GET /books response:** `List[BookResponse]`
-- Each book includes `net_balance` (calculated: SUM in − SUM out)
-- Ordered by `created_at DESC`
-
-**POST /books body:**
-```json
-{ "name": "string", "currency": "PKR" }
-```
+| GET | `` | Get authenticated user's profile | ✅ |
+| PUT | `` | Update own profile (full_name, phone, avatar_url) | ✅ |
 
 ---
 
-### Entries (`routers/entries.py`)
+### Books (`routers/books.py`) — prefix `/api/v1/books`
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/books/{book_id}/entries` | List entries for a book | ✅ |
-| POST | `/books/{book_id}/entries` | Create an entry | ✅ |
-| PUT | `/books/{book_id}/entries/{entry_id}` | Update an entry | ✅ |
-| DELETE | `/books/{book_id}/entries/{entry_id}` | Delete an entry | ✅ |
-| GET | `/books/{book_id}/summary` | Get balance summary | ✅ |
+| GET | `` | List all books for current user (includes net_balance, last_entry_at) | ✅ |
+| POST | `` | Create a new book | ✅ |
+| PUT | `/{book_id}` | Rename or update book | ✅ |
+| DELETE | `/{book_id}` | Delete a book (cascades entries) | ✅ |
 
-**GET /entries query params:** `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&type=in|out`
+**GET /books** uses the `get_books_with_summary` PostgreSQL function — single DB round-trip, includes pre-computed `net_balance` (from trigger) and `last_entry_at`.
+
+---
+
+### Entries (`routers/entries.py`) — prefix `/api/v1/books`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/{book_id}/entries` | List entries (optional: date_from, date_to, type filters) | ✅ |
+| POST | `/{book_id}/entries` | Create an entry | ✅ |
+| PUT | `/{book_id}/entries/{entry_id}` | Update an entry | ✅ |
+| DELETE | `/{book_id}/entries/{entry_id}` | Delete an entry | ✅ |
+| GET | `/{book_id}/summary` | Get balance summary (via DB function) | ✅ |
 
 **POST /entries body:**
 ```json
@@ -128,121 +133,100 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 
 **GET /summary response:**
 ```json
-{ "total_in": 10000, "total_out": 4500, "net_balance": 5500 }
+{ "total_in": 10000.0, "total_out": 4500.0, "net_balance": 5500.0 }
 ```
+
+**Balance rule:** `books.net_balance` is maintained by a DB trigger — never recompute in Python. Summary endpoint uses `get_book_summary()` PostgreSQL function.
 
 ---
 
-### Reports (`routers/reports.py`)
+### Admin (`routers/admin.py`) — prefix `/api/v1/admin`
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/books/{book_id}/report/pdf` | Download PDF report | ✅ |
-| GET | `/books/{book_id}/report/excel` | Download Excel report | ✅ |
+| GET | `/users` | List all non-superadmin users with stats | superadmin only |
+| PATCH | `/users/{user_id}/status` | Toggle `is_active` | superadmin only |
+| GET | `/users/{user_id}/books` | View any user's books | superadmin only |
+
+**Superadmin guard** is a FastAPI dependency (`require_superadmin`) that checks the caller's profile role. Returns 403 if not superadmin.
+
+**PATCH /users/:id/status body:** `{ "is_active": true }`
+
+---
+
+### Reports (`routers/reports.py`) — prefix `/api/v1/books`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/{book_id}/report/pdf` | Download PDF report | ✅ |
+| GET | `/{book_id}/report/excel` | Download Excel report | ✅ |
 
 **Query params:** `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 
-**PDF structure:**
-- Header: CashBook logo + book name + date range
-- Summary row: Total In | Total Out | Net Balance
-- Table: Date | Remark | Category | Payment Mode | In | Out | Running Balance
+**PDF structure:** Header (book name + date range) → Summary row (In/Out/Balance) → Entries table with running balance column.
 
 ---
 
-### Upload (`routers/upload.py`)
+### Upload (`routers/upload.py`) — prefix `/api/v1/upload`
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| POST | `/upload/attachment` | Upload entry photo to Supabase Storage | ✅ |
+| POST | `/attachment` | Upload entry photo to Supabase Storage | ✅ |
 
-- Uploads to `attachments/{user_id}/{entry_id}` in Supabase Storage bucket `attachments`
-- Returns signed URL (1-hour expiry) as `attachment_url`
-- Frontend stores only this URL in `entries.attachment_url`
+- Body: `multipart/form-data` with `entry_id` (form field) + `file` (image)
+- Max size: 5 MB; allowed types: JPEG, PNG, WebP, HEIC
+- Path in bucket: `{user_id}/{entry_id}/attachment.{ext}`
+- Returns: `{ "attachment_url": "<signed-url-1h>", "path": "..." }`
 
 ---
 
 ## Pydantic Models
 
-### `models/book.py`
-
+### `models/profile.py`
 ```python
-class BookCreate(BaseModel):
-    name: str
-    currency: str = "PKR"
+class ProfileResponse:    id, email, full_name, phone, avatar_url, role, is_active, created_at, updated_at
+class ProfileUpdate:      full_name?, phone?, avatar_url?
+class UserWithStats:      ProfileResponse + book_count, entry_count, storage_mb
+class StatusUpdate:       is_active: bool
+```
 
-class BookResponse(BaseModel):
-    id: str
-    user_id: str
-    name: str
-    currency: str
-    created_at: datetime
-    net_balance: float = 0.0
+### `models/book.py`
+```python
+class BookCreate:    name, currency (default PKR)
+class BookUpdate:    name?, currency?
+class BookResponse:  id, user_id, name, currency, net_balance, created_at, updated_at, last_entry_at?
 ```
 
 ### `models/entry.py`
-
 ```python
-class EntryCreate(BaseModel):
-    type: Literal["in", "out"]
-    amount: Decimal
-    remark: Optional[str] = None
-    category: Optional[str] = None
-    payment_mode: str = "cash"
-    contact_name: Optional[str] = None
-    attachment_url: Optional[str] = None
-    entry_date: date
-    entry_time: time
-
-class EntryUpdate(BaseModel):
-    type: Optional[Literal["in", "out"]] = None
-    amount: Optional[Decimal] = None
-    remark: Optional[str] = None
-    category: Optional[str] = None
-    payment_mode: Optional[str] = None
-    contact_name: Optional[str] = None
-    entry_date: Optional[date] = None
-    entry_time: Optional[time] = None
-
-class EntryResponse(EntryCreate):
-    id: str
-    book_id: str
-    user_id: str
-    created_at: datetime
+class EntryCreate:   type, amount, remark?, category?, payment_mode, contact_name?, attachment_url?, entry_date, entry_time
+class EntryUpdate:   all fields optional
+class EntryResponse: EntryCreate fields + id, book_id, user_id, created_at
+                     Validator strips HH:MM:SS → HH:MM (Postgres time type)
+class BookSummary:   total_in, total_out, net_balance
 ```
 
 ---
 
 ## Database Query Patterns
 
-All queries go through the Supabase service client in `db/supabase.py`.
-
-**Always filter by user_id** — even though RLS enforces this on the DB side, filter in code too (defence in depth):
+**Always filter by user_id** (defence in depth with service role bypassing RLS):
 
 ```python
-# ✅ Correct — filter by both book_id and user_id
-supabase.table("entries")\
-  .select("*")\
-  .eq("book_id", book_id)\
-  .eq("user_id", user_id)\
-  .order("entry_date", desc=True)\
-  .execute()
+# ✅ Correct
+sb.table("entries").select("*").eq("book_id", book_id).eq("user_id", user_id).execute()
 
 # ❌ Wrong — missing user_id filter
-supabase.table("entries").select("*").eq("book_id", book_id).execute()
+sb.table("entries").select("*").eq("book_id", book_id).execute()
 ```
 
-**Balance calculation (always server-side):**
+**Use DB functions for aggregation:**
 ```python
-# Calculate net balance for a book
-result = supabase.table("entries")\
-  .select("type, amount")\
-  .eq("book_id", book_id)\
-  .eq("user_id", user_id)\
-  .execute()
+# Books with balance and last_entry_at — single round-trip
+sb.rpc("get_books_with_summary", {"p_user_id": user_id}).execute()
 
-total_in  = sum(e["amount"] for e in result.data if e["type"] == "in")
-total_out = sum(e["amount"] for e in result.data if e["type"] == "out")
-net = total_in - total_out
+# Summary for a book
+sb.rpc("get_book_summary", {"p_book_id": book_id, "p_user_id": user_id}).execute()
 ```
 
 ---
@@ -250,18 +234,12 @@ net = total_in - total_out
 ## Main App Setup (`app/main.py`)
 
 ```python
-app = FastAPI(title="CashBook API", version="1.0.0")
-
-app.add_middleware(CORSMiddleware,
-    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-app.include_router(books.router,   prefix="/api/v1/books",   tags=["books"])
-app.include_router(entries.router, prefix="/api/v1/books",   tags=["entries"])
-app.include_router(reports.router, prefix="/api/v1/books",   tags=["reports"])
-app.include_router(upload.router,  prefix="/api/v1/upload",  tags=["upload"])
-
-@app.get("/health")
-def health(): return {"status": "ok"}
+app.include_router(profile.router, prefix="/api/v1/profile",  tags=["profile"])
+app.include_router(books.router,   prefix="/api/v1/books",    tags=["books"])
+app.include_router(entries.router, prefix="/api/v1/books",    tags=["entries"])
+app.include_router(reports.router, prefix="/api/v1/books",    tags=["reports"])
+app.include_router(upload.router,  prefix="/api/v1/upload",   tags=["upload"])
+app.include_router(admin.router,   prefix="/api/v1/admin",    tags=["admin"])
 ```
 
 ---
@@ -271,28 +249,28 @@ def health(): return {"status": "ok"}
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
+venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-uvicorn app.main:app --reload     # Dev server at http://localhost:8000
+# Copy .env.example → .env and fill values
+uvicorn app.main:app --reload  # Dev server at http://localhost:8000
 ```
 
-Docs available at `http://localhost:8000/docs` (Swagger UI) while dev server is running.
+Swagger UI: `http://localhost:8000/docs`
 
 ---
 
 ## Deployment (Railway)
 
 - `Procfile`: `web: uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Set all 3 env vars in Railway dashboard (never in code)
+- Set all 3 env vars in Railway dashboard
 - Health check endpoint: `GET /health`
 
 ---
 
 ## When to Update This File
 
-Update the relevant section in this file whenever:
-- A new router/endpoint is added or an existing endpoint's request/response shape changes
-- A Pydantic model is added or modified
-- A new env variable is required
-- The auth middleware logic changes
-- A new utility (PDF, Excel, etc.) is added to `utils/`
+- New router/endpoint added or endpoint shape changes
+- Pydantic model added or modified
+- New env variable required
+- Auth middleware logic changes
+- New DB function used or utility added
