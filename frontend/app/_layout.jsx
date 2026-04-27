@@ -55,6 +55,31 @@ function AuthGuard() {
   return null;
 }
 
+// Fetch profile: try backend → Supabase direct → build from session
+async function resolveProfile(session) {
+  try {
+    return await apiGetProfile();
+  } catch {
+    // Backend not running — read directly from profiles table
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+    if (data) return data;
+    // profiles table not set up yet — build minimal profile from Google session
+    const u = session.user;
+    return {
+      id: u.id,
+      email: u.email,
+      full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email,
+      avatar_url: u.user_metadata?.avatar_url || null,
+      role: 'user',
+      is_active: true,
+    };
+  }
+}
+
 function SupabaseAuthListener() {
   const setUser   = useAuthStore((s) => s.setUser);
   const clearUser = useAuthStore((s) => s.clearUser);
@@ -63,14 +88,8 @@ function SupabaseAuthListener() {
     // Restore session on app start
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        try {
-          const profile = await apiGetProfile();
-          setUser(profile, session);
-        } catch {
-          // Profile fetch failed — session exists but backend unreachable; sign out cleanly
-          await supabase.auth.signOut();
-          clearUser();
-        }
+        const profile = await resolveProfile(session);
+        setUser(profile, session);
       }
     });
 
@@ -78,17 +97,12 @@ function SupabaseAuthListener() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
-          try {
-            const profile = await apiGetProfile();
-            setUser(profile, session);
-          } catch (err) {
-            console.error('[Auth] Profile fetch failed:', err?.message);
-          }
+          const profile = await resolveProfile(session);
+          setUser(profile, session);
         } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
           clearUser();
           queryClient.clear();
         } else if (event === 'TOKEN_REFRESHED' && session) {
-          // Keep session in sync in the store
           const prev = useAuthStore.getState().user;
           if (prev) setUser(prev, session);
         }

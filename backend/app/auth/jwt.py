@@ -18,4 +18,6 @@ async def get_current_user(authorization: str = Header(...)) -> str:
             raise HTTPException(status_code=401, detail="Invalid token: missing sub")
         return user_id
     except JWTError as exc:
+        import logging
+        logging.getLogger(__name__).error("JWT error: %s | token_prefix: %s", exc, token[:30] if token else "NONE")
         raise HTTPException(status_code=401, detail="Could not validate token") from exc
