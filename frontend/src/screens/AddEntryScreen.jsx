@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
-  SafeAreaView, StatusBar, ScrollView, Modal, FlatList, Alert,
+  SafeAreaView, StatusBar, ScrollView, Modal, FlatList,
 } from 'react-native';
+import Toast from '../lib/toast';
 import DatePickerModal from '../components/ui/DatePickerModal';
 import TimePickerModal from '../components/ui/TimePickerModal';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -11,6 +12,7 @@ import { useTheme } from '../hooks/useTheme';
 import AppInput from '../components/ui/Input';
 import { CATEGORIES, PAYMENT_MODES } from '../constants/categories';
 import { apiCreateEntry } from '../lib/api';
+import { useBookFieldsStore } from '../store/bookFieldsStore';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -67,6 +69,9 @@ export default function AddEntryScreen() {
   const accentColor = isIn ? C.cashIn : C.cashOut;
   const titleText   = isIn ? 'Cash In' : 'Cash Out';
 
+  const { getFields } = useBookFieldsStore();
+  const { showContact, showCategory, showPaymentMode } = getFields(id);
+
   const [amount,       setAmount]       = useState('');
   const [remark,       setRemark]       = useState('');
   const [category,     setCategory]     = useState('');
@@ -102,13 +107,13 @@ export default function AddEntryScreen() {
       qc.invalidateQueries({ queryKey: ['books'] });
       router.back();
     },
-    onError: () => Alert.alert('Error', 'Failed to save entry. Please try again.'),
+    onError: () => Toast.show({ type: 'error', text1: 'Failed to save entry', text2: 'Please try again.' }),
   });
 
   const handleSave = () => {
     const parsed = parseFloat(amount);
     if (!amount || isNaN(parsed) || parsed <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount.');
+      Toast.show({ type: 'error', text1: 'Invalid amount', text2: 'Please enter a valid amount.' });
       return;
     }
     createEntry.mutate({
@@ -169,16 +174,18 @@ export default function AddEntryScreen() {
         />
 
         {/* Contact */}
-        <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85} style={s.fieldGap}>
-          <AppInput
-            label="Contact (Customer/Supplier)"
-            value={contactName}
-            placeholder="Select contact"
-            editable={false}
-            rightElement={<ChevronDownIcon color={C.textMuted} size={12} />}
-            isLast
-          />
-        </TouchableOpacity>
+        {showContact && (
+          <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85} style={s.fieldGap}>
+            <AppInput
+              label="Contact (Customer/Supplier)"
+              value={contactName}
+              placeholder="Select contact"
+              editable={false}
+              rightElement={<ChevronDownIcon color={C.textMuted} size={12} />}
+              isLast
+            />
+          </TouchableOpacity>
+        )}
 
         {/* Remark */}
         <AppInput
@@ -201,38 +208,44 @@ export default function AddEntryScreen() {
         </TouchableOpacity>
 
         {/* Category */}
-        <TouchableOpacity onPress={() => setShowCategoryModal(true)} activeOpacity={0.85} style={s.fieldGap}>
-          <AppInput
-            label="Category"
-            value={category}
-            placeholder="Select category"
-            editable={false}
-            rightElement={<ChevronDownIcon color={C.textMuted} size={12} />}
-            isLast
-          />
-        </TouchableOpacity>
+        {showCategory && (
+          <TouchableOpacity onPress={() => setShowCategoryModal(true)} activeOpacity={0.85} style={s.fieldGap}>
+            <AppInput
+              label="Category"
+              value={category}
+              placeholder="Select category"
+              editable={false}
+              rightElement={<ChevronDownIcon color={C.textMuted} size={12} />}
+              isLast
+            />
+          </TouchableOpacity>
+        )}
 
         {/* Payment Mode */}
-        <Text style={s.sectionLabel}>Payment Mode</Text>
-        <View style={s.paymentRow}>
-          {visibleModes.map((mode) => (
-            <TouchableOpacity
-              key={mode.value}
-              style={[s.paymentChip, paymentMode === mode.value && { backgroundColor: C.primary, borderColor: C.primary }]}
-              onPress={() => setPaymentMode(mode.value)}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.paymentChipText, paymentMode === mode.value && { color: '#fff' }]}>
-                {mode.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity onPress={() => setShowAllPayments(v => !v)} activeOpacity={0.7}>
-            <Text style={[s.showMoreText, { color: C.primary }]}>
-              {showAllPayments ? 'Show Less ▲' : 'Show More ▾'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {showPaymentMode && (
+          <>
+            <Text style={s.sectionLabel}>Payment Mode</Text>
+            <View style={s.paymentRow}>
+              {visibleModes.map((mode) => (
+                <TouchableOpacity
+                  key={mode.value}
+                  style={[s.paymentChip, paymentMode === mode.value && { backgroundColor: C.primary, borderColor: C.primary }]}
+                  onPress={() => setPaymentMode(mode.value)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.paymentChipText, paymentMode === mode.value && { color: '#fff' }]}>
+                    {mode.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => setShowAllPayments(v => !v)} activeOpacity={0.7}>
+                <Text style={[s.showMoreText, { color: C.primary }]}>
+                  {showAllPayments ? 'Show Less ▲' : 'Show More ▾'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* Add More Fields */}
         <TouchableOpacity style={[s.moreFieldsBtn, { borderColor: C.border }]} activeOpacity={0.7}>

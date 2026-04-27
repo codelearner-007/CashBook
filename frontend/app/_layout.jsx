@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import Toast from '../src/lib/toast';
+import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -20,22 +21,23 @@ if (Platform.OS !== 'web') {
 const queryClient = new QueryClient();
 
 function AuthGuard() {
-  const user     = useAuthStore((s) => s.user);
-  const router   = useRouter();
-  const segments = useSegments();
+  const user            = useAuthStore((s) => s.user);
+  const router          = useRouter();
+  const segments        = useSegments();
+  const navigationState = useRootNavigationState();
 
   useEffect(() => {
+    if (!navigationState?.key) return; // navigator not mounted yet
+
     const inApp  = segments[0] === '(app)';
     const inAuth = segments[0] === '(auth)';
 
     if (!user && inApp) {
-      // Logged out while inside the app — send to login
       router.replace('/(auth)/login');
     } else if (user && inAuth) {
-      // Already logged in — skip login screen
       router.replace('/(app)/books');
     }
-  }, [user, segments]);
+  }, [user, segments, navigationState?.key]);
 
   return null;
 }
@@ -61,6 +63,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthGuard />
       <Slot />
+      <Toast />
     </QueryClientProvider>
   );
 }

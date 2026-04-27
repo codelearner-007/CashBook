@@ -2,11 +2,14 @@ import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   SafeAreaView, StatusBar, TextInput, Alert, ActivityIndicator,
+  Modal, Pressable, ScrollView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { apiGetEntries, apiGetSummary, apiDeleteEntry } from '../lib/api';
+import { PAYMENT_MODES, CATEGORIES } from '../constants/categories';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -22,6 +25,19 @@ function groupByDate(entries) {
     .map(([date, items]) => ({ date, items }));
 }
 
+function matchesDatePeriod(entryDate, period) {
+  const d     = new Date(entryDate + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (period === 'today')     return d.toDateString() === today.toDateString();
+  if (period === 'yesterday') { const y = new Date(today); y.setDate(today.getDate() - 1); return d.toDateString() === y.toDateString(); }
+  if (period === 'week')      { const w = new Date(today); w.setDate(today.getDate() - 6); return d >= w; }
+  if (period === 'month')     return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+  return true;
+}
+
+const DATE_LABELS = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month' };
+const PAYMENT_LABEL = { cash: 'Cash', online: 'Online', cheque: 'Cheque', other: 'Other' };
+
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const today = new Date();
@@ -32,117 +48,18 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-// ── Icon Components (SVG-style via Views) ────────────────────────────────────
+// ── Icons (Feather via @expo/vector-icons) ────────────────────────────────────
 
-const ChevronLeftIcon = ({ color, size = 20 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{
-      width: size * 0.45, height: size * 0.45,
-      borderLeftWidth: 2.5, borderBottomWidth: 2.5,
-      borderColor: color, borderRadius: 1,
-      transform: [{ rotate: '45deg' }, { translateX: size * 0.08 }],
-    }} />
-  </View>
-);
-
-const FileTextIcon = ({ color, size = 18 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{
-      width: size * 0.7, height: size * 0.86, borderRadius: 2,
-      borderWidth: 1.5, borderColor: color,
-      justifyContent: 'center', alignItems: 'center', gap: 3,
-    }}>
-      {[0, 1, 2].map(i => (
-        <View key={i} style={{
-          width: i === 2 ? size * 0.28 : size * 0.4,
-          height: 1.5, backgroundColor: color, borderRadius: 1,
-          alignSelf: i === 2 ? 'flex-start' : 'center',
-          marginLeft: i === 2 ? size * 0.1 : 0,
-        }} />
-      ))}
-    </View>
-  </View>
-);
-
-const DotsIcon = ({ color, size = 16 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-    {[0, 1, 2].map(i => (
-      <View key={i} style={{ width: 3.5, height: 3.5, borderRadius: 2, backgroundColor: color }} />
-    ))}
-  </View>
-);
-
-const SearchIcon = ({ color, size = 16 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{
-      width: size * 0.65, height: size * 0.65, borderRadius: size * 0.325,
-      borderWidth: 1.8, borderColor: color,
-    }} />
-    <View style={{
-      position: 'absolute', bottom: 0, right: 0,
-      width: 2, height: size * 0.38, backgroundColor: color,
-      borderRadius: 1, transform: [{ rotate: '-45deg' }, { translateY: -size * 0.04 }],
-    }} />
-  </View>
-);
-
-const LockIcon = ({ color, size = 14 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{
-      width: size * 0.64, height: size * 0.5, borderRadius: 2,
-      borderWidth: 1.5, borderColor: color,
-      position: 'absolute', bottom: 0,
-    }} />
-    <View style={{
-      width: size * 0.36, height: size * 0.28, borderTopLeftRadius: size * 0.2,
-      borderTopRightRadius: size * 0.2,
-      borderWidth: 1.5, borderColor: color, borderBottomWidth: 0,
-      position: 'absolute', top: 0,
-    }} />
-  </View>
-);
-
-const InboxIcon = ({ color, size = 40 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{
-      width: size * 0.82, height: size * 0.72, borderRadius: 6,
-      borderWidth: 2, borderColor: color,
-      justifyContent: 'flex-end', alignItems: 'center',
-    }}>
-      <View style={{
-        width: '100%', height: size * 0.28,
-        borderTopWidth: 2, borderTopColor: color,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-      }}>
-        <View style={{ width: size * 0.2, height: size * 0.12, borderRadius: size * 0.06, borderWidth: 1.5, borderColor: color }} />
-      </View>
-    </View>
-  </View>
-);
-
-const PlusIcon = ({ color, size = 14 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1 }} />
-    <View style={{ position: 'absolute', width: 2, height: size, backgroundColor: color, borderRadius: 1 }} />
-  </View>
-);
-
-const ChevronDownIcon = ({ color, size = 14 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{
-      width: size * 0.55, height: size * 0.55,
-      borderRightWidth: 2, borderBottomWidth: 2,
-      borderColor: color, borderRadius: 1,
-      transform: [{ rotate: '45deg' }, { translateY: -size * 0.1 }],
-    }} />
-  </View>
-);
-
-const MinusIcon = ({ color, size = 14 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size, height: 2, backgroundColor: color, borderRadius: 1 }} />
-  </View>
-);
+const ChevronLeftIcon = ({ color, size = 20 }) => <Feather name="chevron-left" size={size} color={color} />;
+const FileTextIcon    = ({ color, size = 18 }) => <Feather name="file-text"    size={size} color={color} />;
+const DotsIcon        = ({ color, size = 18 }) => <Feather name="more-vertical" size={size} color={color} />;
+const SearchIcon      = ({ color, size = 16 }) => <Feather name="search"       size={size} color={color} />;
+const LockIcon        = ({ color, size = 14 }) => <Feather name="lock"         size={size} color={color} />;
+const InboxIcon       = ({ color, size = 40 }) => <Feather name="inbox"        size={size} color={color} />;
+const PlusIcon        = ({ color, size = 14 }) => <Feather name="plus"         size={size} color={color} />;
+const MinusIcon       = ({ color, size = 14 }) => <Feather name="minus"        size={size} color={color} />;
+const ChevronDownIcon = ({ color, size = 14 }) => <Feather name="chevron-down" size={size} color={color} />;
+const UserPlusIcon    = ({ color, size = 20 }) => <Feather name="user-plus"    size={size} color={color} />;
 
 // ── Payment mode badge colors (index by mode) ─────────────────────────────────
 
@@ -269,9 +186,41 @@ export default function BookDetailScreen() {
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();
 
-  const [search, setSearch]         = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [collapsed, setCollapsed]   = useState({});
+  const [search, setSearch]               = useState('');
+  const [filterDate, setFilterDate]       = useState(null);
+  const [filterType, setFilterType]       = useState(null);
+  const [filterContact, setFilterContact] = useState(null);
+  const [filterCategory, setFilterCategory] = useState(null);
+  const [filterPayment, setFilterPayment] = useState(null);
+  const [activePicker, setActivePicker]   = useState(null);
+  const [collapsed, setCollapsed]         = useState({});
+  const [menuVisible, setMenuVisible]     = useState(false);
+
+  const clearFilter = useCallback((key) => {
+    if (key === 'date')     setFilterDate(null);
+    if (key === 'type')     setFilterType(null);
+    if (key === 'contact')  setFilterContact(null);
+    if (key === 'category') setFilterCategory(null);
+    if (key === 'payment')  setFilterPayment(null);
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setFilterDate(null); setFilterType(null); setFilterContact(null);
+    setFilterCategory(null); setFilterPayment(null);
+  }, []);
+
+  const applyFilter = useCallback((key, val) => {
+    clearFilter(key);
+    if (key === 'date')     setFilterDate(val);
+    if (key === 'type')     setFilterType(val);
+    if (key === 'contact')  setFilterContact(val);
+    if (key === 'category') setFilterCategory(val);
+    if (key === 'payment')  setFilterPayment(val);
+    setActivePicker(null);
+  }, [clearFilter]);
+
+  const activeFilterCount = [filterDate, filterType, filterContact, filterCategory, filterPayment]
+    .filter(Boolean).length;
 
   const toggleDate = useCallback((date) => {
     setCollapsed(prev => ({ ...prev, [date]: !prev[date] }));
@@ -311,12 +260,29 @@ export default function BookDetailScreen() {
   const isLoading = entriesLoading || summaryLoading;
 
   const filtered = useMemo(() => entries.filter((e) => {
-    const matchType   = filterType === 'all' || e.type === filterType;
-    const matchSearch = !search ||
-      e.remark?.toLowerCase().includes(search.toLowerCase()) ||
-      e.amount.toString().includes(search);
-    return matchType && matchSearch;
-  }), [entries, filterType, search]);
+    if (filterType    && e.type         !== filterType)    return false;
+    if (filterPayment && e.payment_mode !== filterPayment) return false;
+    if (filterCategory && e.category    !== filterCategory) return false;
+    if (filterContact  && e.contact_name !== filterContact) return false;
+    if (filterDate && !matchesDatePeriod(e.entry_date, filterDate)) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const hit = e.remark?.toLowerCase().includes(q) ||
+        e.amount.toString().includes(q) ||
+        e.contact_name?.toLowerCase().includes(q) ||
+        e.category?.toLowerCase().includes(q);
+      if (!hit) return false;
+    }
+    return true;
+  }), [entries, filterType, filterPayment, filterCategory, filterContact, filterDate, search]);
+
+  const bookContacts = useMemo(() =>
+    [...new Set(entries.map(e => e.contact_name).filter(Boolean))],
+  [entries]);
+
+  const bookCategories = useMemo(() =>
+    [...new Set(entries.map(e => e.category).filter(Boolean))],
+  [entries]);
 
   const grouped = useMemo(() => groupByDate(filtered), [filtered]);
 
@@ -333,6 +299,11 @@ export default function BookDetailScreen() {
   const goToReports = useCallback(() => {
     router.push({ pathname: '/(app)/books/[id]/reports', params: { id } });
   }, [router, id]);
+
+  const goToBookSettings = useCallback(() => {
+    setMenuVisible(false);
+    router.push({ pathname: '/(app)/books/[id]/book-settings', params: { id, name } });
+  }, [router, id, name]);
 
   const renderItem = useCallback(({ item: group }) => {
     const isCollapsed = !!collapsed[group.date];
@@ -400,13 +371,13 @@ export default function BookDetailScreen() {
         <View style={s.headerRight}>
           <TouchableOpacity
             style={s.headerIconBtn}
-            onPress={goToReports}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <FileTextIcon color={C.textMuted} size={20} />
+            <UserPlusIcon color={C.textMuted} size={20} />
           </TouchableOpacity>
           <TouchableOpacity
             style={s.headerIconBtn}
+            onPress={() => setMenuVisible(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <DotsIcon color={C.textMuted} size={18} />
@@ -428,20 +399,232 @@ export default function BookDetailScreen() {
         />
       </View>
 
-      {/* Filters */}
-      <View style={s.filterRow}>
-        {['all', 'in', 'out'].map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[s.filterChip, filterType === f && s.filterChipActive]}
-            onPress={() => setFilterType(f)}
-          >
-            <Text style={[s.filterChipText, filterType === f && s.filterChipTextActive]}>
-              {f === 'all' ? 'All' : f === 'in' ? 'Cash In' : 'Cash Out'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* ── Filter Chips ── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.filterScroll}
+        style={s.filterBar}
+      >
+        {/* ALL chip */}
+        <TouchableOpacity
+          style={[s.fChip, activeFilterCount === 0 && s.fChipActive]}
+          onPress={clearAllFilters}
+          activeOpacity={0.8}
+        >
+          <Feather name="layers" size={13} color={activeFilterCount === 0 ? '#fff' : C.textMuted} />
+          <Text style={[s.fChipLabel, { color: activeFilterCount === 0 ? '#fff' : C.textMuted }]}>All</Text>
+        </TouchableOpacity>
+
+        {[
+          { key: 'date',     label: 'Date',       icon: 'calendar',    display: filterDate     ? DATE_LABELS[filterDate] : null },
+          { key: 'type',     label: 'Entry Type', icon: 'repeat',      display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
+          { key: 'members',  label: 'Members',    icon: 'users',       display: null },
+          { key: 'contact',  label: 'Contact',    icon: 'user',        display: filterContact },
+          { key: 'category', label: 'Category',   icon: 'tag',         display: filterCategory },
+          { key: 'payment',  label: 'Payment',    icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
+        ].map(({ key, label, icon, display }) => {
+          const active = !!display;
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[s.fChip, active && s.fChipActive]}
+              onPress={() => setActivePicker(key)}
+              activeOpacity={0.8}
+            >
+              <Feather name={icon} size={13} color={active ? '#fff' : C.textMuted} />
+              <Text style={[s.fChipLabel, { color: active ? '#fff' : C.textMuted }]} numberOfLines={1}>
+                {display || label}
+              </Text>
+              {active ? (
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation?.(); clearFilter(key); }}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Feather name="x" size={13} color="rgba(255,255,255,0.85)" />
+                </TouchableOpacity>
+              ) : (
+                <Feather name="chevron-down" size={11} color={C.textSubtle} />
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* ── Active count strip — always rendered to keep layout stable ── */}
+      <TouchableOpacity
+        style={[s.clearAllBar, { backgroundColor: C.primaryLight, opacity: activeFilterCount > 0 ? 1 : 0 }]}
+        onPress={clearAllFilters}
+        activeOpacity={0.7}
+        disabled={activeFilterCount === 0}
+      >
+        <Feather name="sliders" size={11} color={C.primary} />
+        <Text style={[s.clearAllText, { color: C.primary }]}>
+          {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active
+        </Text>
+        <Text style={[s.clearAllText, { color: C.textMuted }]}>·</Text>
+        <Text style={[s.clearAllText, { color: C.primary, textDecorationLine: 'underline' }]}>
+          Clear all
+        </Text>
+      </TouchableOpacity>
+
+      {/* ── Filter Picker Modal ── */}
+      <Modal
+        visible={!!activePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActivePicker(null)}
+      >
+        <Pressable style={s.pickerOverlay} onPress={() => setActivePicker(null)}>
+          <Pressable style={[s.pickerSheet, { backgroundColor: C.card }]} onPress={() => {}}>
+            <View style={[s.pickerHandle, { backgroundColor: C.border }]} />
+            <View style={s.pickerHeader}>
+              <Text style={[s.pickerTitle, { color: C.text, fontFamily: Font.bold }]}>
+                {activePicker === 'date'     ? 'Filter by Date'
+                : activePicker === 'type'    ? 'Entry Type'
+                : activePicker === 'members' ? 'Members'
+                : activePicker === 'contact' ? 'Filter by Contact'
+                : activePicker === 'category'? 'Filter by Category'
+                : activePicker === 'payment' ? 'Payment Method'
+                : ''}
+              </Text>
+              <TouchableOpacity onPress={() => setActivePicker(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Feather name="x" size={20} color={C.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* DATE picker */}
+            {activePicker === 'date' && (
+              <View style={s.pickerGrid}>
+                {[
+                  { key: 'today',     label: 'Today',     icon: 'sun'       },
+                  { key: 'yesterday', label: 'Yesterday', icon: 'moon'      },
+                  { key: 'week',      label: 'This Week',  icon: 'calendar'  },
+                  { key: 'month',     label: 'This Month', icon: 'clock'     },
+                ].map(({ key, label, icon }) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[s.pickerGridItem, { borderColor: filterDate === key ? C.primary : C.border, backgroundColor: filterDate === key ? C.primaryLight : C.card }]}
+                    onPress={() => applyFilter('date', key)}
+                    activeOpacity={0.75}
+                  >
+                    <Feather name={icon} size={20} color={filterDate === key ? C.primary : C.textMuted} />
+                    <Text style={[s.pickerGridLabel, { color: filterDate === key ? C.primary : C.text, fontFamily: filterDate === key ? Font.bold : Font.medium }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* TYPE picker */}
+            {activePicker === 'type' && (
+              <View style={s.typePickerRow}>
+                <TouchableOpacity
+                  style={[s.typePickerBtn, { borderColor: filterType === 'in' ? C.cashIn : C.border, backgroundColor: filterType === 'in' ? C.cashInLight : C.card }]}
+                  onPress={() => applyFilter('type', 'in')}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="arrow-up-circle" size={28} color={filterType === 'in' ? C.cashIn : C.textMuted} />
+                  <Text style={[s.typePickerLabel, { color: filterType === 'in' ? C.cashIn : C.text, fontFamily: Font.bold }]}>Cash In</Text>
+                  <Text style={[s.typePickerSub, { color: C.textMuted }]}>Income entries</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.typePickerBtn, { borderColor: filterType === 'out' ? C.cashOut : C.border, backgroundColor: filterType === 'out' ? C.cashOutLight : C.card }]}
+                  onPress={() => applyFilter('type', 'out')}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="arrow-down-circle" size={28} color={filterType === 'out' ? C.cashOut : C.textMuted} />
+                  <Text style={[s.typePickerLabel, { color: filterType === 'out' ? C.cashOut : C.text, fontFamily: Font.bold }]}>Cash Out</Text>
+                  <Text style={[s.typePickerSub, { color: C.textMuted }]}>Expense entries</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* MEMBERS picker (pending) */}
+            {activePicker === 'members' && (
+              <View style={s.pickerEmpty}>
+                <Feather name="users" size={40} color={C.textSubtle} />
+                <Text style={[s.pickerEmptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>Members Coming Soon</Text>
+                <Text style={[s.pickerEmptySub, { color: C.textMuted }]}>Add members to filter entries by who recorded them.</Text>
+              </View>
+            )}
+
+            {/* CONTACT picker */}
+            {activePicker === 'contact' && (
+              bookContacts.length === 0 ? (
+                <View style={s.pickerEmpty}>
+                  <Feather name="user-x" size={40} color={C.textSubtle} />
+                  <Text style={[s.pickerEmptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>No contacts in entries</Text>
+                  <Text style={[s.pickerEmptySub, { color: C.textMuted }]}>Add a contact when creating an entry to filter by it.</Text>
+                </View>
+              ) : (
+                <ScrollView style={s.pickerList} showsVerticalScrollIndicator={false}>
+                  {bookContacts.map(c => (
+                    <TouchableOpacity
+                      key={c}
+                      style={[s.pickerRow, { borderBottomColor: C.border }, filterContact === c && { backgroundColor: C.primaryLight }]}
+                      onPress={() => applyFilter('contact', c)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[s.contactAvatar, { backgroundColor: C.primaryLight }]}>
+                        <Text style={[s.contactAvatarText, { color: C.primary, fontFamily: Font.bold }]}>{c.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <Text style={[s.pickerRowLabel, { color: C.text, fontFamily: filterContact === c ? Font.semiBold : Font.regular }]}>{c}</Text>
+                      {filterContact === c && <Feather name="check" size={16} color={C.primary} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )
+            )}
+
+            {/* CATEGORY picker */}
+            {activePicker === 'category' && (
+              <ScrollView style={s.pickerList} showsVerticalScrollIndicator={false}>
+                {(bookCategories.length > 0 ? bookCategories : CATEGORIES).map(cat => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[s.pickerRow, { borderBottomColor: C.border }, filterCategory === cat && { backgroundColor: C.primaryLight }]}
+                    onPress={() => applyFilter('category', cat)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[s.catDot, { backgroundColor: C.primaryMid }]}>
+                      <Feather name="tag" size={13} color={C.primary} />
+                    </View>
+                    <Text style={[s.pickerRowLabel, { color: C.text, fontFamily: filterCategory === cat ? Font.semiBold : Font.regular }]}>{cat}</Text>
+                    {filterCategory === cat && <Feather name="check" size={16} color={C.primary} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* PAYMENT picker */}
+            {activePicker === 'payment' && (
+              <View style={s.pickerGrid}>
+                {[
+                  { value: 'cash',   label: 'Cash',   icon: 'dollar-sign'    },
+                  { value: 'online', label: 'Online', icon: 'wifi'           },
+                  { value: 'cheque', label: 'Cheque', icon: 'file-text'      },
+                  { value: 'other',  label: 'Other',  icon: 'more-horizontal'},
+                ].map(({ value, label, icon }) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={[s.pickerGridItem, { borderColor: filterPayment === value ? C.primary : C.border, backgroundColor: filterPayment === value ? C.primaryLight : C.card }]}
+                    onPress={() => applyFilter('payment', value)}
+                    activeOpacity={0.75}
+                  >
+                    <Feather name={icon} size={20} color={filterPayment === value ? C.primary : C.textMuted} />
+                    <Text style={[s.pickerGridLabel, { color: filterPayment === value ? C.primary : C.text, fontFamily: filterPayment === value ? Font.bold : Font.medium }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {isLoading ? (
         <>
@@ -471,6 +654,15 @@ export default function BookDetailScreen() {
             s={s}
           />
 
+          {/* Entry Count */}
+          <View style={s.entryCountRow}>
+            <Feather name="list" size={12} color={C.textMuted} />
+            <Text style={s.entryCountText}>
+              {filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}
+              {activeFilterCount > 0 || search ? '  ·  filtered' : '  ·  total'}
+            </Text>
+          </View>
+
           {/* Entry List */}
           <FlatList
             data={grouped}
@@ -489,6 +681,37 @@ export default function BookDetailScreen() {
         <LockIcon color={C.textSubtle} size={13} />
         <Text style={s.onlyYouText}>Only you can see these entries</Text>
       </View>
+
+      {/* Dots Dropdown Menu */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={s.menuOverlay} onPress={() => setMenuVisible(false)}>
+          <View style={[s.menuCard, { backgroundColor: C.card, borderColor: C.border }]}>
+            {[
+              { label: 'Book Settings', icon: 'settings', onPress: goToBookSettings },
+              { label: 'Test-ABC',      icon: 'zap',      onPress: () => setMenuVisible(false) },
+            ].map((item, idx, arr) => (
+              <View key={item.label}>
+                <TouchableOpacity
+                  style={s.menuItem}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                >
+                  <Feather name={item.icon} size={16} color={C.textMuted} />
+                  <Text style={[s.menuItemText, { color: C.text, fontFamily: Font.medium }]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+                {idx < arr.length - 1 && <View style={[s.menuDivider, { backgroundColor: C.border }]} />}
+              </View>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Action Buttons */}
       <View style={s.actionRow}>
@@ -552,31 +775,82 @@ const makeStyles = (C, Font) => StyleSheet.create({
   searchRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.card,
-    marginHorizontal: 16, marginTop: 12,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    marginHorizontal: 16, marginTop: 8,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: C.border, gap: 10,
-    minHeight: 48,
+    minHeight: 44,
   },
   searchInput: {
     flex: 1, fontSize: 14, fontFamily: Font.regular,
     color: C.text, lineHeight: 20,
   },
 
-  // Filters
-  filterRow: {
-    flexDirection: 'row', paddingHorizontal: 16,
-    marginTop: 10, gap: 8,
+  // ── Filter chips bar ──
+  filterBar: { marginTop: 10 },
+  filterScroll: {
+    paddingHorizontal: 16, paddingVertical: 4, gap: 8,
+    flexDirection: 'row', alignItems: 'center',
   },
-  filterChip: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-    minHeight: 36,
+  fChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1,
+    backgroundColor: C.card, borderColor: C.border,
+    maxWidth: 160,
   },
-  filterChipActive: { backgroundColor: C.primary, borderColor: C.primary },
-  filterChipText: {
-    fontSize: 12, fontFamily: Font.semiBold, color: C.textMuted, lineHeight: 18,
+  fChipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  fChipLabel: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 16, flexShrink: 1 },
+
+  // ── Active strip ──
+  clearAllBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, marginHorizontal: 16, marginTop: 4, height: 24, borderRadius: 8,
   },
-  filterChipTextActive: { color: '#fff' },
+  clearAllText: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 18 },
+
+  // ── Picker modal ──
+  pickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  pickerSheet: {
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20,
+    maxHeight: '70%',
+  },
+  pickerHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
+  pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  pickerTitle:  { fontSize: 17, lineHeight: 24 },
+
+  // Grid picker (date, payment)
+  pickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  pickerGridItem: {
+    width: '47%', borderRadius: 16, borderWidth: 1.5,
+    paddingVertical: 18, alignItems: 'center', gap: 8,
+  },
+  pickerGridLabel: { fontSize: 13, lineHeight: 18 },
+
+  // Type picker
+  typePickerRow: { flexDirection: 'row', gap: 12 },
+  typePickerBtn: {
+    flex: 1, borderRadius: 16, borderWidth: 1.5,
+    paddingVertical: 20, alignItems: 'center', gap: 6,
+  },
+  typePickerLabel: { fontSize: 15, lineHeight: 22 },
+  typePickerSub:   { fontSize: 11, fontFamily: Font.regular, lineHeight: 16 },
+
+  // List picker (contact, category)
+  pickerList: { maxHeight: 300 },
+  pickerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 14, borderBottomWidth: 1,
+  },
+  pickerRowLabel: { flex: 1, fontSize: 15, lineHeight: 22 },
+  contactAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  contactAvatarText: { fontSize: 15 },
+  catDot: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+
+  // Empty state (members, no contacts)
+  pickerEmpty: { alignItems: 'center', paddingVertical: 32, gap: 10 },
+  pickerEmptyTitle: { fontSize: 15, lineHeight: 22 },
+  pickerEmptySub: { fontSize: 13, fontFamily: Font.regular, lineHeight: 20, textAlign: 'center', paddingHorizontal: 20 },
 
   // Balance Card
   balanceCard: {
@@ -609,6 +883,15 @@ const makeStyles = (C, Font) => StyleSheet.create({
   viewReportsText: {
     color: C.primary, fontFamily: Font.bold, fontSize: 13,
     letterSpacing: 0.3, lineHeight: 20,
+  },
+
+  // Entry count row
+  entryCountRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 2,
+  },
+  entryCountText: {
+    fontSize: 12, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18,
   },
 
   // List
@@ -681,6 +964,26 @@ const makeStyles = (C, Font) => StyleSheet.create({
     paddingHorizontal: 24, paddingVertical: 12, minHeight: 44, justifyContent: 'center',
   },
   retryText: { color: '#fff', fontFamily: Font.semiBold, fontSize: 14 },
+
+  // Dropdown menu
+  menuOverlay: {
+    flex: 1,
+  },
+  menuCard: {
+    position: 'absolute', top: 56, right: 8,
+    borderRadius: 14, borderWidth: 1,
+    minWidth: 180,
+    shadowColor: '#000', shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 }, shadowRadius: 12,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+  },
+  menuItemText: { fontSize: 14, lineHeight: 20 },
+  menuDivider: { height: 1, marginHorizontal: 0 },
 
   // Action Buttons
   actionRow: {

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
   SafeAreaView, StatusBar, ScrollView, Modal, FlatList, Alert,
 } from 'react-native';
+import Toast from '../lib/toast';
 import DatePickerModal from '../components/ui/DatePickerModal';
 import TimePickerModal from '../components/ui/TimePickerModal';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -10,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../hooks/useTheme';
 import { CATEGORIES, PAYMENT_MODES } from '../constants/categories';
 import { apiGetEntries, apiUpdateEntry, apiDeleteEntry } from '../lib/api';
+import { useBookFieldsStore } from '../store/bookFieldsStore';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -169,6 +171,9 @@ export default function EditEntryScreen() {
   const isIn        = entryType === 'in';
   const accentColor = isIn ? C.cashIn : C.cashOut;
 
+  const { getFields } = useBookFieldsStore();
+  const { showContact, showCategory, showPaymentMode } = getFields(id);
+
   const visibleModes = showAllPayments ? PAYMENT_MODES : PAYMENT_MODES.slice(0, 2);
 
   const updateEntry = useMutation({
@@ -179,7 +184,7 @@ export default function EditEntryScreen() {
       qc.invalidateQueries({ queryKey: ['books'] });
       router.back();
     },
-    onError: () => Alert.alert('Error', 'Failed to update entry. Please try again.'),
+    onError: () => Toast.show({ type: 'error', text1: 'Failed to update entry', text2: 'Please try again.' }),
   });
 
   const deleteEntry = useMutation({
@@ -190,13 +195,13 @@ export default function EditEntryScreen() {
       qc.invalidateQueries({ queryKey: ['books'] });
       router.back();
     },
-    onError: () => Alert.alert('Error', 'Failed to delete entry. Please try again.'),
+    onError: () => Toast.show({ type: 'error', text1: 'Failed to delete entry', text2: 'Please try again.' }),
   });
 
   const handleUpdate = () => {
     const parsed = parseFloat(amount);
     if (!amount || isNaN(parsed) || parsed <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount.');
+      Toast.show({ type: 'error', text1: 'Invalid amount', text2: 'Please enter a valid amount.' });
       return;
     }
     updateEntry.mutate({
@@ -309,16 +314,18 @@ export default function EditEntryScreen() {
         </View>
 
         {/* Contact */}
-        <TouchableOpacity
-          style={s.inputBox}
-          onPress={() => setShowContactModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={[s.inputPlaceholder, contactName && { color: C.text, fontFamily: Font.medium }]}>
-            {contactName || 'Contact (Customer/Supplier)'}
-          </Text>
-          <ChevronDownIcon color={C.textMuted} size={12} />
-        </TouchableOpacity>
+        {showContact && (
+          <TouchableOpacity
+            style={s.inputBox}
+            onPress={() => setShowContactModal(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[s.inputPlaceholder, contactName && { color: C.text, fontFamily: Font.medium }]}>
+              {contactName || 'Contact (Customer/Supplier)'}
+            </Text>
+            <ChevronDownIcon color={C.textMuted} size={12} />
+          </TouchableOpacity>
+        )}
 
         {/* Remark — floating label outline */}
         <View style={[s.outlineBox, { borderColor: remarkFocused ? C.primary : C.border }]}>
@@ -349,38 +356,44 @@ export default function EditEntryScreen() {
         </TouchableOpacity>
 
         {/* Category */}
-        <TouchableOpacity
-          style={s.inputBox}
-          onPress={() => setShowCategoryModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={[s.inputPlaceholder, category && { color: C.text, fontFamily: Font.medium }]}>
-            {category || 'Category'}
-          </Text>
-          <ChevronDownIcon color={C.textMuted} size={12} />
-        </TouchableOpacity>
+        {showCategory && (
+          <TouchableOpacity
+            style={s.inputBox}
+            onPress={() => setShowCategoryModal(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[s.inputPlaceholder, category && { color: C.text, fontFamily: Font.medium }]}>
+              {category || 'Category'}
+            </Text>
+            <ChevronDownIcon color={C.textMuted} size={12} />
+          </TouchableOpacity>
+        )}
 
         {/* Payment Mode */}
-        <Text style={s.sectionLabel}>Payment Mode</Text>
-        <View style={s.paymentRow}>
-          {visibleModes.map((mode) => (
-            <TouchableOpacity
-              key={mode.value}
-              style={[s.paymentChip, paymentMode === mode.value && { backgroundColor: C.primary, borderColor: C.primary }]}
-              onPress={() => setPaymentMode(mode.value)}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.paymentChipText, paymentMode === mode.value && { color: '#fff' }]}>
-                {mode.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity onPress={() => setShowAllPayments(v => !v)} activeOpacity={0.7}>
-            <Text style={[s.showMoreText, { color: C.primary }]}>
-              {showAllPayments ? 'Show Less ▲' : 'Show More ▾'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {showPaymentMode && (
+          <>
+            <Text style={s.sectionLabel}>Payment Mode</Text>
+            <View style={s.paymentRow}>
+              {visibleModes.map((mode) => (
+                <TouchableOpacity
+                  key={mode.value}
+                  style={[s.paymentChip, paymentMode === mode.value && { backgroundColor: C.primary, borderColor: C.primary }]}
+                  onPress={() => setPaymentMode(mode.value)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.paymentChipText, paymentMode === mode.value && { color: '#fff' }]}>
+                    {mode.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => setShowAllPayments(v => !v)} activeOpacity={0.7}>
+                <Text style={[s.showMoreText, { color: C.primary }]}>
+                  {showAllPayments ? 'Show Less ▲' : 'Show More ▾'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* Add More Fields */}
         <TouchableOpacity style={[s.moreFieldsBtn, { borderColor: C.border }]} activeOpacity={0.7}>

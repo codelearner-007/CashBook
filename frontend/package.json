@@ -27,6 +27,7 @@
     "react-native": "0.74.0",
     "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-svg": "15.2.0",
+    "react-native-toast-message": "^2.3.3",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "~0.19.10",
     "zustand": "^4.5.0"
