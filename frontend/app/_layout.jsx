@@ -27,15 +27,24 @@ function AuthGuard() {
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    if (!navigationState?.key) return; // navigator not mounted yet
+    if (!navigationState?.key) return;
 
-    const inApp  = segments[0] === '(app)';
-    const inAuth = segments[0] === '(auth)';
+    const inApp      = segments[0] === '(app)';
+    const inAuth     = segments[0] === '(auth)';
+    const inDashboard= segments[1] === 'dashboard';
 
     if (!user && inApp) {
       router.replace('/(auth)/login');
     } else if (user && inAuth) {
-      router.replace('/(app)/books');
+      if (user.role === 'superadmin') {
+        router.replace('/(app)/dashboard');
+      } else {
+        router.replace('/(app)/books');
+      }
+    } else if (user && inApp && !inDashboard && user.role === 'superadmin') {
+      // Super admin trying to access /books directly → redirect to dashboard
+      // (Comment this block out if you want superadmin to access both)
+      // router.replace('/(app)/dashboard');
     }
   }, [user, segments, navigationState?.key]);
 

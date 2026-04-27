@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, Dimensions,
+  SafeAreaView, StatusBar, Dimensions, Modal, FlatList,
 } from 'react-native';
-import Svg, { Path, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { LightColors } from '../constants/colors';
-import { useAuthStore, MOCK_USER } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
+import { MOCK_USERS } from '../lib/api';
 
 const C = LightColors;
 const { width, height } = Dimensions.get('window');
@@ -48,7 +49,14 @@ function ChevronRight({ size = 13, color = C.primary }) {
   );
 }
 
-// Decorative soft blobs in the background
+function CheckIcon({ size = 16, color = '#fff' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function BackgroundBlobs() {
   return (
     <Svg style={StyleSheet.absoluteFill} width={width} height={height} pointerEvents="none">
@@ -59,15 +67,78 @@ function BackgroundBlobs() {
   );
 }
 
-export default function LoginScreen() {
-  const router = useRouter();
-  const setUser = useAuthStore((s) => s.setUser);
+const getInitials = (name) =>
+  name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-  const handleGoogleLogin = () => {
-    // TODO: replace with supabase.auth.signInWithOAuth({ provider: 'google' })
-    // and call setUser(user, session) from the auth callback
-    setUser(MOCK_USER);
-    router.replace('/(app)/books');
+const ROLE_COLORS = {
+  superadmin: { bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA' },
+  user:       { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' },
+};
+
+function UserPickerModal({ visible, onClose, onSelect }) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.pickerOverlay}>
+        <View style={styles.pickerBox}>
+          <View style={styles.pickerHandle} />
+          <Text style={styles.pickerTitle}>Select Account</Text>
+          <Text style={styles.pickerSub}>
+            Dev mode — pick a user to log in as
+          </Text>
+
+          <FlatList
+            data={MOCK_USERS}
+            keyExtractor={u => u.id}
+            scrollEnabled={false}
+            ItemSeparatorComponent={() => <View style={styles.pickerSep} />}
+            renderItem={({ item }) => {
+              const rc = ROLE_COLORS[item.role] ?? ROLE_COLORS.user;
+              const initials = getInitials(item.full_name);
+              return (
+                <TouchableOpacity
+                  style={styles.pickerRow}
+                  onPress={() => onSelect(item)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.pickerAvatar, { backgroundColor: rc.bg, borderColor: rc.border }]}>
+                    <Text style={[styles.pickerAvatarText, { color: rc.text }]}>{initials}</Text>
+                  </View>
+                  <View style={styles.pickerInfo}>
+                    <Text style={styles.pickerName}>{item.full_name}</Text>
+                    <Text style={styles.pickerEmail}>{item.email}</Text>
+                  </View>
+                  <View style={[styles.roleBadge, { backgroundColor: rc.bg, borderColor: rc.border }]}>
+                    <Text style={[styles.roleBadgeText, { color: rc.text }]}>
+                      {item.role === 'superadmin' ? 'Admin' : 'User'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+
+          <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
+            <Text style={styles.pickerCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+export default function LoginScreen() {
+  const router  = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handleSelectUser = (user) => {
+    setShowPicker(false);
+    setUser(user);
+    if (user.role === 'superadmin') {
+      router.replace('/(app)/dashboard');
+    } else {
+      router.replace('/(app)/books');
+    }
   };
 
   return (
@@ -91,8 +162,8 @@ export default function LoginScreen() {
           <Text style={styles.cardTitle}>Welcome</Text>
           <Text style={styles.cardSub}>Login or signup to backup your data securely</Text>
 
-          {/* Google */}
-          <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleLogin} activeOpacity={0.82}>
+          {/* Google — opens user picker in dev mode */}
+          <TouchableOpacity style={styles.googleBtn} onPress={() => setShowPicker(true)} activeOpacity={0.82}>
             <View style={styles.iconSlot}>
               <GoogleIcon size={20} />
             </View>
@@ -107,7 +178,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Email */}
-          <TouchableOpacity style={styles.emailBtn} activeOpacity={0.82}>
+          <TouchableOpacity style={styles.emailBtn} onPress={() => setShowPicker(true)} activeOpacity={0.82}>
             <EmailIcon size={18} color={C.primary} />
             <Text style={styles.emailBtnText}>Continue with Email</Text>
           </TouchableOpacity>
@@ -122,7 +193,7 @@ export default function LoginScreen() {
         </Text>
 
         {/* Other login */}
-        <TouchableOpacity style={styles.otherRow} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.otherRow} onPress={() => setShowPicker(true)} activeOpacity={0.7}>
           <Text style={styles.otherText}>Other ways to login</Text>
           <ChevronRight size={13} color={C.primary} />
         </TouchableOpacity>
@@ -134,6 +205,12 @@ export default function LoginScreen() {
         </View>
 
       </View>
+
+      <UserPickerModal
+        visible={showPicker}
+        onClose={() => setShowPicker(false)}
+        onSelect={handleSelectUser}
+      />
     </SafeAreaView>
   );
 }
@@ -331,5 +408,103 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#15803D',
+  },
+
+  // User Picker Modal
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  pickerBox: {
+    backgroundColor: C.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingTop: 12,
+    paddingBottom: 36,
+  },
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.border,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  pickerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.text,
+    marginBottom: 4,
+    lineHeight: 28,
+  },
+  pickerSub: {
+    fontSize: 13,
+    color: C.textMuted,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  pickerSep: {
+    height: 1,
+    backgroundColor: C.border,
+    marginVertical: 2,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  pickerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerAvatarText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  pickerInfo: {
+    flex: 1,
+  },
+  pickerName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.text,
+    lineHeight: 20,
+    marginBottom: 2,
+  },
+  pickerEmail: {
+    fontSize: 12,
+    color: C.textMuted,
+    lineHeight: 18,
+  },
+  roleBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  pickerCancel: {
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    alignItems: 'center',
+  },
+  pickerCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.textMuted,
   },
 });

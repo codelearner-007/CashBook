@@ -15,4 +15,6 @@ export const MOCK_USER = {
   email: 'farhan@example.com',
   full_name: 'Farhan Ahmad',
   avatar_url: undefined,
+  role: 'superadmin',
+  is_active: true,
 };

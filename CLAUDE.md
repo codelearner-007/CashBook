@@ -497,3 +497,36 @@ A skeleton means: the file exists, renders without crashing, uses `useTheme()` f
 **Ongoing rule:** When a new screen is added or an existing one is modified during development,
 always update it to match the current theme system (`useTheme`, `Font`, `CARD_ACCENTS`, etc.)
 and keep this table up to date.
+
+---
+
+## 10. Service Responsibilities
+
+What the app needs, and what handles it:
+
+| Need | Handled by |
+|---|---|
+| Login / signup | Supabase Auth |
+| Save entries (date, amount, type, note) | Supabase database |
+| Show entries to the user | React Native screens pulling from Supabase |
+| Keep one user's data separate from another's | Supabase Row Level Security |
+| Sync across devices | Supabase (automatic) |
+| Receipts / photo attachments | Supabase Storage |
+| Reminders / notifications | Expo Push Notifications (free) |
+
+No extra backend services are needed beyond Supabase + Expo.
+
+### Offline Mode Decision
+
+Cash book users often add entries without internet (in a shop, on the road). Two options:
+
+**Option A — Require internet (v1 default)**
+- Simpler to build, ships faster
+- Show a clear "no connection" error when offline
+- Acceptable for v1
+
+**Option B — Local-first with sync (future)**
+- Save entries locally first using AsyncStorage or SQLite (via `expo-sqlite`)
+- Sync to Supabase when connection is restored using React Query's `onReconnect` / mutation queue
+- Better user experience, more engineering effort
+- Implement after v1 is stable
