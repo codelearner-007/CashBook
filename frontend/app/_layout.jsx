@@ -37,7 +37,7 @@ function AuthGuard() {
       router.replace('/(auth)/login');
     } else if (user && inAuth) {
       if (user.role === 'superadmin') {
-        router.replace('/(app)/dashboard');
+        router.replace('/(app)/dashboard/users');
       } else {
         router.replace('/(app)/books');
       }
