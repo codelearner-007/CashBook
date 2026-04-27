@@ -45,7 +45,13 @@ export const apiGetBooks = async () => {
     const net_balance = entries.reduce(
       (sum, e) => (e.type === 'in' ? sum + e.amount : sum - e.amount), 0
     );
-    return { ...book, net_balance };
+    const latest = entries.length > 0
+      ? entries.reduce((a, b) =>
+          `${a.entry_date}T${a.entry_time}` >= `${b.entry_date}T${b.entry_time}` ? a : b
+        )
+      : null;
+    const last_entry_at = latest ? `${latest.entry_date}T${latest.entry_time}:00` : null;
+    return { ...book, net_balance, last_entry_at };
   });
 };
 
@@ -219,7 +225,13 @@ export const apiGetUserBooks = async (userId) => {
     const net_balance = entries.reduce(
       (sum, e) => (e.type === 'in' ? sum + e.amount : sum - e.amount), 0
     );
-    return { ...book, net_balance };
+    const latest = entries.length > 0
+      ? entries.reduce((a, b) =>
+          `${a.entry_date}T${a.entry_time}` >= `${b.entry_date}T${b.entry_time}` ? a : b
+        )
+      : null;
+    const last_entry_at = latest ? `${latest.entry_date}T${latest.entry_time}:00` : null;
+    return { ...book, net_balance, last_entry_at };
   });
 };
 

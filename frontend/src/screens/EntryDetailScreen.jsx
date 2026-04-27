@@ -17,6 +17,14 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+const fmt12h = (time) => {
+  if (!time) return '—';
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour   = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
+};
+
 const PAYMENT_LABELS = { cash: 'Cash', online: 'Online', cheque: 'Cheque', other: 'Other' };
 
 // ── Row Component ─────────────────────────────────────────────────────────────
@@ -100,7 +108,7 @@ export default function EntryDetailScreen() {
               <Text style={[s.amountText, { color: typeColor }]}>
                 {isIn ? '+' : '-'}{entry.amount.toLocaleString()}
               </Text>
-              <Text style={s.amountDate}>{formatDate(entry.entry_date)}  ·  {entry.entry_time}</Text>
+              <Text style={s.amountDate}>{formatDate(entry.entry_date)}  ·  {fmt12h(entry.entry_time)}</Text>
             </View>
 
             <View style={s.detailCard}>
@@ -109,7 +117,7 @@ export default function EntryDetailScreen() {
               <DetailRow label="Payment Mode" value={PAYMENT_LABELS[entry.payment_mode]} C={C} Font={Font} />
               <DetailRow label="Contact"      value={entry.contact_name}                 C={C} Font={Font} />
               <DetailRow label="Date"         value={formatDate(entry.entry_date)}       C={C} Font={Font} />
-              <DetailRow label="Time"         value={entry.entry_time}                   C={C} Font={Font} />
+              <DetailRow label="Time"         value={fmt12h(entry.entry_time)}                   C={C} Font={Font} />
               <View style={{ paddingVertical: 14, flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text style={{ fontSize: 13, fontFamily: Font.regular, color: C.textMuted }}>Entry by</Text>
                 <Text style={{ fontSize: 14, fontFamily: Font.medium, color: C.text }}>You</Text>

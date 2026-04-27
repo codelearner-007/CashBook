@@ -13,6 +13,14 @@ import { PAYMENT_MODES, CATEGORIES } from '../constants/categories';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const fmt12h = (time) => {
+  if (!time) return '';
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour   = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
+};
+
 function groupByDate(entries) {
   const map = new Map();
   for (const e of entries) {
@@ -103,7 +111,7 @@ const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark }) => {
         {item.category ? (
           <Text style={s.entryCategory} numberOfLines={1}>{item.category}</Text>
         ) : null}
-        <Text style={s.entryMeta}>Entry by You  ·  {item.entry_time}</Text>
+        <Text style={s.entryMeta}>Entry by You  ·  {fmt12h(item.entry_time)}</Text>
       </View>
       <Text
         style={[s.entryAmount, { color: item.type === 'in' ? C.cashIn : C.cashOut }]}

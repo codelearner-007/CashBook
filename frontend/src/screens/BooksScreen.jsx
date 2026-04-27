@@ -6,9 +6,12 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useBooks, useCreateBook, useDeleteBook } from '../hooks/useBooks';
+import { useBookSort } from '../hooks/useBookSort';
 import { shadow } from '../constants/shadows';
 import { CARD_ACCENTS } from '../constants/colors';
 import { MOCK_USER } from '../store/authStore'; // swap with useAuth() when Supabase is connected
+import SortSheet from '../components/books/SortSheet';
+import DraggableList from '../components/books/DraggableList';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -17,6 +20,14 @@ const fmt = (n) =>
 
 const getInitials = (str) =>
   str.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+const fmtLastEntry = (iso) => {
+  if (!iso) return 'No entries yet';
+  const d    = new Date(iso);
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${date}  ·  ${time}`;
+};
 
 // ── Icon Components (SVG-style via Views) ────────────────────────────────────
 
@@ -142,10 +153,8 @@ const BookCard = memo(({ item, index, onPress, onDelete, C, s }) => {
       </View>
       <View style={s.bookInfo}>
         <Text style={s.bookName} numberOfLines={1}>{item.name}</Text>
-        <Text style={s.bookDate}>
-          {new Date(item.created_at).toLocaleDateString('en-US', {
-            month: 'short', day: 'numeric', year: 'numeric',
-          })}
+        <Text style={s.bookDate} numberOfLines={1}>
+          {fmtLastEntry(item.last_entry_at)}
         </Text>
       </View>
       <View style={s.bookRight}>
@@ -177,13 +186,18 @@ export default function BooksScreen() {
   const createBook = useCreateBook();
   const deleteBook = useDeleteBook();
 
+  const {
+    sortMode, sortedBooks, showSort, setShowSort,
+    handleSortSelect, setCustomBooks, sortLabel,
+  } = useBookSort(books);
+
   const [showModal, setShowModal] = useState(false);
   const [newBookName, setNewBookName] = useState('');
 
   const stats = useMemo(() => ({
     total:    books.reduce((acc, b) => acc + (b.net_balance ?? 0), 0),
     personal: books.length,
-    shared:   0, // wired up when backend sharing is ready
+    shared:   0,
   }), [books]);
 
   const handleCreate = useCallback(async () => {
@@ -202,25 +216,35 @@ export default function BooksScreen() {
 
   const userInitials = useMemo(() => getInitials(MOCK_USER.full_name), []);
 
+  const handleBookPress = useCallback((book) => {
+    router.push({ pathname: '/(app)/books/[id]', params: { id: book.id, name: book.name } });
+  }, [router]);
+
   const renderBook = useCallback(({ item, index }) => (
     <BookCard
       item={item}
       index={index}
       C={C}
       s={s}
-      onPress={() => router.push({ pathname: '/(app)/books/[id]', params: { id: item.id, name: item.name } })}
+      onPress={() => handleBookPress(item)}
       onDelete={() => handleDelete(item.id, item.name)}
     />
-  ), [C, s, handleDelete]);
+  ), [C, s, handleDelete, handleBookPress]);
 
   const ListHeader = useMemo(() => (
     <View style={s.sectionHeader}>
       <Text style={s.sectionTitle}>Your Books</Text>
-      <TouchableOpacity style={s.sortBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={s.sortBtnText}>Sort ≡</Text>
+      <TouchableOpacity
+        style={[s.sortBtn, sortMode !== 'updated' && s.sortBtnActive]}
+        onPress={() => setShowSort(true)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={[s.sortBtnText, sortMode !== 'updated' && s.sortBtnTextActive]}>
+          {sortMode === 'updated' ? 'Sort  ≡' : `${sortLabel}  ≡`}
+        </Text>
       </TouchableOpacity>
     </View>
-  ), [s]);
+  ), [s, sortMode, sortLabel, setShowSort]);
 
   const ListEmpty = useMemo(() => (
     <View style={s.empty}>
@@ -284,16 +308,30 @@ export default function BooksScreen() {
         </View>
       </View>
 
-      {/* Book List */}
-      <FlatList
-        data={books}
-        keyExtractor={item => item.id}
-        renderItem={renderBook}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.listContent}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
-      />
+      {/* Section header — always visible regardless of sort mode */}
+      {ListHeader}
+
+      {/* Book List — FlatList for sort modes, DraggableList for custom */}
+      {sortMode === 'custom' ? (
+        <DraggableList
+          books={sortedBooks}
+          onReorder={setCustomBooks}
+          onBookPress={handleBookPress}
+          onBookDelete={handleDelete}
+          listPaddingBottom={130}
+          C={C}
+          Font={Font}
+        />
+      ) : (
+        <FlatList
+          data={sortedBooks}
+          keyExtractor={item => item.id}
+          renderItem={renderBook}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.listContent}
+          ListEmptyComponent={ListEmpty}
+        />
+      )}
 
       {/* FAB */}
       <TouchableOpacity style={s.fab} onPress={() => setShowModal(true)} activeOpacity={0.85}>
@@ -314,6 +352,14 @@ export default function BooksScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Sort Sheet */}
+      <SortSheet
+        visible={showSort}
+        current={sortMode}
+        onSelect={handleSortSelect}
+        onClose={() => setShowSort(false)}
+      />
 
       {/* Add Book Modal */}
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
@@ -419,9 +465,11 @@ const makeStyles = (C, Font) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10,
   },
-  sectionTitle: { fontSize: 15, fontFamily: Font.bold, color: C.text, lineHeight: 22 },
-  sortBtn:      { padding: 8 },
-  sortBtnText:  { fontSize: 13, fontFamily: Font.medium, color: C.primary, lineHeight: 20 },
+  sectionTitle:     { fontSize: 15, fontFamily: Font.bold, color: C.text, lineHeight: 22 },
+  sortBtn:          { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: C.primaryLight, borderWidth: 1, borderColor: C.primaryMid },
+  sortBtnActive:    { backgroundColor: C.primary },
+  sortBtnText:      { fontSize: 12, fontFamily: Font.semiBold, color: C.primary, lineHeight: 18 },
+  sortBtnTextActive:{ color: C.onPrimary },
 
   // Book Card
   bookCard: {
