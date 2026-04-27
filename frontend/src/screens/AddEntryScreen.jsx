@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
   SafeAreaView, StatusBar, ScrollView, Modal, FlatList, Alert,
 } from 'react-native';
+import DatePickerModal from '../components/ui/DatePickerModal';
+import TimePickerModal from '../components/ui/TimePickerModal';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../hooks/useTheme';
@@ -45,6 +47,13 @@ const CheckIcon = ({ color, size = 16 }) => (
   </View>
 );
 
+const CloseIcon = ({ color, size = 18 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ position: 'absolute', width: size * 0.8, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '45deg' }] }} />
+    <View style={{ position: 'absolute', width: size * 0.8, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }] }} />
+  </View>
+);
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function AddEntryScreen() {
@@ -66,10 +75,22 @@ export default function AddEntryScreen() {
   const [showAllPayments, setShowAllPayments] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showContactModal,  setShowContactModal]  = useState(false);
+  const [date,           setDate]           = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
-  const today   = new Date();
-  const dateStr = today.toLocaleDateString('en-GB');
-  const timeStr = today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+  const dateStr = date.toLocaleDateString('en-GB');
+  const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+
+  const confirmDate = (picked) => {
+    setDate(prev => { const n = new Date(prev); n.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate()); return n; });
+    setShowDatePicker(false);
+  };
+
+  const confirmTime = (picked) => {
+    setDate(prev => { const n = new Date(prev); n.setHours(picked.getHours(), picked.getMinutes()); return n; });
+    setShowTimePicker(false);
+  };
 
   const visibleModes = showAllPayments ? PAYMENT_MODES : PAYMENT_MODES.slice(0, 2);
 
@@ -97,8 +118,8 @@ export default function AddEntryScreen() {
       category:     category || undefined,
       payment_mode: paymentMode,
       contact_name: contactName.trim() || undefined,
-      entry_date:   today.toISOString().split('T')[0],
-      entry_time:   today.toTimeString().slice(0, 5),
+      entry_date:   date.toISOString().split('T')[0],
+      entry_time:   date.toTimeString().slice(0, 5),
     });
   };
 
@@ -123,12 +144,12 @@ export default function AddEntryScreen() {
 
         {/* Date + Time Row */}
         <View style={s.dateTimeRow}>
-          <TouchableOpacity style={s.dateTimePicker} activeOpacity={0.7}>
+          <TouchableOpacity style={s.dateTimePicker} activeOpacity={0.7} onPress={() => setShowDatePicker(true)}>
             <Text style={s.dateTimeIcon}>📅</Text>
             <Text style={s.dateTimeText}>{dateStr}</Text>
             <ChevronDownIcon color={C.textMuted} size={11} />
           </TouchableOpacity>
-          <TouchableOpacity style={s.dateTimePicker} activeOpacity={0.7}>
+          <TouchableOpacity style={s.dateTimePicker} activeOpacity={0.7} onPress={() => setShowTimePicker(true)}>
             <Text style={s.dateTimeIcon}>🕐</Text>
             <Text style={s.dateTimeText}>{timeStr}</Text>
             <ChevronDownIcon color={C.textMuted} size={11} />
@@ -144,10 +165,11 @@ export default function AddEntryScreen() {
           keyboardType="decimal-pad"
           autoFocus
           isLast
+          style={s.fieldGap}
         />
 
         {/* Contact */}
-        <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85}>
+        <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85} style={s.fieldGap}>
           <AppInput
             label="Contact (Customer/Supplier)"
             value={contactName}
@@ -167,6 +189,7 @@ export default function AddEntryScreen() {
           multiline
           rightElement={<Text style={{ fontSize: 20 }}>🎤</Text>}
           isLast
+          style={s.fieldGap}
         />
 
         {/* Attach */}
@@ -178,7 +201,7 @@ export default function AddEntryScreen() {
         </TouchableOpacity>
 
         {/* Category */}
-        <TouchableOpacity onPress={() => setShowCategoryModal(true)} activeOpacity={0.85}>
+        <TouchableOpacity onPress={() => setShowCategoryModal(true)} activeOpacity={0.85} style={s.fieldGap}>
           <AppInput
             label="Category"
             value={category}
@@ -235,10 +258,15 @@ export default function AddEntryScreen() {
 
       {/* Category Modal */}
       <Modal visible={showCategoryModal} transparent animationType="slide" onRequestClose={() => setShowCategoryModal(false)}>
-        <View style={[s.modalOverlay, { backgroundColor: C.overlay }]}>
-          <View style={[s.modalBox, { backgroundColor: C.card }]}>
+        <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => setShowCategoryModal(false)}>
+          <Pressable style={[s.modalBox, { backgroundColor: C.card }]} onPress={() => {}}>
             <View style={[s.modalHandle, { backgroundColor: C.border }]} />
-            <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Select Category</Text>
+            <View style={s.modalHeader}>
+              <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Select Category</Text>
+              <TouchableOpacity onPress={() => setShowCategoryModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <CloseIcon color={C.textMuted} size={18} />
+              </TouchableOpacity>
+            </View>
             <FlatList
               data={CATEGORIES}
               keyExtractor={(i) => i}
@@ -259,16 +287,21 @@ export default function AddEntryScreen() {
                 </TouchableOpacity>
               )}
             />
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Contact Modal */}
       <Modal visible={showContactModal} transparent animationType="slide" onRequestClose={() => setShowContactModal(false)}>
-        <View style={[s.modalOverlay, { backgroundColor: C.overlay }]}>
-          <View style={[s.modalBox, { backgroundColor: C.card }]}>
+        <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => setShowContactModal(false)}>
+          <Pressable style={[s.modalBox, { backgroundColor: C.card }]} onPress={() => {}}>
             <View style={[s.modalHandle, { backgroundColor: C.border }]} />
-            <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Contact Name</Text>
+            <View style={s.modalHeader}>
+              <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Contact Name</Text>
+              <TouchableOpacity onPress={() => setShowContactModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <CloseIcon color={C.textMuted} size={18} />
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={[s.modalInput, { borderColor: C.border, color: C.text, backgroundColor: C.background, fontFamily: Font.regular }]}
               placeholder="Type contact name…"
@@ -283,9 +316,22 @@ export default function AddEntryScreen() {
             >
               <Text style={[s.modalConfirmText, { fontFamily: Font.bold }]}>Confirm</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
+
+      <DatePickerModal
+        visible={showDatePicker}
+        date={date}
+        onConfirm={confirmDate}
+        onCancel={() => setShowDatePicker(false)}
+      />
+      <TimePickerModal
+        visible={showTimePicker}
+        date={date}
+        onConfirm={confirmTime}
+        onCancel={() => setShowTimePicker(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -314,6 +360,8 @@ const makeStyles = (C, Font) => StyleSheet.create({
   dateTimeIcon: { fontSize: 14 },
   dateTimeText: { flex: 1, fontSize: 13, fontFamily: Font.medium, color: C.text, lineHeight: 18 },
 
+  fieldGap: { marginBottom: 12 },
+
   attachBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderWidth: 1.5, borderStyle: 'dashed',
@@ -338,7 +386,8 @@ const makeStyles = (C, Font) => StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalBox:     { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12, maxHeight: '72%' },
   modalHandle:  { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalTitle:   { fontSize: 17, lineHeight: 26, marginBottom: 16 },
+  modalHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  modalTitle:   { fontSize: 17, lineHeight: 26 },
   modalItem:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 1, minHeight: 52 },
   modalItemText: { fontSize: 15, lineHeight: 22 },
   modalInput:   { borderWidth: 1.5, borderRadius: 14, padding: 14, fontSize: 15, marginBottom: 16, minHeight: 48 },

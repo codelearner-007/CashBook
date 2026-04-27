@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { Font } from '../../constants/fonts';
 
@@ -31,9 +31,11 @@ export default function AppInput({
   multiline = false,
   autoFocus = false,
   error,
+  style,
 }) {
   const { C } = useTheme();
   const [focused, setFocused] = useState(false);
+  const [inputHeight, setInputHeight] = useState(22);
 
   const borderColor = error
     ? C.cashOut
@@ -42,8 +44,8 @@ export default function AppInput({
     : C.border;
 
   return (
-    <View style={styles.wrapper}>
-      <View style={[styles.container, { backgroundColor: C.card, borderColor }]}>
+    <View style={[styles.wrapper, style]}>
+      <View style={[styles.container, { backgroundColor: C.card, borderColor }, multiline && styles.containerMultiline]}>
         {/* Left accent bar on focus */}
         {focused && <View style={[styles.accentBar, { backgroundColor: C.primary }]} />}
 
@@ -52,10 +54,14 @@ export default function AppInput({
             {label}
           </Text>
 
-          <View style={styles.inputRow}>
+          <View style={[styles.inputRow, multiline && styles.inputRowMultiline]}>
             {editable ? (
               <TextInput
-                style={[styles.input, { color: C.text, fontFamily: Font.semiBold }, multiline && styles.multiline]}
+                style={[
+                  styles.input,
+                  { color: C.text, fontFamily: Font.semiBold },
+                  multiline && { height: inputHeight, textAlignVertical: 'top' },
+                ]}
                 value={value ?? ''}
                 onChangeText={onChangeText}
                 placeholder={placeholder}
@@ -69,6 +75,11 @@ export default function AppInput({
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 underlineColorAndroid="transparent"
+                onContentSizeChange={
+                  multiline
+                    ? (e) => setInputHeight(Math.max(22, e.nativeEvent.contentSize.height))
+                    : undefined
+                }
               />
             ) : (
               <Text style={[styles.input, styles.readOnly, { color: value ? C.text : C.textSubtle, fontFamily: Font.semiBold }]}>
@@ -108,8 +119,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
+  containerMultiline: { alignItems: 'flex-start' },
+
   inner:    { flex: 1 },
-  inputRow: { flexDirection: 'row', alignItems: 'center' },
+  inputRow:           { flexDirection: 'row', alignItems: 'center' },
+  inputRowMultiline:  { alignItems: 'flex-start' },
 
   label: {
     fontSize: 11,
@@ -128,8 +142,7 @@ const styles = StyleSheet.create({
     outlineStyle: 'none',
   },
 
-  readOnly:  { opacity: 1 },
-  multiline: { minHeight: 20, textAlignVertical: 'top' },
+  readOnly: { opacity: 1 },
 
   right:   { marginLeft: 10 },
   divider: { height: 1, marginHorizontal: 16 },
