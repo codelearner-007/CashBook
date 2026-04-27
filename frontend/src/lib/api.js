@@ -166,17 +166,32 @@ const MOCK_BOOKS = [
 ];
 
 const MOCK_ENTRIES = [
-  // ── b1: Main Business ────────────────────────────────────────────────────────
-  { id: 'b1e1',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 85000,  remark: 'Client payment – Alpha Corp',    category: 'Sales',     payment_mode: 'online', entry_date: '2026-04-18', entry_time: '10:00', created_at: '2026-04-18T10:00:00Z' },
-  { id: 'b1e2',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 12500,  remark: 'Staff salaries',                 category: 'Salary',    payment_mode: 'online', entry_date: '2026-04-17', entry_time: '09:00', created_at: '2026-04-17T09:00:00Z' },
-  { id: 'b1e3',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 42000,  remark: 'Product sale – bulk order',      category: 'Sales',     payment_mode: 'cash',   entry_date: '2026-04-16', entry_time: '14:30', created_at: '2026-04-16T14:30:00Z' },
-  { id: 'b1e4',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 8900,   remark: 'Office rent – April',            category: 'Rent',      payment_mode: 'online', entry_date: '2026-04-15', entry_time: '11:00', created_at: '2026-04-15T11:00:00Z' },
-  { id: 'b1e5',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 27500,  remark: 'Advance from Beta Ltd',          category: 'Sales',     payment_mode: 'cheque', entry_date: '2026-04-14', entry_time: '16:00', created_at: '2026-04-14T16:00:00Z' },
-  { id: 'b1e6',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 3400,   remark: 'Utility bills',                  category: 'Bills',     payment_mode: 'online', entry_date: '2026-04-13', entry_time: '08:30', created_at: '2026-04-13T08:30:00Z' },
-  { id: 'b1e7',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 61000,  remark: 'Service contract – Q2',          category: 'Services',  payment_mode: 'online', entry_date: '2026-04-12', entry_time: '12:00', created_at: '2026-04-12T12:00:00Z' },
-  { id: 'b1e8',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 5600,   remark: 'Office supplies',                category: 'Shopping',  payment_mode: 'cash',   entry_date: '2026-04-11', entry_time: '10:15', created_at: '2026-04-11T10:15:00Z' },
-  { id: 'b1e9',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 19500,  remark: 'Maintenance contract renewal',   category: 'Services',  payment_mode: 'online', entry_date: '2026-04-10', entry_time: '15:00', created_at: '2026-04-10T15:00:00Z' },
-  { id: 'b1e10', book_id: 'b1', user_id: 'u1', type: 'out', amount: 2200,   remark: 'Fuel & transport',               category: 'Fuel',      payment_mode: 'cash',   entry_date: '2026-04-09', entry_time: '07:45', created_at: '2026-04-09T07:45:00Z' },
+  // ── b1: Main Business — covers ALL filter combinations ───────────────────────
+  // today (2026-04-27)
+  { id: 'b1e1',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 85000, remark: 'Client payment – Alpha Corp',    category: 'Sales',    payment_mode: 'online', contact_name: 'Alpha Corp',    entry_date: '2026-04-27', entry_time: '10:00', created_at: '2026-04-27T10:00:00Z' },
+  { id: 'b1e2',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 12500, remark: 'Staff salaries – April',         category: 'Salary',   payment_mode: 'online', contact_name: null,            entry_date: '2026-04-27', entry_time: '09:00', created_at: '2026-04-27T09:00:00Z' },
+  // yesterday (2026-04-26)
+  { id: 'b1e3',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 42000, remark: 'Service contract – Beta Ltd',   category: 'Services', payment_mode: 'cheque', contact_name: 'Beta Ltd',      entry_date: '2026-04-26', entry_time: '14:30', created_at: '2026-04-26T14:30:00Z' },
+  { id: 'b1e4',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 3200,  remark: 'Lunch & team meal',              category: 'Food',     payment_mode: 'cash',   contact_name: null,            entry_date: '2026-04-26', entry_time: '13:00', created_at: '2026-04-26T13:00:00Z' },
+  // this week (2026-04-21 to 2026-04-25)
+  { id: 'b1e5',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 27500, remark: 'Advance from Gamma Tech',       category: 'Sales',    payment_mode: 'cash',   contact_name: 'Gamma Tech',    entry_date: '2026-04-25', entry_time: '16:00', created_at: '2026-04-25T16:00:00Z' },
+  { id: 'b1e6',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 8900,  remark: 'Office rent – April',           category: 'Rent',     payment_mode: 'other',  contact_name: 'City Landlord', entry_date: '2026-04-24', entry_time: '11:00', created_at: '2026-04-24T11:00:00Z' },
+  { id: 'b1e7',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 3400,  remark: 'Electricity & internet',        category: 'Bills',    payment_mode: 'online', contact_name: null,            entry_date: '2026-04-23', entry_time: '08:30', created_at: '2026-04-23T08:30:00Z' },
+  { id: 'b1e8',  book_id: 'b1', user_id: 'u1', type: 'in',  amount: 61000, remark: 'Project milestone – Delta Inc', category: 'Services', payment_mode: 'online', contact_name: 'Delta Inc',     entry_date: '2026-04-22', entry_time: '12:00', created_at: '2026-04-22T12:00:00Z' },
+  { id: 'b1e9',  book_id: 'b1', user_id: 'u1', type: 'out', amount: 5600,  remark: 'Office supplies & stationery',  category: 'Shopping', payment_mode: 'cash',   contact_name: null,            entry_date: '2026-04-21', entry_time: '10:15', created_at: '2026-04-21T10:15:00Z' },
+  // this month – earlier in April, outside this week
+  { id: 'b1e10', book_id: 'b1', user_id: 'u1', type: 'out', amount: 2200,  remark: 'Fuel & transport',              category: 'Fuel',     payment_mode: 'cash',   contact_name: null,            entry_date: '2026-04-15', entry_time: '07:45', created_at: '2026-04-15T07:45:00Z' },
+  { id: 'b1e11', book_id: 'b1', user_id: 'u1', type: 'in',  amount: 19500, remark: 'Support contract – Alpha Corp', category: 'Services', payment_mode: 'online', contact_name: 'Alpha Corp',    entry_date: '2026-04-10', entry_time: '15:00', created_at: '2026-04-10T15:00:00Z' },
+  { id: 'b1e12', book_id: 'b1', user_id: 'u1', type: 'in',  amount: 15000, remark: 'Product sale – Gamma Tech',     category: 'Sales',    payment_mode: 'other',  contact_name: 'Gamma Tech',    entry_date: '2026-04-05', entry_time: '14:00', created_at: '2026-04-05T14:00:00Z' },
+  // last month – March 2026
+  { id: 'b1e13', book_id: 'b1', user_id: 'u1', type: 'in',  amount: 33000, remark: 'Consulting fee – Beta Ltd',     category: 'Services', payment_mode: 'cheque', contact_name: 'Beta Ltd',      entry_date: '2026-03-28', entry_time: '11:00', created_at: '2026-03-28T11:00:00Z' },
+  { id: 'b1e14', book_id: 'b1', user_id: 'u1', type: 'out', amount: 4800,  remark: 'Software & tool licenses',      category: 'Bills',    payment_mode: 'online', contact_name: null,            entry_date: '2026-03-20', entry_time: '09:00', created_at: '2026-03-20T09:00:00Z' },
+  { id: 'b1e15', book_id: 'b1', user_id: 'u1', type: 'out', amount: 9200,  remark: 'Equipment purchase',            category: 'Shopping', payment_mode: 'online', contact_name: null,            entry_date: '2026-03-10', entry_time: '10:00', created_at: '2026-03-10T10:00:00Z' },
+  // two months ago – February 2026
+  { id: 'b1e16', book_id: 'b1', user_id: 'u1', type: 'in',  amount: 7500,  remark: 'Misc income – Delta Inc',       category: 'Other',    payment_mode: 'cash',   contact_name: 'Delta Inc',     entry_date: '2026-02-18', entry_time: '16:00', created_at: '2026-02-18T16:00:00Z' },
+  { id: 'b1e17', book_id: 'b1', user_id: 'u1', type: 'out', amount: 6500,  remark: 'Team outing & food',            category: 'Food',     payment_mode: 'cash',   contact_name: null,            entry_date: '2026-02-05', entry_time: '20:00', created_at: '2026-02-05T20:00:00Z' },
+  // three months ago – January 2026
+  { id: 'b1e18', book_id: 'b1', user_id: 'u1', type: 'out', amount: 3800,  remark: 'Courier & logistics',           category: 'Other',    payment_mode: 'cash',   contact_name: null,            entry_date: '2026-01-22', entry_time: '11:00', created_at: '2026-01-22T11:00:00Z' },
 
   // ── b2: Personal Expenses ─────────────────────────────────────────────────────
   { id: 'b2e1',  book_id: 'b2', user_id: 'u1', type: 'in',  amount: 55000,  remark: 'Monthly salary received',        category: 'Salary',    payment_mode: 'online', entry_date: '2026-04-01', entry_time: '09:00', created_at: '2026-04-01T09:00:00Z' },

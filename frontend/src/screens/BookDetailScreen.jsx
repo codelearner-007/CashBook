@@ -286,6 +286,15 @@ export default function BookDetailScreen() {
 
   const grouped = useMemo(() => groupByDate(filtered), [filtered]);
 
+  const isFiltered = activeFilterCount > 0 || !!search;
+
+  const displaySummary = useMemo(() => {
+    if (!isFiltered) return summary;
+    const total_in  = filtered.filter(e => e.type === 'in').reduce((s, e) => s + e.amount, 0);
+    const total_out = filtered.filter(e => e.type === 'out').reduce((s, e) => s + e.amount, 0);
+    return { total_in, total_out, net_balance: total_in - total_out };
+  }, [isFiltered, filtered, summary]);
+
   const handleDelete = useCallback((entryId) => {
     Alert.alert('Delete Entry', 'Delete this entry?', [
       { text: 'Cancel', style: 'cancel' },
@@ -400,13 +409,8 @@ export default function BookDetailScreen() {
       </View>
 
       {/* ── Filter Chips ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.filterScroll}
-        style={s.filterBar}
-      >
-        {/* ALL chip */}
+      <View style={s.filterBar}>
+        {/* ALL chip — always visible, never scrolls */}
         <TouchableOpacity
           style={[s.fChip, activeFilterCount === 0 && s.fChipActive]}
           onPress={clearAllFilters}
@@ -416,57 +420,49 @@ export default function BookDetailScreen() {
           <Text style={[s.fChipLabel, { color: activeFilterCount === 0 ? '#fff' : C.textMuted }]}>All</Text>
         </TouchableOpacity>
 
-        {[
-          { key: 'date',     label: 'Date',       icon: 'calendar',    display: filterDate     ? DATE_LABELS[filterDate] : null },
-          { key: 'type',     label: 'Entry Type', icon: 'repeat',      display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
-          { key: 'members',  label: 'Members',    icon: 'users',       display: null },
-          { key: 'contact',  label: 'Contact',    icon: 'user',        display: filterContact },
-          { key: 'category', label: 'Category',   icon: 'tag',         display: filterCategory },
-          { key: 'payment',  label: 'Payment',    icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
-        ].map(({ key, label, icon, display }) => {
-          const active = !!display;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[s.fChip, active && s.fChipActive]}
-              onPress={() => setActivePicker(key)}
-              activeOpacity={0.8}
-            >
-              <Feather name={icon} size={13} color={active ? '#fff' : C.textMuted} />
-              <Text style={[s.fChipLabel, { color: active ? '#fff' : C.textMuted }]} numberOfLines={1}>
-                {display || label}
-              </Text>
-              {active ? (
-                <TouchableOpacity
-                  onPress={(e) => { e.stopPropagation?.(); clearFilter(key); }}
-                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                >
-                  <Feather name="x" size={13} color="rgba(255,255,255,0.85)" />
-                </TouchableOpacity>
-              ) : (
-                <Feather name="chevron-down" size={11} color={C.textSubtle} />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+        <View style={s.filterDivider} />
 
-      {/* ── Active count strip — always rendered to keep layout stable ── */}
-      <TouchableOpacity
-        style={[s.clearAllBar, { backgroundColor: C.primaryLight, opacity: activeFilterCount > 0 ? 1 : 0 }]}
-        onPress={clearAllFilters}
-        activeOpacity={0.7}
-        disabled={activeFilterCount === 0}
-      >
-        <Feather name="sliders" size={11} color={C.primary} />
-        <Text style={[s.clearAllText, { color: C.primary }]}>
-          {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active
-        </Text>
-        <Text style={[s.clearAllText, { color: C.textMuted }]}>·</Text>
-        <Text style={[s.clearAllText, { color: C.primary, textDecorationLine: 'underline' }]}>
-          Clear all
-        </Text>
-      </TouchableOpacity>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.filterScroll}
+        >
+          {[
+            { key: 'date',     label: 'Date',       icon: 'calendar',    display: filterDate     ? DATE_LABELS[filterDate] : null },
+            { key: 'type',     label: 'Entry Type', icon: 'repeat',      display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
+            { key: 'members',  label: 'Members',    icon: 'users',       display: null },
+            { key: 'contact',  label: 'Contact',    icon: 'user',        display: filterContact },
+            { key: 'category', label: 'Category',   icon: 'tag',         display: filterCategory },
+            { key: 'payment',  label: 'Payment',    icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
+          ].map(({ key, label, icon, display }) => {
+            const active = !!display;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[s.fChip, active && s.fChipActive]}
+                onPress={() => setActivePicker(key)}
+                activeOpacity={0.8}
+              >
+                <Feather name={icon} size={13} color={active ? '#fff' : C.textMuted} />
+                <Text style={[s.fChipLabel, { color: active ? '#fff' : C.textMuted }]} numberOfLines={1}>
+                  {display || label}
+                </Text>
+                {active ? (
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation?.(); clearFilter(key); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  >
+                    <Feather name="x" size={13} color="rgba(255,255,255,0.85)" />
+                  </TouchableOpacity>
+                ) : (
+                  <Feather name="chevron-down" size={11} color={C.textSubtle} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
 
       {/* ── Filter Picker Modal ── */}
       <Modal
@@ -647,7 +643,7 @@ export default function BookDetailScreen() {
         <>
           {/* Balance Card */}
           <BalanceCard
-            summary={summary}
+            summary={displaySummary}
             onViewReports={goToReports}
             C={C}
             Font={Font}
@@ -661,6 +657,17 @@ export default function BookDetailScreen() {
               {filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}
               {activeFilterCount > 0 || search ? '  ·  filtered' : '  ·  total'}
             </Text>
+            {(activeFilterCount > 0 || search) && (
+              <TouchableOpacity
+                style={s.clearFilterBtn}
+                onPress={() => { clearAllFilters(); setSearch(''); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.7}
+              >
+                <Feather name="x-circle" size={12} color={C.primary} />
+                <Text style={s.clearFilterText}>Clear</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Entry List */}
@@ -786,27 +793,32 @@ const makeStyles = (C, Font) => StyleSheet.create({
   },
 
   // ── Filter chips bar ──
-  filterBar: { marginTop: 10 },
+  filterBar: {
+    flexDirection: 'row', alignItems: 'center',
+    marginTop: 4, paddingLeft: 16, paddingRight: 0,
+    paddingVertical: 6, height: 48,
+  },
+  filterDivider: {
+    width: 1, height: 20, backgroundColor: C.border, marginHorizontal: 8,
+  },
   filterScroll: {
-    paddingHorizontal: 16, paddingVertical: 10, gap: 8,
+    paddingRight: 16, gap: 8,
     alignItems: 'center',
   },
   fChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 20, borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12,
+    height: 34,
+    borderRadius: 100, borderWidth: 1.5,
     backgroundColor: C.card, borderColor: C.border,
-    maxWidth: 160,
   },
-  fChipActive: { backgroundColor: C.primary, borderColor: C.primary },
-  fChipLabel: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 16, flexShrink: 1 },
-
-  // ── Active strip ──
-  clearAllBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, marginHorizontal: 16, marginTop: 2, height: 20, borderRadius: 8,
+  fChipActive: {
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 100, borderWidth: 1.5,
+    backgroundColor: C.primary, borderColor: C.primary,
   },
-  clearAllText: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 18 },
+  fChipLabel: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 16 },
 
   // ── Picker modal ──
   pickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
@@ -892,6 +904,13 @@ const makeStyles = (C, Font) => StyleSheet.create({
   },
   entryCountText: {
     fontSize: 12, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18,
+    flex: 1,
+  },
+  clearFilterBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+  },
+  clearFilterText: {
+    fontSize: 12, fontFamily: Font.semiBold, color: C.primary, lineHeight: 18,
   },
 
   // List
