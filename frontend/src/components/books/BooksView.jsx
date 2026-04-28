@@ -203,10 +203,17 @@ export default function BooksView({
     if (!newBookName.trim()) return;
     createBook.mutate(
       { name: newBookName.trim() },
-      { onError: () => Alert.alert('Error', 'Could not create book. Please try again.') },
+      {
+        onSuccess: () => {
+          setNewBookName('');
+          setShowModal(false);
+        },
+        onError: (err) => {
+          const detail = err?.response?.data?.detail ?? err?.message ?? 'Network error';
+          Alert.alert('Could not create book', detail);
+        },
+      },
     );
-    setNewBookName('');
-    setShowModal(false);
   }, [newBookName, createBook]);
 
   const handleMenuSelect = useCallback((key, book) => {

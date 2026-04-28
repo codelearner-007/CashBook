@@ -63,12 +63,15 @@ function BackgroundBlobs() {
   );
 }
 
-// ── Email magic-link modal ─────────────────────────────────────────────────────
+// ── Email OTP modal ────────────────────────────────────────────────────────────
 
 function EmailModal({ visible, onClose }) {
-  const [email, setEmail] = useState('');
-  const [sent,  setSent]  = useState(false);
+  const [email,   setEmail]   = useState('');
+  const [otp,     setOtp]     = useState('');
+  const [step,    setStep]    = useState('email'); // 'email' | 'otp'
   const [loading, setLoading] = useState(false);
+
+  const reset = () => { setEmail(''); setOtp(''); setStep('email'); };
 
   const handleSend = async () => {
     const trimmed = email.trim().toLowerCase();
@@ -82,28 +85,43 @@ function EmailModal({ visible, onClose }) {
     if (error) {
       Alert.alert('Error', error.message);
     } else {
-      setSent(true);
+      setStep('otp');
+    }
+  };
+
+  const handleVerify = async () => {
+    const code = otp.trim();
+    if (code.length !== 6) {
+      Alert.alert('Invalid Code', 'Enter the 6-digit code from your email.');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: code,
+      type:  'email',
+    });
+    setLoading(false);
+    if (error) {
+      Alert.alert('Verification Failed', error.message);
+    } else {
+      reset();
+      onClose();
     }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={() => { reset(); onClose(); }}>
       <View style={styles.pickerOverlay}>
         <View style={styles.pickerBox}>
           <View style={styles.pickerHandle} />
-          <Text style={styles.pickerTitle}>{sent ? 'Check your email' : 'Continue with Email'}</Text>
-          {sent ? (
+          <Text style={styles.pickerTitle}>
+            {step === 'email' ? 'Continue with Email' : 'Enter OTP Code'}
+          </Text>
+
+          {step === 'email' ? (
             <>
-              <Text style={styles.pickerSub}>
-                We sent a magic link to {email}. Tap it to sign in.
-              </Text>
-              <TouchableOpacity style={styles.pickerCancel} onPress={() => { setSent(false); setEmail(''); onClose(); }}>
-                <Text style={styles.pickerCancelText}>Done</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={styles.pickerSub}>Enter your email to receive a sign-in link</Text>
+              <Text style={styles.pickerSub}>Enter your email to receive a sign-in code</Text>
               <View style={styles.inputBox}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <EmailTextInput value={email} onChangeText={setEmail} />
@@ -115,10 +133,41 @@ function EmailModal({ visible, onClose }) {
               >
                 {loading
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.sendBtnText}>Send Magic Link</Text>}
+                  : <Text style={styles.sendBtnText}>Send Code</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.pickerCancel} onPress={onClose}>
+              <TouchableOpacity style={styles.pickerCancel} onPress={() => { reset(); onClose(); }}>
                 <Text style={styles.pickerCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.pickerSub}>
+                We sent a 6-digit code to {email}.{'\n'}Check your inbox and enter it below.
+              </Text>
+              <View style={styles.inputBox}>
+                <Text style={styles.inputLabel}>6-Digit Code</Text>
+                <TextInput
+                  style={[styles.textInput, styles.otpInput]}
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  placeholder="000000"
+                  placeholderTextColor={C.textMuted}
+                  textAlign="center"
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.sendBtn, loading && { opacity: 0.6 }]}
+                onPress={handleVerify}
+                disabled={loading}
+              >
+                {loading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.sendBtnText}>Verify & Sign In</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.pickerCancel} onPress={() => setStep('email')}>
+                <Text style={styles.pickerCancelText}>← Change Email</Text>
               </TouchableOpacity>
             </>
           )}
@@ -333,4 +382,5 @@ const styles = StyleSheet.create({
   },
   sendBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
   sendBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  otpInput: { fontSize: 24, fontWeight: '700', letterSpacing: 8 },
 });

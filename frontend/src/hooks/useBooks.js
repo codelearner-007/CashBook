@@ -32,7 +32,7 @@ export function useCreateBook() {
       return { snapshot };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.snapshot !== undefined) {
+      if (ctx) {
         qc.setQueryData(BOOKS_KEY, ctx.snapshot);
       }
     },

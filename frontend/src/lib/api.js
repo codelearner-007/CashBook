@@ -9,7 +9,7 @@ import { supabase } from './supabase';
 
 export const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL,
-  timeout: 15000,
+  timeout: 30000,
 });
 
 api.interceptors.request.use(async (config) => {

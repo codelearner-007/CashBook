@@ -84,7 +84,7 @@ export default function DashboardLayout() {
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <AdminTabBar {...props} />}
     >
-      <Tabs.Screen name="users" />
+      <Tabs.Screen name="users" options={{ unmountOnBlur: true }} />
       <Tabs.Screen name="books" />
       <Tabs.Screen name="settings" />
       <Tabs.Screen name="index" options={{ href: null }} />

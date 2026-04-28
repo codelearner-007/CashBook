@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   SafeAreaView, StatusBar, Switch, Alert, Modal, ActivityIndicator, Pressable,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
 import { apiGetAllUsers, apiToggleUserStatus, apiGetBooks, apiGetUserBooks } from '../lib/api';
@@ -110,16 +110,27 @@ export default function AdminUsersScreen() {
 
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const { data: allUsers = [], isLoading: usersLoading } = useQuery({
+  const { data: allUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
     queryKey: ['admin-users'],
     queryFn:  apiGetAllUsers,
-    refetchInterval: 10000, // poll every 10 s so new users appear near-instantly
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 10000,
   });
 
-  const { data: books = [] } = useQuery({
+  const { data: books = [], refetch: refetchBooks } = useQuery({
     queryKey: ['books'],
     queryFn:  apiGetBooks,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchUsers();
+      refetchBooks();
+    }, [refetchUsers, refetchBooks])
+  );
 
   const { data: userBooks = [], isLoading: userBooksLoading } = useQuery({
     queryKey: ['user-books', selectedUser?.id],
