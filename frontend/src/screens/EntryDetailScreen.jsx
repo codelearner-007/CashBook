@@ -7,6 +7,7 @@ import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../hooks/useTheme';
+import { useBookBasePath } from '../hooks/useBookBasePath';
 import { apiGetEntries, apiDeleteEntry } from '../lib/api';
 import { ChevronLeftIcon, PencilIcon, DotsVerticalIcon, TrashIcon, CloudIcon } from '../components/ui/Icons';
 
@@ -40,7 +41,8 @@ const DetailRow = ({ label, value, C, Font }) => (
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function EntryDetailScreen() {
-  const router = useRouter();
+  const router    = useRouter();
+  const basePath  = useBookBasePath();
   const { id, eid } = useLocalSearchParams();
   const { C, Font, isDark } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
@@ -131,7 +133,7 @@ export default function EntryDetailScreen() {
           <View style={s.bottomBar}>
             <TouchableOpacity
               style={[s.editBtn, { borderColor: typeColor }]}
-              onPress={() => router.push({ pathname: '/(app)/books/[id]/edit-entry', params: { id, eid } })}
+              onPress={() => router.push({ pathname: `${basePath}/[id]/edit-entry`, params: { id, eid } })}
               activeOpacity={0.8}
             >
               <PencilIcon color={typeColor} size={16} />

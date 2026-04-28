@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useProfile } from '../hooks/useProfile';
 import { useAuthStore } from '../store/authStore';
@@ -198,7 +198,11 @@ const rowStyles = StyleSheet.create({
 
 export default function SettingsScreen({ applyTop = true, showBottomNav = false, profileRoute = '/(app)/settings/profile' }) {
   const router    = useRouter();
+  const segments  = useSegments();
   const { C }     = useTheme();
+  // Tab-root screens have no back stack — hide the back button so it doesn't
+  // mislead admins on the dashboard/settings tab into a wrong fallback route.
+  const isTabRoot = segments[1] === 'dashboard' && segments.length <= 3;
   const clearUser = useAuthStore((s) => s.clearUser);
   const { width } = useWindowDimensions();
   const hPad      = width > 600 ? Math.floor((width - 540) / 2) : 16;
@@ -246,7 +250,7 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
 
       {/* Header */}
       <View style={s.header}>
-        {showBottomNav ? (
+        {(showBottomNav || isTabRoot) ? (
           <View style={{ width: 40 }} />
         ) : (
           <TouchableOpacity

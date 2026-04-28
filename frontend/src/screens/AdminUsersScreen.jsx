@@ -196,7 +196,7 @@ export default function AdminUsersScreen() {
   }, [confirmState, toggleUserMutation]);
 
   const goToProfile = useCallback(() => {
-    router.push('/(app)/dashboard/profile');
+    router.push('/(app)/admin-profile');
   }, [router]);
 
   const stats = useMemo(() => {
