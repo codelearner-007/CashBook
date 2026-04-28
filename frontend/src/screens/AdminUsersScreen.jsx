@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, memo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Switch, Alert, Modal, Pressable, Image, TextInput,
+  StatusBar, Switch, Modal, Pressable, Image, TextInput,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
@@ -49,6 +49,35 @@ const XIcon = ({ color, size = 16 }) => (
   <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
     <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '45deg' }] }} />
     <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }] }} />
+  </View>
+);
+
+const LockIcon = ({ color, size = 16 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{
+      width: size * 0.52, height: size * 0.42,
+      borderTopLeftRadius: size * 0.26, borderTopRightRadius: size * 0.26,
+      borderWidth: 1.8, borderColor: color, borderBottomWidth: 0,
+    }} />
+    <View style={{
+      width: size * 0.78, height: size * 0.54,
+      borderRadius: size * 0.1,
+      borderWidth: 1.8, borderColor: color,
+      alignItems: 'center', justifyContent: 'center',
+    }}>
+      <View style={{ width: size * 0.18, height: size * 0.22, borderRadius: size * 0.1, borderWidth: 1.8, borderColor: color }} />
+    </View>
+  </View>
+);
+
+const CheckIcon = ({ color, size = 20 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{
+      width: size * 0.58, height: size * 0.32,
+      borderLeftWidth: 2.5, borderBottomWidth: 2.5,
+      borderColor: color,
+      transform: [{ rotate: '-45deg' }, { translateY: -size * 0.04 }],
+    }} />
   </View>
 );
 
@@ -109,6 +138,7 @@ export default function AdminUsersScreen() {
 
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmState, setConfirmState] = useState(null);
 
   const { data: allUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
     queryKey: ['admin-users'],
@@ -155,19 +185,15 @@ export default function AdminUsersScreen() {
   }, []);
 
   const handleToggleUser = useCallback((userId, isActive) => {
-    Alert.alert(
-      isActive ? 'Activate User' : 'Deactivate User',
-      `Are you sure you want to ${isActive ? 'activate' : 'deactivate'} this user?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: isActive ? 'Activate' : 'Deactivate',
-          style: isActive ? 'default' : 'destructive',
-          onPress: () => toggleUserMutation.mutate({ userId, isActive }),
-        },
-      ],
-    );
-  }, [toggleUserMutation]);
+    const target = allUsers.find(u => u.id === userId);
+    setConfirmState({ userId, isActive, userName: target?.full_name ?? '' });
+  }, [allUsers]);
+
+  const handleConfirmToggle = useCallback(() => {
+    if (!confirmState) return;
+    toggleUserMutation.mutate({ userId: confirmState.userId, isActive: confirmState.isActive });
+    setConfirmState(null);
+  }, [confirmState, toggleUserMutation]);
 
   const goToProfile = useCallback(() => {
     router.push('/(app)/dashboard/profile');
@@ -303,7 +329,7 @@ export default function AdminUsersScreen() {
         ListEmptyComponent={ListEmpty}
       />
 
-      {/* ── User Books Modal ─────────────────────────────────────────────── */}
+      {/* ── User Detail Modal ────────────────────────────────────────────── */}
       {selectedUserId != null && selectedUser && (
         <Modal
           visible
@@ -315,52 +341,194 @@ export default function AdminUsersScreen() {
             <Pressable style={s.modalBox} onPress={() => {}}>
               <View style={s.modalHandle} />
 
-              {/* Header */}
-              <View style={s.modalHeader}>
-                <View style={s.modalHeaderLeft}>
-                  <Text style={s.modalTitle} numberOfLines={1}>
-                    {selectedUser.full_name}
-                  </Text>
-                  <Text style={s.modalSubtitle} numberOfLines={1}>
-                    {selectedUser.email}
+              {/* Close */}
+              <TouchableOpacity
+                style={s.modalCloseBtn}
+                onPress={() => setSelectedUserId(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <XIcon color={C.textMuted} size={13} />
+              </TouchableOpacity>
+
+              {/* ─ Avatar + identity ─ */}
+              <View style={s.modalAvatarSection}>
+                <View style={[s.modalAvatarRing, {
+                  borderColor: selectedUser.is_active ? C.cashIn : C.border,
+                }]}>
+                  <View style={[s.modalAvatarCircle, {
+                    backgroundColor: selectedUser.is_active ? C.cashInLight : C.cardAlt,
+                  }]}>
+                    {selectedUser.avatar_url
+                      ? <ExpoImage
+                          source={{ uri: selectedUser.avatar_url }}
+                          style={{ width: '100%', height: '100%', borderRadius: 30 }}
+                          contentFit="cover"
+                        />
+                      : <Text style={[s.modalAvatarInitials, {
+                          color: selectedUser.is_active ? C.cashIn : C.textMuted,
+                        }]}>
+                          {getInitials(selectedUser.full_name)}
+                        </Text>
+                    }
+                  </View>
+                  <View style={[s.modalAvatarDot, {
+                    backgroundColor: selectedUser.is_active ? C.cashIn : C.textSubtle,
+                  }]} />
+                </View>
+
+                <Text style={s.modalUserName}>{selectedUser.full_name}</Text>
+                <Text style={s.modalUserEmail}>{selectedUser.email}</Text>
+
+                <View style={[s.modalStatusPill, {
+                  backgroundColor: selectedUser.is_active ? C.cashInLight : C.cashOutLight,
+                  borderColor: selectedUser.is_active ? C.cashIn : C.cashOut,
+                }]}>
+                  <View style={[s.modalStatusDot, {
+                    backgroundColor: selectedUser.is_active ? C.cashIn : C.cashOut,
+                  }]} />
+                  <Text style={[s.modalStatusPillText, {
+                    color: selectedUser.is_active ? C.cashIn : C.cashOut,
+                  }]}>
+                    {selectedUser.is_active ? 'Active' : 'Inactive'}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={s.modalCloseBtn}
-                  onPress={() => setSelectedUserId(null)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <XIcon color={C.textMuted} size={16} />
-                </TouchableOpacity>
               </View>
 
-              {/* Stats badges */}
-              <View style={s.modalBadgeRow}>
-                <View style={s.modalBadge}>
-                  <Text style={s.modalBadgeText}>{selectedUser.book_count} books</Text>
+              {/* ─ Stats row ─ */}
+              <View style={s.modalStatsRow}>
+                <View style={s.modalStatItem}>
+                  <Text style={s.modalStatValue}>{selectedUser.book_count}</Text>
+                  <Text style={s.modalStatLabel}>Books</Text>
                 </View>
-                <View style={s.modalBadge}>
-                  <Text style={s.modalBadgeText}>{selectedUser.entry_count} entries</Text>
+                <View style={s.modalStatDivider} />
+                <View style={s.modalStatItem}>
+                  <Text style={s.modalStatValue}>{selectedUser.entry_count}</Text>
+                  <Text style={s.modalStatLabel}>Entries</Text>
                 </View>
-                <View style={s.modalBadge}>
-                  <Text style={s.modalBadgeText}>{fmtStorage(selectedUser.storage_mb)}</Text>
+                <View style={s.modalStatDivider} />
+                <View style={s.modalStatItem}>
+                  <Text style={s.modalStatValue}>{fmtStorage(selectedUser.storage_mb)}</Text>
+                  <Text style={s.modalStatLabel}>Storage</Text>
                 </View>
               </View>
 
-              {/* Active toggle */}
-              <View style={s.modalToggleRow}>
-                <View>
-                  <Text style={s.modalToggleLabel}>Account Status</Text>
-                  <Text style={s.modalToggleSub}>
-                    {selectedUser.is_active ? 'User is currently active' : 'User is currently inactive'}
-                  </Text>
+              {/* ─ Account status toggle ─ */}
+              <View style={[s.modalToggleCard, {
+                backgroundColor: selectedUser.is_active ? C.cashInLight : C.cashOutLight,
+                borderColor: selectedUser.is_active
+                  ? `${C.cashIn}55`
+                  : `${C.cashOut}55`,
+              }]}>
+                <View style={s.modalToggleLeft}>
+                  <View style={[s.modalToggleIconBox, {
+                    backgroundColor: selectedUser.is_active
+                      ? `${C.cashIn}22`
+                      : `${C.cashOut}22`,
+                  }]}>
+                    <LockIcon
+                      color={selectedUser.is_active ? C.cashIn : C.cashOut}
+                      size={16}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[s.modalToggleTitle, {
+                      color: selectedUser.is_active ? C.cashIn : C.cashOut,
+                    }]}>
+                      Account Status
+                    </Text>
+                    <Text style={s.modalToggleSub}>
+                      {selectedUser.is_active ? 'Can access the app' : 'Blocked from the app'}
+                    </Text>
+                  </View>
                 </View>
                 <Switch
                   value={selectedUser.is_active}
                   onValueChange={(val) => handleToggleUser(selectedUser.id, val)}
-                  trackColor={{ false: C.border, true: C.primaryMid }}
-                  thumbColor={selectedUser.is_active ? C.primary : C.textSubtle}
+                  trackColor={{
+                    false: `${C.cashOut}55`,
+                    true:  `${C.cashIn}77`,
+                  }}
+                  thumbColor={selectedUser.is_active ? C.cashIn : C.cashOut}
                 />
+              </View>
+
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* ── Confirm Activate / Deactivate Modal ──────────────────────────── */}
+      {confirmState && (
+        <Modal
+          visible
+          animationType="fade"
+          transparent
+          onRequestClose={() => setConfirmState(null)}
+        >
+          <Pressable style={s.confirmOverlay} onPress={() => setConfirmState(null)}>
+            <Pressable style={s.confirmBox} onPress={() => {}}>
+
+              {/* Icon circle */}
+              <View style={[s.confirmIconCircle, {
+                backgroundColor: confirmState.isActive ? C.cashInLight : C.cashOutLight,
+              }]}>
+                <View style={[s.confirmIconInner, {
+                  backgroundColor: confirmState.isActive
+                    ? `${C.cashIn}22`
+                    : `${C.cashOut}22`,
+                }]}>
+                  {confirmState.isActive
+                    ? <CheckIcon color={C.cashIn} size={26} />
+                    : <LockIcon  color={C.cashOut} size={22} />
+                  }
+                </View>
+              </View>
+
+              {/* Title */}
+              <Text style={s.confirmTitle}>
+                {confirmState.isActive ? 'Activate Account' : 'Deactivate Account'}
+              </Text>
+
+              {/* User name pill */}
+              {confirmState.userName ? (
+                <View style={[s.confirmNamePill, {
+                  backgroundColor: confirmState.isActive ? C.cashInLight : C.cashOutLight,
+                }]}>
+                  <Text style={[s.confirmNameText, {
+                    color: confirmState.isActive ? C.cashIn : C.cashOut,
+                  }]} numberOfLines={1}>
+                    {confirmState.userName}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Body */}
+              <Text style={s.confirmBody}>
+                {confirmState.isActive
+                  ? 'This user will regain full access to the app immediately.'
+                  : 'This user will be blocked from the app until reactivated.'}
+              </Text>
+
+              {/* Buttons */}
+              <View style={s.confirmBtns}>
+                <TouchableOpacity
+                  style={s.confirmCancelBtn}
+                  onPress={() => setConfirmState(null)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.confirmCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.confirmActionBtn, {
+                    backgroundColor: confirmState.isActive ? C.cashIn : C.cashOut,
+                  }]}
+                  onPress={handleConfirmToggle}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.confirmActionText}>
+                    {confirmState.isActive ? 'Activate' : 'Deactivate'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
             </Pressable>
@@ -470,27 +638,134 @@ const makeStyles = (C, Font) => StyleSheet.create({
   emptyTitle:   { fontSize: 17, fontFamily: Font.bold,    color: C.text,     lineHeight: 26, marginBottom: 8 },
   emptySub:     { fontSize: 13, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20, textAlign: 'center' },
 
-  // ── User Books Modal ──────────────────────────────────────────────────────
-  modalOverlay:  { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
-  modalBox:      { backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
-  modalHandle:   { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
-
-  modalHeader:     { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 },
-  modalHeaderLeft: { flex: 1, marginRight: 12 },
-  modalTitle:      { fontSize: 18, fontFamily: Font.extraBold, color: C.text,     lineHeight: 26 },
-  modalSubtitle:   { fontSize: 12, fontFamily: Font.regular,   color: C.textMuted, lineHeight: 18, marginTop: 2 },
-  modalCloseBtn:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.cardAlt, alignItems: 'center', justifyContent: 'center' },
-
-  modalBadgeRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 20 },
-  modalBadge:     { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: C.cardAlt },
-  modalBadgeText: { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18 },
-
-  modalToggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.cardAlt, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: C.border,
+  // ── User Detail Modal ─────────────────────────────────────────────────────
+  modalOverlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
+  modalBox: {
+    backgroundColor: C.card,
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32,
   },
-  modalToggleLabel: { fontSize: 14, fontFamily: Font.semiBold, color: C.text,     lineHeight: 20 },
-  modalToggleSub:   { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18, marginTop: 2 },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: C.border, alignSelf: 'center', marginBottom: 8,
+  },
+  modalCloseBtn: {
+    position: 'absolute', top: 16, right: 20,
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: C.cardAlt, alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Avatar section
+  modalAvatarSection: { alignItems: 'center', paddingTop: 8, paddingBottom: 20 },
+  modalAvatarRing: {
+    width: 76, height: 76, borderRadius: 38,
+    borderWidth: 2.5,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 14,
+  },
+  modalAvatarCircle: {
+    width: 66, height: 66, borderRadius: 33,
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  modalAvatarInitials: { fontSize: 22, fontFamily: Font.extraBold },
+  modalAvatarDot: {
+    position: 'absolute', bottom: 3, right: 3,
+    width: 16, height: 16, borderRadius: 8,
+    borderWidth: 2.5, borderColor: C.card,
+  },
+  modalUserName: {
+    fontSize: 18, fontFamily: Font.extraBold, color: C.text,
+    lineHeight: 26, marginBottom: 4,
+  },
+  modalUserEmail: {
+    fontSize: 12, fontFamily: Font.regular, color: C.textMuted,
+    lineHeight: 18, marginBottom: 12,
+  },
+  modalStatusPill: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 50, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 5, gap: 6,
+  },
+  modalStatusDot: { width: 6, height: 6, borderRadius: 3 },
+  modalStatusPillText: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 16 },
+
+  // Stats row
+  modalStatsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.cardAlt, borderRadius: 16,
+    marginBottom: 14, borderWidth: 1, borderColor: C.border,
+  },
+  modalStatItem: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+  modalStatDivider: { width: 1, height: 32, backgroundColor: C.border },
+  modalStatValue: {
+    fontSize: 15, fontFamily: Font.bold, color: C.text,
+    lineHeight: 22, marginBottom: 2,
+  },
+  modalStatLabel: { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 16 },
+
+  // Status toggle card
+  modalToggleCard: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16, padding: 14, borderWidth: 1,
+  },
+  modalToggleLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12, gap: 12 },
+  modalToggleIconBox: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  modalToggleTitle: { fontSize: 14, fontFamily: Font.semiBold, lineHeight: 20 },
+  modalToggleSub: { fontSize: 12, fontFamily: Font.regular, color: C.textMuted, lineHeight: 18, marginTop: 2 },
+
+  // ── Confirm Modal ────────────────────────────────────────────────────────────
+  confirmOverlay: {
+    flex: 1, backgroundColor: C.overlay,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  confirmBox: {
+    width: '100%', backgroundColor: C.card,
+    borderRadius: 28, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 28,
+    alignItems: 'center',
+  },
+  confirmIconCircle: {
+    width: 80, height: 80, borderRadius: 40,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
+  confirmIconInner: {
+    width: 60, height: 60, borderRadius: 30,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  confirmTitle: {
+    fontSize: 20, fontFamily: Font.extraBold, color: C.text,
+    lineHeight: 28, marginBottom: 10, textAlign: 'center',
+  },
+  confirmNamePill: {
+    borderRadius: 50, paddingHorizontal: 14, paddingVertical: 5,
+    marginBottom: 12, maxWidth: '80%',
+  },
+  confirmNameText: {
+    fontSize: 13, fontFamily: Font.semiBold, lineHeight: 18, textAlign: 'center',
+  },
+  confirmBody: {
+    fontSize: 13, fontFamily: Font.regular, color: C.textMuted,
+    lineHeight: 20, textAlign: 'center', marginBottom: 28,
+  },
+  confirmBtns: {
+    flexDirection: 'row', gap: 10, width: '100%',
+  },
+  confirmCancelBtn: {
+    flex: 1, height: 48, borderRadius: 14,
+    borderWidth: 1.5, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 14, fontFamily: Font.semiBold, color: C.textMuted,
+  },
+  confirmActionBtn: {
+    flex: 1, height: 48, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  confirmActionText: {
+    fontSize: 14, fontFamily: Font.semiBold, color: '#FFFFFF',
+  },
 
 });
