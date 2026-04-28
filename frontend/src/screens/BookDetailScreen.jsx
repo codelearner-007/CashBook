@@ -244,16 +244,20 @@ export default function BookDetailScreen() {
     queryFn:  () => apiGetEntries(id),
     staleTime: 1000 * 60 * 2,
     enabled: !!id,
+    retry: 1,
   });
 
   const {
     data: summary = { net_balance: 0, total_in: 0, total_out: 0 },
     isLoading: summaryLoading,
+    isError: summaryError,
+    refetch: refetchSummary,
   } = useQuery({
     queryKey: ['summary', id],
     queryFn:  () => apiGetSummary(id),
     staleTime: 1000 * 60 * 2,
     enabled: !!id,
+    retry: 1,
   });
 
   const deleteEntry = useMutation({
@@ -266,6 +270,7 @@ export default function BookDetailScreen() {
   });
 
   const isLoading = entriesLoading || summaryLoading;
+  const isError   = entriesError   || summaryError;
 
   const filtered = useMemo(() => entries.filter((e) => {
     if (filterType    && e.type         !== filterType)    return false;
@@ -640,10 +645,10 @@ export default function BookDetailScreen() {
           </View>
           <LoadingSkeleton C={C} s={s} />
         </>
-      ) : entriesError ? (
+      ) : isError ? (
         <View style={s.errorBox}>
           <Text style={s.errorTitle}>Failed to load entries</Text>
-          <TouchableOpacity style={s.retryBtn} onPress={refetch}>
+          <TouchableOpacity style={s.retryBtn} onPress={() => { refetch(); refetchSummary(); }}>
             <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>

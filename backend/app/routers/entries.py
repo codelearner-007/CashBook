@@ -9,7 +9,7 @@ router = APIRouter()
 
 def _verify_book(sb, book_id: str, user_id: str):
     """Raise 404 if the book doesn't belong to this user."""
-    res = sb.table("books").select("id").eq("id", book_id).eq("user_id", user_id).single().execute()
+    res = sb.table("books").select("id").eq("id", book_id).eq("user_id", user_id).limit(1).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Book not found")
 
@@ -113,13 +113,26 @@ async def delete_entry(
 
 @router.get("/{book_id}/summary", response_model=BookSummary)
 async def get_summary(book_id: str, user_id: str = Depends(get_current_user)):
-    """Single DB function call — no N+1."""
     sb = get_supabase()
     _verify_book(sb, book_id, user_id)
-    result = sb.rpc("get_book_summary", {"p_book_id": book_id, "p_user_id": user_id}).execute()
-    row = result.data[0] if result.data else {"total_in": 0, "total_out": 0, "net_balance": 0}
+    try:
+        result = sb.rpc("get_book_summary", {"p_book_id": book_id, "p_user_id": user_id}).execute()
+        row = result.data[0] if result.data else {}
+    except Exception:
+        # Fallback: compute directly if RPC not yet created (migration 002 not run)
+        result = (
+            sb.table("entries")
+            .select("type, amount")
+            .eq("book_id", book_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        rows = result.data or []
+        total_in  = sum(r["amount"] for r in rows if r["type"] == "in")
+        total_out = sum(r["amount"] for r in rows if r["type"] == "out")
+        row = {"total_in": total_in, "total_out": total_out, "net_balance": total_in - total_out}
     return {
-        "total_in": float(row["total_in"]),
-        "total_out": float(row["total_out"]),
-        "net_balance": float(row["net_balance"]),
+        "total_in":    float(row.get("total_in", 0)),
+        "total_out":   float(row.get("total_out", 0)),
+        "net_balance": float(row.get("net_balance", 0)),
     }

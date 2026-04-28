@@ -162,15 +162,14 @@ export default function AdminBooksScreen() {
     personal: books.length,
   }), [books]);
 
-  const handleCreate = useCallback(async () => {
+  const handleCreate = useCallback(() => {
     if (!newBookName.trim()) return;
-    try {
-      await createBook.mutateAsync({ name: newBookName.trim() });
-      setNewBookName('');
-      setShowModal(false);
-    } catch {
-      Alert.alert('Error', 'Could not create book. Please try again.');
-    }
+    createBook.mutate(
+      { name: newBookName.trim() },
+      { onError: () => Alert.alert('Error', 'Could not create book. Please try again.') },
+    );
+    setNewBookName('');
+    setShowModal(false);
   }, [newBookName, createBook]);
 
   const handleDelete = useCallback((id, name) => {
