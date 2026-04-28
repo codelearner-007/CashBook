@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, ScrollView, Alert,
+  StatusBar, ScrollView, Alert, useWindowDimensions,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
@@ -177,10 +177,12 @@ const rowStyles = StyleSheet.create({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ applyTop = true }) {
   const router    = useRouter();
   const { C }     = useTheme();
   const clearUser = useAuthStore((s) => s.clearUser);
+  const { width } = useWindowDimensions();
+  const hPad      = width > 600 ? Math.floor((width - 540) / 2) : 16;
 
   const { data: profile } = useProfile();
 
@@ -201,10 +203,10 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const s = useMemo(() => makeStyles(C), [C]);
+  const s = useMemo(() => makeStyles(C, hPad), [C, hPad]);
 
   return (
-    <SafeAreaView applyTop={false} style={s.safe}>
+    <SafeAreaView applyTop={applyTop} style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* Header */}
@@ -289,15 +291,15 @@ export default function SettingsScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const makeStyles = (C) => StyleSheet.create({
+const makeStyles = (C, hPad) => StyleSheet.create({
   safe:          { flex: 1, backgroundColor: C.background },
   scroll:        { flex: 1 },
-  scrollContent: { paddingBottom: 48 },
+  scrollContent: { paddingBottom: 48, paddingHorizontal: hPad - 16 },
 
   header: {
     backgroundColor: C.primary,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
+    paddingHorizontal: hPad, paddingVertical: 14,
   },
   backBtn:     { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontFamily: Font.bold, color: '#fff' },
