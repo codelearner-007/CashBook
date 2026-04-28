@@ -6,6 +6,7 @@ import {
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../constants/colors';
+import { useTheme } from '../hooks/useTheme';
 import { apiGetSummary, apiGetEntries } from '../lib/api';
 
 const FILTERS = ['This Month', 'Last Month', 'Last 3 Months', 'Custom'];
@@ -13,6 +14,7 @@ const FILTERS = ['This Month', 'Last Month', 'Last 3 Months', 'Custom'];
 export default function ReportsScreen() {
   const router = useRouter();
   const { id, name } = useLocalSearchParams();
+  const { C } = useTheme();
   const [summary, setSummary] = useState({ net_balance: 0, total_in: 0, total_out: 0 });
   const [activeFilter, setActiveFilter] = useState('This Month');
   const [topEntries, setTopEntries] = useState([]);
@@ -41,7 +43,7 @@ export default function ReportsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.card} />
+      <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -164,13 +166,12 @@ export default function ReportsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary,
     paddingHorizontal: 12, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   backBtn: { padding: 4, marginRight: 4 },
-  backIcon: { fontSize: 28, color: Colors.text, fontWeight: '300' },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '800', color: Colors.text },
+  backIcon: { fontSize: 28, color: '#fff', fontWeight: '300' },
+  headerTitle: { flex: 1, fontSize: 17, fontWeight: '800', color: '#fff' },
   exportBtns: { flexDirection: 'row', gap: 8 },
   exportBtnPDF: { backgroundColor: '#FFEBEE', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   exportBtnExcel: { backgroundColor: Colors.cashInLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },

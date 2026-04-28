@@ -7,6 +7,7 @@ export default function AdminBooksScreen() {
       fabBottom={16}
       listPaddingBottom={96}
       applyTopSafeArea={false}
+      bookBasePath="/(app)/dashboard/books"
     />
   );
 }

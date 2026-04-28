@@ -81,16 +81,16 @@ export default function EntryDetailScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={C.card} />
+      <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <ChevronLeftIcon color={C.text} size={22} />
+          <ChevronLeftIcon color="#fff" size={22} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Entry Detail</Text>
         <TouchableOpacity onPress={() => setShowMenu(true)} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <DotsVerticalIcon color={C.text} size={22} />
+          <DotsVerticalIcon color="#fff" size={22} />
         </TouchableOpacity>
       </View>
 
@@ -172,11 +172,11 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card, paddingHorizontal: 8, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: C.border, minHeight: 56,
+    backgroundColor: C.primary, paddingHorizontal: 8, paddingVertical: 10,
+    minHeight: 56,
   },
   headerBtn:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, fontSize: 17, fontFamily: Font.bold, color: C.text, lineHeight: 24, textAlign: 'center' },
+  headerTitle: { flex: 1, fontSize: 17, fontFamily: Font.bold, color: '#fff', lineHeight: 24, textAlign: 'center' },
 
   loadingBox:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontSize: 14, fontFamily: Font.regular, color: C.textMuted },

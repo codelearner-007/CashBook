@@ -162,6 +162,7 @@ export default function BooksView({
   listPaddingBottom = 130,
   showBottomNav     = false,
   applyTopSafeArea  = true,
+  bookBasePath      = '/(app)/books',
 }) {
   const router = useRouter();
   const { C, Font, isDark, toggleTheme } = useTheme();
@@ -258,8 +259,8 @@ export default function BooksView({
   const userName     = user?.full_name ?? '';
 
   const handleBookPress = useCallback((book) => {
-    router.push({ pathname: '/(app)/books/[id]', params: { id: book.id, name: book.name } });
-  }, [router]);
+    router.push({ pathname: `${bookBasePath}/[id]`, params: { id: book.id, name: book.name } });
+  }, [router, bookBasePath]);
 
   const renderBook = useCallback(({ item, index }) => (
     <BookCard

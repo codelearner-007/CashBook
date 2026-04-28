@@ -12,7 +12,7 @@ import { ChevronLeftIcon } from '../components/ui/Icons';
 export default function AddEntryScreen() {
   const router = useRouter();
   const { id, type } = useLocalSearchParams();
-  const { C, Font, isDark } = useTheme();
+  const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();
   const formRef = useRef();
@@ -38,11 +38,11 @@ export default function AddEntryScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={C.card} />
+      <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <ChevronLeftIcon color={C.text} size={22} />
+          <ChevronLeftIcon color="#fff" size={22} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>{type === 'in' ? 'Cash In' : 'Cash Out'}</Text>
         <View style={{ width: 44 }} />
@@ -69,11 +69,11 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card, paddingHorizontal: 8, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: C.border, minHeight: 56,
+    backgroundColor: C.primary, paddingHorizontal: 8, paddingVertical: 10,
+    minHeight: 56,
   },
   headerBtn:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, fontSize: 17, fontFamily: Font.bold, color: C.text, lineHeight: 24, textAlign: 'center' },
+  headerTitle: { flex: 1, fontSize: 17, fontFamily: Font.bold, color: '#fff', lineHeight: 24, textAlign: 'center' },
 
   saveContainer: {
     padding: 16, borderTopWidth: 1,

@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useBookBasePath } from '../hooks/useBookBasePath';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
@@ -190,6 +191,7 @@ const LoadingSkeleton = ({ C, s }) => (
 
 export default function BookDetailScreen() {
   const router = useRouter();
+  const basePath = useBookBasePath();
   const { id, name } = useLocalSearchParams();
   const { C, Font, isDark } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
@@ -320,13 +322,13 @@ export default function BookDetailScreen() {
   }, [deleteEntry]);
 
   const goToReports = useCallback(() => {
-    router.push({ pathname: '/(app)/books/[id]/reports', params: { id } });
-  }, [router, id]);
+    router.push({ pathname: `${basePath}/[id]/reports`, params: { id } });
+  }, [router, basePath, id]);
 
   const goToBookSettings = useCallback(() => {
     setMenuVisible(false);
-    router.push({ pathname: '/(app)/books/[id]/book-settings', params: { id, name } });
-  }, [router, id, name]);
+    router.push({ pathname: `${basePath}/[id]/book-settings`, params: { id, name } });
+  }, [router, basePath, id, name]);
 
   const renderItem = useCallback(({ item: group }) => {
     const isCollapsed = !!collapsed[group.date];
@@ -351,7 +353,7 @@ export default function BookDetailScreen() {
             s={s}
             isDark={isDark}
             onPress={() => router.push({
-              pathname: '/(app)/books/[id]/entry-detail',
+              pathname: `${basePath}/[id]/entry-detail`,
               params: { id, eid: entry.id },
             })}
             onLongPress={() => handleDelete(entry.id)}
@@ -374,8 +376,8 @@ export default function BookDetailScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={C.card}
+        barStyle="light-content"
+        backgroundColor={C.primary}
       />
 
       {/* Header */}
@@ -385,7 +387,7 @@ export default function BookDetailScreen() {
           style={s.backBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <ChevronLeftIcon color={C.text} size={22} />
+          <ChevronLeftIcon color="#fff" size={22} />
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Text style={s.headerTitle} numberOfLines={1}>{name || 'Business Book'}</Text>
@@ -396,14 +398,14 @@ export default function BookDetailScreen() {
             style={s.headerIconBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <UserPlusIcon color={C.textMuted} size={20} />
+            <UserPlusIcon color="rgba(255,255,255,0.8)" size={20} />
           </TouchableOpacity>
           <TouchableOpacity
             style={s.headerIconBtn}
             onPress={() => setMenuVisible(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <DotsIcon color={C.textMuted} size={18} />
+            <DotsIcon color="rgba(255,255,255,0.8)" size={18} />
           </TouchableOpacity>
         </View>
       </View>
@@ -739,7 +741,7 @@ export default function BookDetailScreen() {
         <TouchableOpacity
           style={[s.actionBtn, { backgroundColor: C.cashIn }]}
           onPress={() => router.push({
-            pathname: '/(app)/books/[id]/add-entry',
+            pathname: `${basePath}/[id]/add-entry`,
             params: { id, type: 'in' },
           })}
           activeOpacity={0.85}
@@ -750,7 +752,7 @@ export default function BookDetailScreen() {
         <TouchableOpacity
           style={[s.actionBtn, { backgroundColor: C.cashOut }]}
           onPress={() => router.push({
-            pathname: '/(app)/books/[id]/add-entry',
+            pathname: `${basePath}/[id]/add-entry`,
             params: { id, type: 'out' },
           })}
           activeOpacity={0.85}
@@ -771,9 +773,8 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card,
+    backgroundColor: C.primary,
     paddingHorizontal: 12, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: C.border,
     minHeight: 56,
   },
   backBtn: {
@@ -782,11 +783,11 @@ const makeStyles = (C, Font) => StyleSheet.create({
   },
   headerCenter: { flex: 1, marginRight: 8 },
   headerTitle: {
-    fontSize: 16, fontFamily: Font.bold, color: C.text,
+    fontSize: 16, fontFamily: Font.bold, color: '#fff',
     lineHeight: 22,
   },
   headerSub: {
-    fontSize: 11, fontFamily: Font.regular, color: C.textMuted,
+    fontSize: 11, fontFamily: Font.regular, color: 'rgba(255,255,255,0.7)',
     lineHeight: 16, marginTop: 1,
   },
   headerRight:   { flexDirection: 'row', alignItems: 'center', gap: 4 },

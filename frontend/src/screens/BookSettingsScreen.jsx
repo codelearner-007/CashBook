@@ -5,11 +5,13 @@ import {
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 
 export default function BookSettingsScreen() {
   const router = useRouter();
+  const basePath = useBookBasePath();
   const { id, name } = useLocalSearchParams();
   const { C, Font, isDark } = useTheme();
   const s = makeStyles(C, Font);
@@ -36,19 +38,19 @@ export default function BookSettingsScreen() {
       icon: 'users',
       label: 'Contact',
       sub: 'Manage contacts for this book',
-      route: '/(app)/books/[id]/contact-settings',
+      route: `${basePath}/[id]/contact-settings`,
     },
     {
       icon: 'tag',
       label: 'Categories',
       sub: 'Add or remove categories',
-      route: '/(app)/books/[id]/categories-settings',
+      route: `${basePath}/[id]/categories-settings`,
     },
     {
       icon: 'credit-card',
       label: 'Payment Mode',
       sub: 'Configure payment modes',
-      route: '/(app)/books/[id]/payment-mode-settings',
+      route: `${basePath}/[id]/payment-mode-settings`,
     },
   ];
 
