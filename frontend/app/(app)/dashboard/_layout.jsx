@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useMemo } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../src/hooks/useTheme';
 
 const PeopleIcon = ({ color, size = 22 }) => (
@@ -79,7 +80,9 @@ function AdminTabBar({ state, navigation }) {
 }
 
 export default function DashboardLayout() {
+  const insets = useSafeAreaInsets();
   return (
+    <View style={{ flex: 1, paddingTop: Math.max(0, insets.top - 4) }}>
     <Tabs
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <AdminTabBar {...props} />}
@@ -89,5 +92,6 @@ export default function DashboardLayout() {
       <Tabs.Screen name="settings" />
       <Tabs.Screen name="index" options={{ href: null }} />
     </Tabs>
+    </View>
   );
 }

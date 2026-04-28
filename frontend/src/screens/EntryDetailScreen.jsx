@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Pressable,
-  SafeAreaView, StatusBar, ScrollView, Alert,
+  StatusBar, ScrollView, Alert,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../hooks/useTheme';

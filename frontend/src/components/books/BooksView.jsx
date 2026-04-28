@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useCallback, memo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable,
+  StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable,
 } from 'react-native';
+import SafeAreaView from '../ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../hooks/useTheme';
 import { useBooks, useCreateBook, useRenameBook, useDeleteBook } from '../../hooks/useBooks';
@@ -157,6 +158,7 @@ export default function BooksView({
   fabBottom         = 80,
   listPaddingBottom = 130,
   showBottomNav     = false,
+  applyTopSafeArea  = true,
 }) {
   const router = useRouter();
   const { C, Font, isDark, toggleTheme } = useTheme();
@@ -292,7 +294,7 @@ export default function BooksView({
   ), [s, C]);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView applyTop={applyTopSafeArea} style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* ── Header ──────────────────────────────────────────────────────── */}

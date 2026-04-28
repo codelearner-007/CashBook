@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, ScrollView,
+  StatusBar, ScrollView,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../constants/colors';
 import { apiGetSummary, apiGetEntries } from '../lib/api';

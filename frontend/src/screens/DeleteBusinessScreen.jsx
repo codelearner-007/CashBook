@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, Alert,
+  StatusBar, TextInput, Alert,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { Font } from '../constants/fonts';

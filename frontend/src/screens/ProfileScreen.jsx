@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, ScrollView, Alert,
+  StatusBar, ScrollView, Alert,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useProfile, useUpdateProfile } from '../hooks/useProfile';

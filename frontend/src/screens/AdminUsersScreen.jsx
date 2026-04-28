@@ -1,8 +1,9 @@
 import React, { useMemo, useCallback, memo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, Switch, Alert, Modal, ActivityIndicator, Pressable,
+  StatusBar, Switch, Alert, Modal, ActivityIndicator, Pressable,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
@@ -209,7 +210,7 @@ export default function AdminUsersScreen() {
   );
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView applyTop={false} style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* ── Header ───────────────────────────────────────────────────────── */}

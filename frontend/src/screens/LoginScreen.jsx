@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, Dimensions, Modal, ActivityIndicator, Alert, TextInput,
+  StatusBar, Dimensions, Modal, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';

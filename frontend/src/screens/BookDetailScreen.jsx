@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, Alert, ActivityIndicator,
+  StatusBar, TextInput, Alert, ActivityIndicator,
   Modal, Pressable, ScrollView,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';

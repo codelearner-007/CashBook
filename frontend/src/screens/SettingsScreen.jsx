@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, ScrollView, Alert,
+  StatusBar, ScrollView, Alert,
 } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useProfile } from '../hooks/useProfile';
@@ -203,7 +204,7 @@ export default function SettingsScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView applyTop={false} style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* Header */}

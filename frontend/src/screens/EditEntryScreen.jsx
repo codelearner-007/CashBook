@@ -1,5 +1,6 @@
 import React, { useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import SafeAreaView from '../components/ui/AppSafeAreaView';
 import Toast from '../lib/toast';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

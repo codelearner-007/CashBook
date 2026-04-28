@@ -6,6 +6,7 @@ export default function AdminBooksScreen() {
       workspaceLabel="Admin Workspace ▾"
       fabBottom={16}
       listPaddingBottom={96}
+      applyTopSafeArea={false}
     />
   );
 }
