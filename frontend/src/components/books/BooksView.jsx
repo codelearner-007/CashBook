@@ -332,10 +332,12 @@ export default function BooksView({
         {/* Balance */}
         <View style={s.balanceSection}>
           <Text style={s.balanceLabel}>TOTAL NET BALANCE</Text>
-          <Text style={s.balanceAmount}>
-            {currency ? <Text style={s.balanceCurrency}>{currency} </Text> : null}
-            {isLoading ? '—' : stats.total.toLocaleString()}
-          </Text>
+          <View style={s.balanceAmountRow}>
+            {currency ? <Text style={s.balanceCurrency}>{currency}</Text> : null}
+            <Text style={s.balanceAmount}>
+              {isLoading ? '—' : stats.total.toLocaleString()}
+            </Text>
+          </View>
           <View style={s.balanceUnderline} />
         </View>
 
@@ -398,7 +400,7 @@ export default function BooksView({
       {showBottomNav && (
         <View style={s.bottomNav}>
           {[
-            { label: 'Cashbooks', Icon: BookIcon, active: true,  onPress: () => {} },
+            { label: 'My Books', Icon: BookIcon, active: true,  onPress: () => {} },
             { label: 'Help',      Icon: HelpIcon, active: false, onPress: () => {} },
             { label: 'Settings',  Icon: GearIcon, active: false, onPress: () => router.push('/(app)/settings') },
           ].map(tab => (
@@ -553,8 +555,9 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // Balance
   balanceSection:  { alignItems: 'center', marginBottom: 24 },
   balanceLabel:    { fontSize: 10, fontFamily: Font.semiBold, color: C.onPrimaryMuted, letterSpacing: 1.4, marginBottom: 10 },
+  balanceAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   balanceCurrency: { fontSize: 18, fontFamily: Font.medium,   color: C.onPrimaryMuted },
-  balanceAmount:   { fontSize: 38, fontFamily: Font.extraBold, color: C.onPrimary, letterSpacing: -1, lineHeight: 46, marginBottom: 10 },
+  balanceAmount:   { fontSize: 38, fontFamily: Font.extraBold, color: C.onPrimary, letterSpacing: -1, lineHeight: 46 },
   balanceUnderline:{ width: 48, height: 3, borderRadius: 2, backgroundColor: C.onPrimarySubtle },
 
   // Stats
@@ -614,8 +617,8 @@ const makeStyles = (C, Font) => StyleSheet.create({
   fabText: { color: C.onPrimary, fontFamily: Font.extraBold, fontSize: 13, letterSpacing: 0.8, lineHeight: 18 },
 
   // Bottom nav
-  bottomNav:      { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, paddingBottom: 16, zIndex: 10, elevation: 10 },
-  navItem:        { flex: 1, alignItems: 'center', gap: 4, minHeight: 44, justifyContent: 'center' },
+  bottomNav:      { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 40, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, paddingBottom: 16, zIndex: 10, elevation: 10 },
+  navItem:        { alignItems: 'center', gap: 4, minWidth: 56, minHeight: 44, justifyContent: 'center' },
   navLabel:       { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 16 },
   navLabelActive: { fontSize: 11, fontFamily: Font.bold,   color: C.primary,   lineHeight: 16 },
 

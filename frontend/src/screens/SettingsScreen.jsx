@@ -13,6 +13,31 @@ import { Font } from '../constants/fonts';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
+const BookIcon = ({ color, size = 20 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 0.72, height: size * 0.88, borderRadius: 2, borderWidth: 1.5, borderColor: color, justifyContent: 'center', alignItems: 'center', gap: 3 }}>
+      {[0, 1, 2].map(i => (
+        <View key={i} style={{ width: size * 0.4, height: 1.5, backgroundColor: color, borderRadius: 1 }} />
+      ))}
+    </View>
+  </View>
+);
+
+const HelpIcon = ({ color, size = 20 }) => (
+  <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
+    <Text style={{ fontSize: size * 0.55, color, fontWeight: '700', lineHeight: size * 0.65 }}>?</Text>
+  </View>
+);
+
+const GearIcon = ({ color, size = 20 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 0.45, height: size * 0.45, borderRadius: size * 0.225, borderWidth: 2, borderColor: color }} />
+    <View style={{ position: 'absolute', width: size * 0.8, height: 2.5, backgroundColor: color, borderRadius: 1 }} />
+    <View style={{ position: 'absolute', width: size * 0.8, height: 2.5, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '60deg' }] }} />
+    <View style={{ position: 'absolute', width: size * 0.8, height: 2.5, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '120deg' }] }} />
+  </View>
+);
+
 const BackIcon = ({ color }) => (
   <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
     <View style={{ width: 9, height: 9, borderLeftWidth: 2.5, borderBottomWidth: 2.5, borderColor: color, transform: [{ rotate: '45deg' }] }} />
@@ -177,7 +202,7 @@ const rowStyles = StyleSheet.create({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-export default function SettingsScreen({ applyTop = true }) {
+export default function SettingsScreen({ applyTop = true, showBottomNav = false }) {
   const router    = useRouter();
   const { C }     = useTheme();
   const clearUser = useAuthStore((s) => s.clearUser);
@@ -203,7 +228,7 @@ export default function SettingsScreen({ applyTop = true }) {
     ]);
   };
 
-  const s = useMemo(() => makeStyles(C, hPad), [C, hPad]);
+  const s = useMemo(() => makeStyles(C, hPad, showBottomNav), [C, hPad, showBottomNav]);
 
   return (
     <SafeAreaView applyTop={applyTop} style={s.safe}>
@@ -211,13 +236,17 @@ export default function SettingsScreen({ applyTop = true }) {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/books')}
-          style={s.backBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <BackIcon color="#fff" />
-        </TouchableOpacity>
+        {showBottomNav ? (
+          <View style={{ width: 40 }} />
+        ) : (
+          <TouchableOpacity
+            onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/books')}
+            style={s.backBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <BackIcon color="#fff" />
+          </TouchableOpacity>
+        )}
         <Text style={s.headerTitle}>Settings</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -285,16 +314,32 @@ export default function SettingsScreen({ applyTop = true }) {
         <Text style={[s.version, { color: C.textSubtle, fontFamily: Font.regular }]}>CashBook v1.0.0</Text>
 
       </ScrollView>
+
+      {/* ── Bottom nav (regular user only) ──────────────────────────────── */}
+      {showBottomNav && (
+        <View style={s.bottomNav}>
+          {[
+            { label: 'My Books', Icon: BookIcon, active: false, onPress: () => router.replace('/(app)/books') },
+            { label: 'Help',     Icon: HelpIcon, active: false, onPress: () => {} },
+            { label: 'Settings', Icon: GearIcon, active: true,  onPress: () => {} },
+          ].map(tab => (
+            <TouchableOpacity key={tab.label} style={s.navItem} onPress={tab.onPress}>
+              <tab.Icon color={tab.active ? C.primary : C.textMuted} size={22} />
+              <Text style={tab.active ? s.navLabelActive : s.navLabel}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const makeStyles = (C, hPad) => StyleSheet.create({
+const makeStyles = (C, hPad, showBottomNav) => StyleSheet.create({
   safe:          { flex: 1, backgroundColor: C.background },
   scroll:        { flex: 1 },
-  scrollContent: { paddingBottom: 48, paddingHorizontal: hPad - 16 },
+  scrollContent: { paddingBottom: showBottomNav ? 100 : 48, paddingHorizontal: hPad - 16 },
 
   header: {
     backgroundColor: C.primary,
@@ -335,4 +380,9 @@ const makeStyles = (C, hPad) => StyleSheet.create({
   card: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
 
   version: { textAlign: 'center', fontSize: 12, marginTop: 28, marginBottom: 8 },
+
+  bottomNav:      { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 40, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, paddingBottom: 16, zIndex: 10, elevation: 10 },
+  navItem:        { alignItems: 'center', gap: 4, minWidth: 56, minHeight: 44, justifyContent: 'center' },
+  navLabel:       { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 16 },
+  navLabelActive: { fontSize: 11, fontFamily: Font.bold,   color: C.primary,   lineHeight: 16 },
 });

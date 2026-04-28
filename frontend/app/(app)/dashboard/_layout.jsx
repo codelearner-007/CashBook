@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useSegments } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +38,7 @@ const TAB_DEFS = [
 
 function AdminTabBar({ state, navigation }) {
   const { C, Font } = useTheme();
+  const segments = useSegments();
   const s = useMemo(() => StyleSheet.create({
     bar: {
       flexDirection: 'row',
@@ -57,6 +58,12 @@ function AdminTabBar({ state, navigation }) {
     labelActive: { fontSize: 11, fontFamily: Font.bold,   color: C.primary,   lineHeight: 16 },
     activeDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: C.primary, position: 'absolute', bottom: -8 },
   }), [C, Font]);
+
+  // Hide when navigated into a sub-route (book detail, add-entry, reports, etc.)
+  // Root dashboard routes: ['(app)', 'dashboard', '<tab>'] — length 3
+  // Nested routes:         ['(app)', 'dashboard', 'books', '[id]', ...] — length > 3
+  const isNestedRoute = segments[1] === 'dashboard' && segments.length > 3;
+  if (isNestedRoute) return null;
 
   return (
     <View style={s.bar}>
@@ -81,17 +88,23 @@ function AdminTabBar({ state, navigation }) {
 
 export default function DashboardLayout() {
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
+
+  // On nested routes (book detail, etc.) the screen's own SafeAreaView handles top padding.
+  // Remove the outer paddingTop to avoid double spacing.
+  const isNestedRoute = segments[1] === 'dashboard' && segments.length > 3;
+
   return (
-    <View style={{ flex: 1, paddingTop: Math.max(0, insets.top - 4) }}>
-    <Tabs
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <AdminTabBar {...props} />}
-    >
-      <Tabs.Screen name="users" options={{ unmountOnBlur: true }} />
-      <Tabs.Screen name="books" />
-      <Tabs.Screen name="settings" />
-      <Tabs.Screen name="index" options={{ href: null }} />
-    </Tabs>
+    <View style={{ flex: 1, paddingTop: isNestedRoute ? 0 : Math.max(0, insets.top - 4) }}>
+      <Tabs
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <AdminTabBar {...props} />}
+      >
+        <Tabs.Screen name="users" options={{ unmountOnBlur: true }} />
+        <Tabs.Screen name="books" />
+        <Tabs.Screen name="settings" />
+        <Tabs.Screen name="index" options={{ href: null }} />
+      </Tabs>
     </View>
   );
 }
