@@ -113,6 +113,7 @@ export default function AdminUsersScreen() {
   const { data: allUsers = [], isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn:  apiGetAllUsers,
+    refetchInterval: 10000, // poll every 10 s so new users appear near-instantly
   });
 
   const { data: books = [] } = useQuery({

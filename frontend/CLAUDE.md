@@ -15,21 +15,25 @@ frontend/
 │   │   ├── _layout.jsx           # Auth stack (no tab bar)
 │   │   └── login.jsx             # → LoginScreen
 │   └── (app)/
-│       ├── _layout.jsx           # App layout (tab bar / drawer)
+│       ├── _layout.jsx           # App layout (Stack, no header)
 │       ├── books/
-│       │   ├── index.jsx         # → BooksScreen
-│       │   ├── [id].jsx          # → BookDetailScreen
+│       │   ├── index.jsx                         # → BooksScreen
+│       │   ├── [id].jsx                          # → BookDetailScreen
 │       │   └── [id]/
-│       │       ├── add-entry.jsx             # → AddEntryScreen
-│       │       ├── edit-entry.jsx            # → EditEntryScreen
-│       │       ├── entry-detail.jsx          # → EntryDetailScreen
-│       │       ├── reports.jsx               # → ReportsScreen
-│       │       ├── book-settings.jsx         # → BookSettingsScreen
-│       │       ├── categories-settings.jsx   # → CategoriesSettingsScreen
-│       │       ├── contact-settings.jsx      # → ContactSettingsScreen
-│       │       └── payment-mode-settings.jsx # → PaymentModeSettingsScreen
+│       │       ├── add-entry.jsx                 # → AddEntryScreen
+│       │       ├── edit-entry.jsx                # → EditEntryScreen
+│       │       ├── entry-detail.jsx              # → EntryDetailScreen
+│       │       ├── reports.jsx                   # → ReportsScreen
+│       │       ├── book-settings.jsx             # → BookSettingsScreen
+│       │       ├── categories-settings.jsx       # → CategoriesSettingsScreen
+│       │       ├── contact-settings.jsx          # → ContactSettingsScreen
+│       │       └── payment-mode-settings.jsx     # → PaymentModeSettingsScreen
 │       ├── dashboard/
-│       │   └── index.jsx         # → DashboardScreen (superadmin only)
+│       │   ├── _layout.jsx       # Tabs layout (Users | My Books | Settings)
+│       │   ├── users.jsx         # → AdminUsersScreen  (superadmin only)
+│       │   ├── books.jsx         # → AdminBooksScreen  (superadmin only)
+│       │   ├── settings.jsx      # → SettingsScreen    (reused)
+│       │   └── index.jsx         # href: null (redirected by _layout)
 │       └── settings/
 │           ├── index.jsx         # → SettingsScreen
 │           ├── profile.jsx       # → ProfileScreen
@@ -40,23 +44,33 @@ frontend/
 ├── src/
 │   ├── screens/                  # All screen components (one file = one screen)
 │   ├── components/
-│   │   ├── entry/EntryForm.jsx   # Shared form for add/edit entry
-│   │   └── ui/                   # Atomic UI: Input, Icons, DatePickerModal, TimePickerModal
+│   │   ├── books/
+│   │   │   ├── BookMenu.jsx      # Bottom-sheet action menu for a book (delete)
+│   │   │   ├── DraggableList.jsx # Custom drag-reorder list for books
+│   │   │   └── SortSheet.jsx     # Sort-mode picker bottom sheet
+│   │   ├── entry/
+│   │   │   └── EntryForm.jsx     # Shared form for add/edit entry
+│   │   └── ui/
+│   │       ├── Input.jsx
+│   │       ├── Icons.jsx
+│   │       ├── DatePickerModal.jsx
+│   │       └── TimePickerModal.jsx
 │   ├── hooks/
-│   │   ├── useBooks.js           # Books CRUD via React Query
-│   │   ├── useProfile.js         # Profile read/update via React Query
+│   │   ├── useBooks.js           # useBooks, useCreateBook, useDeleteBook (React Query)
+│   │   ├── useBookSort.js        # Sort state + sorted list derivation
+│   │   ├── useProfile.js         # useProfile, useUpdateProfile
 │   │   └── useTheme.js           # Returns { C, Font, isDark, toggleTheme }
 │   ├── lib/
-│   │   ├── api.js                # All API calls (mock now, real later)
-│   │   ├── supabase.js           # Supabase client (SecureStore adapter)
+│   │   ├── api.js                # All Axios API calls (real backend, no mocks)
+│   │   ├── supabase.js           # Supabase client (SecureStore / localStorage adapter)
 │   │   └── toast.js              # Toast helper
 │   ├── store/
 │   │   ├── authStore.js          # Zustand: user, session, setUser, clearUser
-│   │   ├── bookFieldsStore.js    # Zustand: per-book field visibility toggles
-│   │   └── themeStore.js         # Zustand: isDark, toggle
+│   │   ├── themeStore.js         # Zustand: isDark, toggle
+│   │   └── bookFieldsStore.js    # Zustand: per-book field visibility toggles
 │   └── constants/
-│       ├── colors.js             # LightColors, DarkColors
-│       ├── fonts.js              # Font.* constants (Inter family)
+│       ├── colors.js             # LightColors, DarkColors, CARD_ACCENTS
+│       ├── fonts.js              # Font.regular/medium/semiBold/bold/extraBold
 │       ├── categories.js         # Default category list
 │       └── shadows.js            # Shadow presets
 ```
@@ -67,13 +81,13 @@ frontend/
 
 | Concern | Library |
 |---|---|
-| Framework | React Native + Expo SDK 51 |
+| Framework | React Native + Expo SDK 51 (JavaScript) |
 | Routing | Expo Router v3 (file-based) |
 | Server state | TanStack React Query v5 |
 | Global state | Zustand v4 |
-| HTTP | Axios (+ Supabase client) |
-| Auth | Supabase Auth (Google OAuth) |
-| Token storage | Expo SecureStore |
+| HTTP | Axios (+ Supabase client for auth) |
+| Auth | Supabase Auth (Google OAuth + Email OTP) |
+| Token storage | Expo SecureStore (native) / localStorage (web) |
 | Fonts | @expo-google-fonts/inter |
 | Date/time pickers | react-native-modal-datetime-picker |
 
@@ -84,155 +98,142 @@ frontend/
 ### Root Layout (`app/_layout.jsx`)
 - Loads Inter 400/500/600/700/800; hides splash screen when ready
 - Wraps app in `QueryClientProvider` (single `QueryClient` instance at module level)
-- `AuthGuard` watches `useAuthStore → user` and `useSegments`
+- `AuthGuard` watches `useAuthStore → user` and `useSegments`:
   - No user + inside `(app)` → `router.replace('/(auth)/login')`
   - User + inside `(auth)` + role `superadmin` → `router.replace('/(app)/dashboard')`
-  - User + inside `(auth)` + regular role → `router.replace('/(app)/books')`
+  - User + inside `(auth)` + role `user` → `router.replace('/(app)/books')`
 - Renders `<Slot />` (page content) + `<Toast />` (global toast layer)
 
 ### Role-based routing
 
 | Role | Landing route | Can access |
 |---|---|---|
-| Regular user | `/(app)/books` | Books, entries, settings |
-| `superadmin` | `/(app)/dashboard` | Dashboard + admin user management |
+| `user` | `/(app)/books` | Books, entries, settings |
+| `superadmin` | `/(app)/dashboard` | Dashboard (Users + Books + Settings tabs) |
 
 ---
 
 ## Screen Logic Reference
 
 ### `LoginScreen` → `/(auth)/login`
-- **Mock (current):** "Continue" button shows a user-picker bottom sheet with 5 mock users. Selecting one calls `setUser(user)` in authStore.
-- **Real (when wired):** Google button → `supabase.auth.signInWithOAuth({ provider: 'google' })` → on session event → `apiGetProfile()` → `setUser(profile, session)`.
-- Queries: none
+- Email/password or Google → `supabase.auth.signIn*` → on session event → `apiGetProfile()` → `setUser(profile, session)`
+- AuthGuard redirects based on role after login
 
 ---
 
-### `BooksScreen` → `/(app)/books`
-- Fetches all books via `useBooks()` (queryKey `['books']`, staleTime 2 min)
-- Header shows total net balance (sum across all books)
-- FAB opens `AddBookModal`; save calls `useCreateBook()` → optimistic prepend to cache
-- Long-press a book → confirm → `useDeleteBook()` → removes from cache
-- Tap book → `router.push('/(app)/books/' + id)`
+### `BooksScreen` → `/(app)/books` _(regular user)_
+- `useBooks()` — queryKey `['books']`, staleTime 2 min, calls `GET /api/v1/books`
+- Header: total net balance (sum across all books), book count, theme toggle, avatar → settings
+- Sort modes: `updated` (default) | `created` | `alpha` | `custom` (drag-reorder)
+- FAB → "Add New Book" modal → `useCreateBook().mutate({ name })`
+- ⋮ on card → `BookMenu` bottom sheet → confirm delete → `useDeleteBook().mutate(id)`
+- Tap book → `/(app)/books/[id]`
+- Bottom nav: Cashbooks | Help | Settings
+
+---
+
+### `AdminBooksScreen` → `/(app)/dashboard/books` _(superadmin)_
+- Identical to `BooksScreen` — same hooks, same CRUD flow, same sort/drag
+- Header shows "Admin Workspace ▾" instead of "Personal Workspace ▾"
+- FAB at `bottom: 16` (no bottom nav bar — nav is handled by dashboard tab bar)
+- No bottom nav bar (the dashboard `_layout.jsx` tab bar replaces it)
+
+---
+
+### `AdminUsersScreen` → `/(app)/dashboard/users` _(superadmin)_
+- `useQuery({ queryKey: ['admin-users'], queryFn: apiGetAllUsers, refetchInterval: 10000 })`
+  - Polls every **10 seconds** so new user registrations appear near-instantly
+- `useQuery({ queryKey: ['books'], queryFn: apiGetBooks })` — admin's own books for stats
+- Header stats: Total Users | Active Users | Total Books | Storage
+- Each user row: avatar initials, full name, email, book count, storage, entry count, active toggle
+- Toggle → `Alert.alert` confirm → `useMutation(apiToggleUserStatus)` → `invalidate(['admin-users'])`
+- Tap user card → modal with that user's books via `useQuery({ queryKey: ['user-books', id], queryFn: () => apiGetUserBooks(id) })`
+- The `books` stat in the header = `allUsers.reduce(book_count) + adminOwnBooks.length`
 
 ---
 
 ### `BookDetailScreen` → `/(app)/books/[id]`
 - Fetches entries (`['entries', bookId]`) and summary (`['summary', bookId]`)
-- Search bar: client-side filter by remark or amount text
-- Filter chips: Date range | Type (in/out) | Contact | Category | Payment mode — all client-side
-- Balance summary recalculates from filtered subset
-- Entries grouped by date, each group collapsible
-- Long-press entry → confirm delete → `apiDeleteEntry`
-- "Cash In" / "Cash Out" buttons → navigate to `add-entry?type=in` / `add-entry?type=out`
+- Search bar (client-side), filter chips (client-side)
+- Entries grouped by date; long-press entry → delete
+- "Cash In" / "Cash Out" → `add-entry?type=in|out`
 - Reports icon → `/(app)/books/[id]/reports`
 - Settings icon → `/(app)/books/[id]/book-settings`
 
 ---
 
 ### `AddEntryScreen` → `/(app)/books/[id]/add-entry`
-- Receives `type` param (`'in'` or `'out'`) from query string
-- Renders `<EntryForm type={type} />`
+- `type` param from query string (`'in'` or `'out'`)
 - On save: `apiCreateEntry(bookId, payload)` → invalidates `['entries', bookId]`, `['summary', bookId]`, `['books']`
 
 ---
 
 ### `EditEntryScreen` → `/(app)/books/[id]/edit-entry`
-- Loads entry by `entryId` param from cache or fetches fresh
-- Toggle type (in ↔ out) allowed inside form
-- Delete button → confirm → `apiDeleteEntry` → pop
+- Toggle type allowed; delete button → confirm → pop
 - On save: `apiUpdateEntry` → invalidates entries, summary, books
 
 ---
 
-### `EntryDetailScreen` → `/(app)/books/[id]/entry-detail`
-- Read-only view: amount (green=in, red=out), remark, category, payment mode, contact, date, time
-- Dropdown (⋮): Edit → push edit-entry | Delete → confirm → delete
-
----
-
-### `ReportsScreen` → `/(app)/books/[id]/reports`
-- Period picker: This Month | Last Month | Last 3 Months | Custom
-- Cards: Total Income | Total Expenses | Net Balance
-- Bar chart: Income vs Expense by sub-period
-- Export PDF / Export Excel → call API report endpoints (TODO)
-
----
-
-### `BookSettingsScreen` → `/(app)/books/[id]/book-settings`
-- Rename book via modal → `apiUpdateBook(bookId, { name })`
-- Nav cards: Contact Settings | Categories Settings | Payment Mode Settings
-
----
-
-### `CategoriesSettingsScreen` → `/(app)/books/[id]/categories-settings`
-- "Show Category Field" toggle → `bookFieldsStore`
-- Enable/disable individual categories
-- Add / remove categories
-- Data stored in `bookFieldsStore` (Zustand, persisted per book)
-
----
-
-### `ContactSettingsScreen` → `/(app)/books/[id]/contact-settings`
-- "Show Contact Field" toggle → `bookFieldsStore`
-- Add contacts (name + phone), delete contacts
-- Data stored in `bookFieldsStore`
-
----
-
-### `PaymentModeSettingsScreen` → `/(app)/books/[id]/payment-mode-settings`
-- "Show Payment Mode Field" toggle → `bookFieldsStore`
-- Toggle modes on/off: Cash, Online, Cheque, Other
-- Guard: minimum one mode must stay enabled
-
----
-
-### `DashboardScreen` → `/(app)/dashboard` _(superadmin only)_
-- Tab bar: "Users" | "My Books"
-- Users tab: list all users via `apiGetAllUsers()`, toggle active status via `apiToggleUserStatus`, view user's books via `apiGetUserBooks(userId)`
-- My Books tab: identical to BooksScreen scoped to admin's account
-
----
-
-### `SettingsScreen` → `/(app)/settings`
-- Sections: Account (Profile, Business, Currency) | App (Notifications, Privacy, Backup, Language) | Support (FAQ, Rate, Share)
-- Logout → `clearUser()` → AuthGuard redirects to login
+### `SettingsScreen` → `/(app)/settings` (and `/(app)/dashboard/settings`)
+- Sections: Account | App | Support
+- Logout → `supabase.auth.signOut()` → `clearUser()` → AuthGuard redirects to login
 
 ---
 
 ### `ProfileScreen` → `/(app)/settings/profile`
-- `useProfile()` loads data; edit name + phone; email read-only
-- "Update" disabled until dirty; save → `useUpdateProfile(payload)`
+- `useProfile()` loads data; save → `useUpdateProfile(payload)` → `invalidate(['profile'])`
 
 ---
 
-### `BusinessProfileScreen` → `/(app)/settings/business/profile`
-- Edit business name, email, phone, address
-- Avatar shows initials; save → `apiUpdateProfile({ business: payload })`
+## Books CRUD — Data Flow
+
+### Create
+1. Modal → `useCreateBook().mutate({ name })`
+2. `onMutate`: optimistic prepend with `id: '__optimistic__'` → UI updates instantly
+3. `POST /api/v1/books` → real book inserted in DB
+4. `onSuccess`: `invalidateQueries(['books'])` → refetch → cache = real DB row with actual UUID
+5. `onError`: rollback to snapshot
+
+### Delete
+1. `BookMenu` confirm → `useDeleteBook().mutate(bookId)`
+2. `onMutate`: optimistic remove from cache → UI updates instantly
+3. `DELETE /api/v1/books/:id` → DB delete (cascades entries)
+4. `onSuccess`: `invalidateQueries(['books'])` → refetch → cache = remaining books from DB
+5. `onError`: rollback to snapshot
+
+**Invariant:** After `onSuccess`, the cache always reflects real DB data — not just the optimistic state.
 
 ---
 
-### `DeleteBusinessScreen` → `/(app)/settings/business/delete`
-- Must type business name to confirm; "Delete" only enables on match
-- On delete → call delete API → `clearUser()` → navigate to login
+## DraggableList Sync Rule
+
+`DraggableList` maintains its own `items` state for drag ordering. It syncs with the parent `books` prop via `useEffect`:
+
+```js
+useEffect(() => {
+  if (dragIdx < 0) {        // don't interrupt an active drag
+    setItems([...books]);
+  }
+}, [books, dragIdx]);
+```
+
+This ensures that after a create or delete (which invalidates `['books']` and triggers a refetch), the drag list updates to show the real DB state without requiring the user to switch sort modes.
 
 ---
 
 ## API Layer (`src/lib/api.js`)
 
-Currently returns **mock data**. To switch to real backend:
-1. Uncomment the axios instance + auth interceptor block
-2. Replace each `return MOCK_*` with the real `api.get/post/put/delete(...)` call
-3. Delete the MOCK_DATA block at the top
+All functions call the real FastAPI backend. Axios interceptor attaches the Supabase JWT automatically. 401/403 responses trigger `supabase.auth.signOut()`.
 
 | Function | HTTP | Endpoint |
 |---|---|---|
 | `apiGetBooks()` | GET | `/api/v1/books` |
 | `apiCreateBook(name, currency)` | POST | `/api/v1/books` |
+| `apiUpdateBook(bookId, payload)` | PUT | `/api/v1/books/:id` |
 | `apiDeleteBook(bookId)` | DELETE | `/api/v1/books/:id` |
 | `apiGetProfile()` | GET | `/api/v1/profile` |
 | `apiUpdateProfile(payload)` | PUT | `/api/v1/profile` |
-| `apiGetEntries(bookId)` | GET | `/api/v1/books/:id/entries` |
+| `apiGetEntries(bookId, params)` | GET | `/api/v1/books/:id/entries` |
 | `apiGetSummary(bookId)` | GET | `/api/v1/books/:id/summary` |
 | `apiCreateEntry(bookId, payload)` | POST | `/api/v1/books/:id/entries` |
 | `apiUpdateEntry(bookId, entryId, payload)` | PUT | `/api/v1/books/:id/entries/:eid` |
@@ -245,36 +246,51 @@ Currently returns **mock data**. To switch to real backend:
 
 ## State Management
 
-| Store | Library | Contents |
+| Store / Cache | Library | Contents |
 |---|---|---|
 | `authStore` | Zustand | `user`, `session`, `setUser(user, session)`, `clearUser()` |
 | `themeStore` | Zustand | `isDark`, `toggle()` |
-| `bookFieldsStore` | Zustand | Per-book field visibility: categories list, contacts list, payment modes |
-| Books | React Query `['books']` | All books for current user |
-| Entries | React Query `['entries', bookId]` | Entries for a specific book |
-| Summary | React Query `['summary', bookId]` | Balance summary for a specific book |
-| Profile | React Query `['profile']` | Current user profile |
+| `bookFieldsStore` | Zustand | Per-book: categories list, contacts list, payment mode toggles |
+| `['books']` | React Query | All books for current user; staleTime 2 min |
+| `['admin-users']` | React Query | All non-admin users; refetchInterval 10 s |
+| `['entries', bookId]` | React Query | Entries for a specific book; staleTime 2 min |
+| `['summary', bookId]` | React Query | Balance summary for a specific book; staleTime 2 min |
+| `['profile']` | React Query | Current user profile; staleTime 5 min |
+| `['user-books', userId]` | React Query | A specific user's books (admin modal); enabled when userId is set |
 
-**Rule:** Never store server data in Zustand. Zustand = auth + UI preferences only.
+**Rule:** Never store server data in Zustand. Zustand = auth state + UI preferences only.
 
 ---
 
 ## Styling Rules
 
 - Always use `useTheme()` → `{ C, Font }` — never hardcode hex colors or font family strings
-- `C` resolves to `LightColors` or `DarkColors` based on `isDark`
-- `Font` resolves to Inter variant names from `constants/fonts.js`
+- `C` resolves to `LightColors` or `DarkColors` from `constants/colors.js`
+- `Font` resolves to Inter variant constants from `constants/fonts.js`
 - Per-screen styles via `StyleSheet.create()` inside a local `makeStyles(C, Font)` function called with current theme values
+- `CARD_ACCENTS` from `constants/colors.js` — color each book card by `index % CARD_ACCENTS.length`
 
 ---
 
 ## React Query Conventions
 
-| Query key | staleTime | Data |
-|---|---|---|
-| `['books']` | 2 min | Books list |
-| `['entries', bookId]` | 2 min | Book entries |
-| `['summary', bookId]` | 2 min | Book balance summary |
-| `['profile']` | 5 min | User profile |
+| Query key | staleTime | refetchInterval | Data |
+|---|---|---|---|
+| `['books']` | 2 min | — | Books list |
+| `['admin-users']` | 0 | 10 s | All non-admin users |
+| `['entries', bookId]` | 2 min | — | Book entries |
+| `['summary', bookId]` | 2 min | — | Book balance summary |
+| `['profile']` | 5 min | — | User profile |
+| `['user-books', userId]` | 0 | — | Specific user's books (admin modal) |
 
-Mutations use `qc.setQueryData(...)` for optimistic updates — no full refetch unless data shape is unknown.
+Mutations use `qc.setQueryData(...)` for optimistic updates + `qc.invalidateQueries(...)` on success to sync with DB.
+
+---
+
+## When to Update This File
+
+- New screen added or an existing screen's route changes
+- New hook added or its query key / stale time changes
+- New API function added to `api.js`
+- New Zustand store or store field added
+- Component moved, renamed, or has a new significant behaviour

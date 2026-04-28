@@ -53,15 +53,27 @@ async def update_book(
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    result = (
+    check = (
         sb.table("books")
-        .update(update_data)
+        .select("id")
         .eq("id", book_id)
         .eq("user_id", user_id)
+        .limit(1)
         .execute()
     )
-    if not result.data:
+    if not check.data:
         raise HTTPException(status_code=404, detail="Book not found")
+
+    sb.table("books").update(update_data).eq("id", book_id).eq("user_id", user_id).execute()
+
+    result = (
+        sb.table("books")
+        .select("*")
+        .eq("id", book_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
     book = result.data[0]
     return {**book, "net_balance": book.get("net_balance", 0), "last_entry_at": None}
 
@@ -69,12 +81,14 @@ async def update_book(
 @router.delete("/{book_id}", status_code=204)
 async def delete_book(book_id: str, user_id: str = Depends(get_current_user)):
     sb = get_supabase()
-    result = (
+    check = (
         sb.table("books")
-        .delete()
+        .select("id")
         .eq("id", book_id)
         .eq("user_id", user_id)
+        .limit(1)
         .execute()
     )
-    if not result.data:
+    if not check.data:
         raise HTTPException(status_code=404, detail="Book not found")
+    sb.table("books").delete().eq("id", book_id).eq("user_id", user_id).execute()

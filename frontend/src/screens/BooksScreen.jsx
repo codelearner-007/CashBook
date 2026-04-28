@@ -12,6 +12,7 @@ import { shadow } from '../constants/shadows';
 import { CARD_ACCENTS } from '../constants/colors';
 import SortSheet from '../components/books/SortSheet';
 import DraggableList from '../components/books/DraggableList';
+import BookMenu from '../components/books/BookMenu';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ const XIcon = ({ color, size = 16 }) => (
   </View>
 );
 
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const StatItem = memo(({ label, value, dotColor, s }) => (
@@ -144,7 +146,7 @@ const StatItem = memo(({ label, value, dotColor, s }) => (
   </View>
 ));
 
-const BookCard = memo(({ item, index, onPress, onDelete, C, s }) => {
+const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
   const balance = item.net_balance ?? 0;
   const accent = CARD_ACCENTS[index % CARD_ACCENTS.length];
   const bookInitials = getInitials(item.name);
@@ -167,7 +169,7 @@ const BookCard = memo(({ item, index, onPress, onDelete, C, s }) => {
           </Text>
         </View>
         <TouchableOpacity
-          onPress={onDelete}
+          onPress={onMenuOpen}
           style={s.moreBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
@@ -177,6 +179,7 @@ const BookCard = memo(({ item, index, onPress, onDelete, C, s }) => {
     </TouchableOpacity>
   );
 });
+
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -198,6 +201,7 @@ export default function BooksScreen() {
 
   const [showModal, setShowModal] = useState(false);
   const [newBookName, setNewBookName] = useState('');
+  const [menuBook, setMenuBook] = useState(null);
 
   // Derive currency: show if all books share the same currency, otherwise hide
   const currency = useMemo(() => {
@@ -223,6 +227,7 @@ export default function BooksScreen() {
   }, [newBookName, createBook]);
 
   const handleDelete = useCallback((id, name) => {
+    setMenuBook(null);
     Alert.alert('Delete Book', `Delete "${name}"? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteBook.mutate(id) },
@@ -243,9 +248,9 @@ export default function BooksScreen() {
       C={C}
       s={s}
       onPress={() => handleBookPress(item)}
-      onDelete={() => handleDelete(item.id, item.name)}
+      onMenuOpen={() => setMenuBook(item)}
     />
-  ), [C, s, handleDelete, handleBookPress]);
+  ), [C, s, handleBookPress]);
 
   const ListHeader = useMemo(() => (
     <View style={s.sectionHeader}>
@@ -345,7 +350,7 @@ export default function BooksScreen() {
           books={sortedBooks}
           onReorder={setCustomBooks}
           onBookPress={handleBookPress}
-          onBookDelete={handleDelete}
+          onBookDelete={(book) => setMenuBook(book)}
           listPaddingBottom={130}
           C={C}
           Font={Font}
@@ -387,6 +392,15 @@ export default function BooksScreen() {
         current={sortMode}
         onSelect={handleSortSelect}
         onClose={() => setShowSort(false)}
+      />
+
+      {/* Book action menu */}
+      <BookMenu
+        book={menuBook}
+        C={C}
+        Font={Font}
+        onClose={() => setMenuBook(null)}
+        onDelete={() => handleDelete(menuBook.id, menuBook.name)}
       />
 
       {/* Add Book Modal */}

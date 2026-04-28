@@ -64,6 +64,8 @@ async def create_entry(
         "entry_date": payload.entry_date,
         "entry_time": payload.entry_time,
     }).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create entry")
     return result.data[0]
 
 
@@ -79,16 +81,28 @@ async def update_entry(
     if "amount" in update_data and update_data["amount"] is not None:
         update_data["amount"] = float(update_data["amount"])
 
-    result = (
+    check = (
         sb.table("entries")
-        .update(update_data)
+        .select("id")
         .eq("id", entry_id)
         .eq("book_id", book_id)
         .eq("user_id", user_id)
+        .limit(1)
         .execute()
     )
-    if not result.data:
+    if not check.data:
         raise HTTPException(status_code=404, detail="Entry not found")
+
+    sb.table("entries").update(update_data).eq("id", entry_id).eq("book_id", book_id).eq("user_id", user_id).execute()
+
+    result = (
+        sb.table("entries")
+        .select("*")
+        .eq("id", entry_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
     return result.data[0]
 
 
@@ -99,16 +113,18 @@ async def delete_entry(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    result = (
+    check = (
         sb.table("entries")
-        .delete()
+        .select("id")
         .eq("id", entry_id)
         .eq("book_id", book_id)
         .eq("user_id", user_id)
+        .limit(1)
         .execute()
     )
-    if not result.data:
+    if not check.data:
         raise HTTPException(status_code=404, detail="Entry not found")
+    sb.table("entries").delete().eq("id", entry_id).eq("book_id", book_id).eq("user_id", user_id).execute()
 
 
 @router.get("/{book_id}/summary", response_model=BookSummary)

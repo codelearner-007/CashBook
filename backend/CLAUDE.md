@@ -17,7 +17,7 @@ backend/
 │   │   ├── profile.py        # GET/PUT /api/v1/profile
 │   │   ├── books.py          # GET/POST/PUT/DELETE /api/v1/books
 │   │   ├── entries.py        # GET/POST/PUT/DELETE /api/v1/books/{id}/entries + summary
-│   │   ├── admin.py          # GET/PATCH /api/v1/admin/users (superadmin only)
+│   │   ├── admin.py          # GET/PATCH /api/v1/admin/* (superadmin only)
 │   │   ├── reports.py        # GET /api/v1/books/{id}/report/pdf + /excel
 │   │   └── upload.py         # POST /api/v1/upload/attachment
 │   ├── models/
@@ -27,8 +27,8 @@ backend/
 │   ├── db/
 │   │   └── supabase.py       # Supabase service client singleton
 │   └── utils/
-│       ├── pdf.py            # generate_pdf(book_name, currency, entries, summary, ...) → bytes
-│       └── excel.py          # generate_excel(book_name, currency, entries, summary, ...) → bytes
+│       ├── pdf.py            # generate_pdf(...) → bytes
+│       └── excel.py          # generate_excel(...) → bytes
 ├── requirements.txt
 ├── Procfile                  # web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ├── .env                      # NEVER commit
@@ -43,8 +43,8 @@ backend/
 |---|---|
 | Framework | FastAPI 0.111 |
 | Server | Uvicorn (ASGI) |
-| Database client | supabase-py 2.4 |
-| JWT validation | python-jose[cryptography] |
+| Database client | supabase-py 2.4 (service role — bypasses RLS) |
+| JWT validation | python-jose[cryptography] (HS256, no aud check) |
 | PDF export | ReportLab 4.1 |
 | Excel export | openpyxl 3.1 |
 | Config | pydantic-settings |
@@ -56,11 +56,11 @@ backend/
 
 ```
 SUPABASE_URL=          # Project URL (https://xxx.supabase.co)
-SUPABASE_SERVICE_KEY=  # service_role key (not anon key!)
+SUPABASE_SERVICE_KEY=  # service_role key (NOT the anon key)
 SUPABASE_JWT_SECRET=   # JWT secret from Project Settings → API
 ```
 
-**Never use the anon key on the backend.** The service key bypasses RLS — always add `user_id` filters manually in every query.
+**Never use the anon key on the backend.** The service key bypasses RLS — always add `user_id` filters manually in every query (defence in depth).
 
 ---
 
@@ -78,6 +78,19 @@ async def get_current_user(authorization: str = Header(...)) -> str:
 ```
 
 **Rule:** Every protected endpoint must declare `user_id: str = Depends(get_current_user)` and filter all DB queries by that `user_id`. Never trust a `user_id` from the request body.
+
+### Superadmin guard (`routers/admin.py`)
+
+```python
+async def require_superadmin(user_id: str = Depends(get_current_user)) -> str:
+    sb = get_supabase()
+    res = sb.table("profiles").select("role").eq("id", user_id).single().execute()
+    if not res.data or res.data["role"] != "superadmin":
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+    return user_id
+```
+
+Used as `admin_id: str = Depends(require_superadmin)` on every admin endpoint.
 
 ---
 
@@ -98,12 +111,14 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `` | List all books for current user (includes net_balance, last_entry_at) | ✅ |
+| GET | `` | List all books for current user (net_balance, last_entry_at) | ✅ |
 | POST | `` | Create a new book | ✅ |
-| PUT | `/{book_id}` | Rename or update book | ✅ |
+| PUT | `/{book_id}` | Rename or update book currency | ✅ |
 | DELETE | `/{book_id}` | Delete a book (cascades entries) | ✅ |
 
-**GET /books** uses the `get_books_with_summary` PostgreSQL function — single DB round-trip, includes pre-computed `net_balance` (from trigger) and `last_entry_at`.
+**GET /books** — tries `get_books_with_summary` RPC first (single round-trip, includes pre-computed `net_balance` and `last_entry_at`). Falls back to a direct table query if the RPC is not yet defined (migration 002 not run).
+
+**POST /books** — returns the new book immediately; `net_balance` defaults to 0 (trigger fires on first entry).
 
 ---
 
@@ -116,6 +131,8 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 | PUT | `/{book_id}/entries/{entry_id}` | Update an entry | ✅ |
 | DELETE | `/{book_id}/entries/{entry_id}` | Delete an entry | ✅ |
 | GET | `/{book_id}/summary` | Get balance summary (via DB function) | ✅ |
+
+All entry endpoints call `_verify_book(sb, book_id, user_id)` first — raises 404 if book doesn't belong to user.
 
 **POST /entries body:**
 ```json
@@ -136,19 +153,23 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 { "total_in": 10000.0, "total_out": 4500.0, "net_balance": 5500.0 }
 ```
 
-**Balance rule:** `books.net_balance` is maintained by a DB trigger — never recompute in Python. Summary endpoint uses `get_book_summary()` PostgreSQL function.
+**Balance rule:** `books.net_balance` is maintained by a DB trigger — never recompute in Python. The summary endpoint uses the `get_book_summary()` PostgreSQL function with a direct-query fallback.
 
 ---
 
 ### Admin (`routers/admin.py`) — prefix `/api/v1/admin`
 
-| Method | Path | Description | Auth |
-|---|---|---|---|
-| GET | `/users` | List all non-superadmin users with stats | superadmin only |
-| PATCH | `/users/{user_id}/status` | Toggle `is_active` | superadmin only |
-| GET | `/users/{user_id}/books` | View any user's books | superadmin only |
+All endpoints require `require_superadmin` dependency (403 if not superadmin).
 
-**Superadmin guard** is a FastAPI dependency (`require_superadmin`) that checks the caller's profile role. Returns 403 if not superadmin.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/users` | All non-superadmin profiles with computed stats (book_count, entry_count, storage_mb) |
+| PATCH | `/users/{user_id}/status` | Toggle `is_active`; cannot deactivate superadmin |
+| GET | `/users/{user_id}/books` | Any user's books (with net_balance and last_entry_at) |
+
+**GET /users** — N+1 pattern: one extra query per user for book count and entry count. Acceptable for admin dashboards at current scale.
+
+**GET /users/:id/books** — tries `get_books_with_summary` RPC first, falls back to direct table query. Same fallback pattern as `/books`.
 
 **PATCH /users/:id/status body:** `{ "is_active": true }`
 
@@ -161,9 +182,7 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 | GET | `/{book_id}/report/pdf` | Download PDF report | ✅ |
 | GET | `/{book_id}/report/excel` | Download Excel report | ✅ |
 
-**Query params:** `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
-
-**PDF structure:** Header (book name + date range) → Summary row (In/Out/Balance) → Entries table with running balance column.
+Query params: `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 
 ---
 
@@ -194,13 +213,13 @@ class StatusUpdate:       is_active: bool
 ```python
 class BookCreate:    name, currency (default PKR)
 class BookUpdate:    name?, currency?
-class BookResponse:  id, user_id, name, currency, net_balance, created_at, updated_at, last_entry_at?
+class BookResponse:  id, user_id, name, currency, net_balance (float, default 0), created_at, updated_at?, last_entry_at?
 ```
 
 ### `models/entry.py`
 ```python
 class EntryCreate:   type, amount, remark?, category?, payment_mode, contact_name?, attachment_url?, entry_date, entry_time
-class EntryUpdate:   all fields optional
+class EntryUpdate:   all EntryCreate fields optional
 class EntryResponse: EntryCreate fields + id, book_id, user_id, created_at
                      Validator strips HH:MM:SS → HH:MM (Postgres time type)
 class BookSummary:   total_in, total_out, net_balance
@@ -210,7 +229,7 @@ class BookSummary:   total_in, total_out, net_balance
 
 ## Database Query Patterns
 
-**Always filter by user_id** (defence in depth with service role bypassing RLS):
+**Always filter by user_id** (service key bypasses RLS):
 
 ```python
 # ✅ Correct
@@ -227,6 +246,16 @@ sb.rpc("get_books_with_summary", {"p_user_id": user_id}).execute()
 
 # Summary for a book
 sb.rpc("get_book_summary", {"p_book_id": book_id, "p_user_id": user_id}).execute()
+```
+
+**Fallback pattern** (used in books.py and admin.py when RPC may not exist):
+```python
+try:
+    result = sb.rpc("get_books_with_summary", {"p_user_id": uid}).execute()
+    return result.data or []
+except Exception:
+    result = sb.table("books").select("*").eq("user_id", uid).order("created_at", desc=True).execute()
+    return [{**b, "net_balance": b.get("net_balance", 0), "last_entry_at": None} for b in (result.data or [])]
 ```
 
 ---
@@ -263,14 +292,15 @@ Swagger UI: `http://localhost:8000/docs`
 
 - `Procfile`: `web: uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 - Set all 3 env vars in Railway dashboard
-- Health check endpoint: `GET /health`
+- Health check endpoint: `GET /health` → `{"status": "ok"}`
 
 ---
 
 ## When to Update This File
 
 - New router/endpoint added or endpoint shape changes
-- Pydantic model added or modified
+- Pydantic model added or field modified
 - New env variable required
 - Auth middleware logic changes
-- New DB function used or utility added
+- New DB function used or fallback pattern added
+- Admin endpoints' stats computation method changes

@@ -80,5 +80,18 @@ async def toggle_user_status(
 async def get_user_books(user_id: str, admin_id: str = Depends(require_superadmin)):
     """Admin view of any user's books."""
     sb = get_supabase()
-    result = sb.rpc("get_books_with_summary", {"p_user_id": user_id}).execute()
-    return result.data or []
+    try:
+        result = sb.rpc("get_books_with_summary", {"p_user_id": user_id}).execute()
+        return result.data or []
+    except Exception:
+        result = (
+            sb.table("books")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return [
+            {**b, "net_balance": b.get("net_balance", 0), "last_entry_at": None}
+            for b in (result.data or [])
+        ]

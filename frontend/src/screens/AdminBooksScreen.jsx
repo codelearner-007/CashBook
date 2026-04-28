@@ -12,6 +12,7 @@ import { CARD_ACCENTS } from '../constants/colors';
 import { useAuthStore } from '../store/authStore';
 import SortSheet from '../components/books/SortSheet';
 import DraggableList from '../components/books/DraggableList';
+import BookMenu from '../components/books/BookMenu';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ const StatItem = memo(({ label, value, dotColor, s }) => (
 
 // ── Book Card ─────────────────────────────────────────────────────────────────
 
-const BookCard = memo(({ item, index, onPress, onDelete, C, s }) => {
+const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
   const balance = item.net_balance ?? 0;
   const accent  = CARD_ACCENTS[index % CARD_ACCENTS.length];
 
@@ -119,7 +120,7 @@ const BookCard = memo(({ item, index, onPress, onDelete, C, s }) => {
           <Text style={[s.balanceText, { color: C.text }]}>{fmt(balance)}</Text>
         </View>
         <TouchableOpacity
-          onPress={onDelete}
+          onPress={onMenuOpen}
           style={s.moreBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
@@ -149,6 +150,7 @@ export default function AdminBooksScreen() {
 
   const [showModal,   setShowModal]   = useState(false);
   const [newBookName, setNewBookName] = useState('');
+  const [menuBook,    setMenuBook]    = useState(null);
 
   // Derive currency: show if all books share the same currency
   const currency = useMemo(() => {
@@ -173,6 +175,7 @@ export default function AdminBooksScreen() {
   }, [newBookName, createBook]);
 
   const handleDelete = useCallback((id, name) => {
+    setMenuBook(null);
     Alert.alert('Delete Book', `Delete "${name}"? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteBook.mutate(id) },
@@ -190,9 +193,9 @@ export default function AdminBooksScreen() {
     <BookCard
       item={item} index={index} C={C} s={s}
       onPress={() => handleBookPress(item)}
-      onDelete={() => handleDelete(item.id, item.name)}
+      onMenuOpen={() => setMenuBook(item)}
     />
-  ), [C, s, handleDelete, handleBookPress]);
+  ), [C, s, handleBookPress]);
 
   const ListHeader = (
     <View style={s.sectionHeader}>
@@ -290,7 +293,7 @@ export default function AdminBooksScreen() {
           books={sortedBooks}
           onReorder={setCustomBooks}
           onBookPress={handleBookPress}
-          onBookDelete={handleDelete}
+          onBookDelete={(book) => setMenuBook(book)}
           listPaddingBottom={96}
           C={C}
           Font={Font}
@@ -311,6 +314,15 @@ export default function AdminBooksScreen() {
         <PlusIcon color={C.onPrimary} size={16} />
         <Text style={s.fabText}>ADD NEW BOOK</Text>
       </TouchableOpacity>
+
+      {/* Book action menu */}
+      <BookMenu
+        book={menuBook}
+        C={C}
+        Font={Font}
+        onClose={() => setMenuBook(null)}
+        onDelete={() => handleDelete(menuBook.id, menuBook.name)}
+      />
 
       {/* ── Sort Sheet ───────────────────────────────────────────────────── */}
       <SortSheet

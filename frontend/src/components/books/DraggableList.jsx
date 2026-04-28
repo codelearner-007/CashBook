@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, Fragment, useMemo, memo } from 'react';
+import React, { useState, useRef, useCallback, Fragment, useMemo, memo, useEffect } from 'react';
 import {
   View, Text, ScrollView, Animated, StyleSheet, TouchableOpacity,
 } from 'react-native';
@@ -110,6 +110,13 @@ export default function DraggableList({
   const [items,    setItems]    = useState(() => [...books]);
   const [dragIdx,  setDragIdx]  = useState(-1);
   const [insertAt, setInsertAt] = useState(-1);
+
+  // Sync internal list when the books prop changes (create/delete from parent)
+  useEffect(() => {
+    if (dragIdx < 0) {
+      setItems([...books]);
+    }
+  }, [books, dragIdx]);
 
   // Refs for use inside Responder callbacks (avoids stale closure issues)
   const dragIdxRef    = useRef(-1);
@@ -240,7 +247,7 @@ export default function DraggableList({
                 isActive={isActive}
                 handleProps={makeHandleProps(idx)}
                 onPress={() => onBookPress(book)}
-                onDelete={() => onBookDelete(book.id, book.name)}
+                onDelete={() => onBookDelete(book)}
                 C={C}
                 Font={Font}
               />
