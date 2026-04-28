@@ -35,20 +35,16 @@ function AuthGuard() {
   useEffect(() => {
     if (!navigationState?.key) return;
 
-    const inApp       = segments[0] === '(app)';
-    const inAuth      = segments[0] === '(auth)';
-    const inDashboard = segments[1] === 'dashboard';
+    const inApp = segments[0] === '(app)';
 
     if (!user && inApp) {
       router.replace('/(auth)/login');
-    } else if (user && inAuth) {
+    } else if (user && !inApp) {
       if (user.role === 'superadmin') {
         router.replace('/(app)/dashboard/users');
       } else {
         router.replace('/(app)/books');
       }
-    } else if (user && inApp && !inDashboard && user.role === 'superadmin') {
-      // Superadmin accessing /books — allowed (admin can also view their own books)
     }
   }, [user, segments, navigationState?.key]);
 

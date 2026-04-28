@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, Modal, Alert,
+  SafeAreaView, StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
@@ -19,7 +19,7 @@ const fmt = (n) =>
   (n < 0 ? '-' : '+') + Math.abs(n).toLocaleString();
 
 const getInitials = (str = '') =>
-  str.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  str.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
 
 const fmtLastEntry = (iso) => {
   if (!iso) return 'No entries yet';
@@ -78,6 +78,13 @@ const PlusIcon = ({ color, size = 16 }) => (
   </View>
 );
 
+const XIcon = ({ color, size = 16 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '45deg' }] }} />
+    <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }] }} />
+  </View>
+);
+
 // ── Stat Item ─────────────────────────────────────────────────────────────────
 
 const StatItem = memo(({ label, value, dotColor, s }) => (
@@ -130,8 +137,8 @@ export default function AdminBooksScreen() {
   const { C, Font, isDark, toggleTheme } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
 
-  const user       = useAuthStore((st) => st.user);
-  const { data: books = [], isLoading } = useBooks();
+  const user = useAuthStore((st) => st.user);
+  const { data: books = [], isLoading, isError, refetch } = useBooks();
   const createBook = useCreateBook();
   const deleteBook = useDeleteBook();
 
@@ -143,6 +150,13 @@ export default function AdminBooksScreen() {
   const [showModal,   setShowModal]   = useState(false);
   const [newBookName, setNewBookName] = useState('');
 
+  // Derive currency: show if all books share the same currency
+  const currency = useMemo(() => {
+    if (!books.length) return '';
+    const uniq = [...new Set(books.map(b => b.currency).filter(Boolean))];
+    return uniq.length === 1 ? uniq[0] : '';
+  }, [books]);
+
   const stats = useMemo(() => ({
     total:    books.reduce((acc, b) => acc + (b.net_balance ?? 0), 0),
     personal: books.length,
@@ -150,9 +164,13 @@ export default function AdminBooksScreen() {
 
   const handleCreate = useCallback(async () => {
     if (!newBookName.trim()) return;
-    await createBook.mutateAsync({ name: newBookName.trim() });
-    setNewBookName('');
-    setShowModal(false);
+    try {
+      await createBook.mutateAsync({ name: newBookName.trim() });
+      setNewBookName('');
+      setShowModal(false);
+    } catch {
+      Alert.alert('Error', 'Could not create book. Please try again.');
+    }
   }, [newBookName, createBook]);
 
   const handleDelete = useCallback((id, name) => {
@@ -162,7 +180,8 @@ export default function AdminBooksScreen() {
     ]);
   }, [deleteBook]);
 
-  const adminInitials = useMemo(() => getInitials(user?.full_name ?? 'AD'), [user]);
+  const adminInitials = useMemo(() => getInitials(user?.full_name ?? ''), [user]);
+  const adminName     = user?.full_name ?? 'Admin';
 
   const handleBookPress = useCallback((book) => {
     router.push({ pathname: '/(app)/books/[id]', params: { id: book.id, name: book.name } });
@@ -212,8 +231,8 @@ export default function AdminBooksScreen() {
             <View style={s.bizIconBox}>
               <Text style={s.bizIconText}>{adminInitials.charAt(0)}</Text>
             </View>
-            <View>
-              <Text style={s.bizName}>{user?.full_name ?? 'Admin'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.bizName} numberOfLines={1}>{adminName}</Text>
               <Text style={s.bizSub}>Admin Workspace  ▾</Text>
             </View>
           </View>
@@ -237,25 +256,37 @@ export default function AdminBooksScreen() {
         <View style={s.balanceSection}>
           <Text style={s.balanceLabel}>TOTAL NET BALANCE</Text>
           <Text style={s.balanceAmount}>
-            <Text style={s.balanceCurrency}>PKR </Text>
-            {stats.total.toLocaleString()}
+            {currency ? <Text style={s.balanceCurrency}>{currency} </Text> : null}
+            {isLoading ? '—' : stats.total.toLocaleString()}
           </Text>
           <View style={s.balanceUnderline} />
         </View>
 
         {/* Stats */}
         <View style={s.statsRow}>
-          <StatItem label="My Books"     value={stats.personal} dotColor={C.onPrimary}      s={s} />
+          <StatItem label="My Books"     value={isLoading ? '—' : stats.personal} dotColor={C.onPrimary}      s={s} />
           <View style={s.statDivider} />
-          <StatItem label="Shared Books" value={0}              dotColor={C.onPrimaryMuted} s={s} />
+          <StatItem label="Shared Books" value={0}                                 dotColor={C.onPrimaryMuted} s={s} />
         </View>
       </View>
 
-      {/* Section header — always visible regardless of sort mode */}
+      {/* Section header — always visible */}
       {ListHeader}
 
-      {/* ── Book List ────────────────────────────────────────────────────── */}
-      {sortMode === 'custom' ? (
+      {/* ── Book List — loading / error / content ──────────────────────── */}
+      {isLoading ? (
+        <View style={s.loadingBox}>
+          <ActivityIndicator size="large" color={C.primary} />
+          <Text style={s.loadingText}>Loading your books…</Text>
+        </View>
+      ) : isError ? (
+        <View style={s.errorBox}>
+          <Text style={s.errorTitle}>Couldn't load books</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={refetch}>
+            <Text style={s.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : sortMode === 'custom' ? (
         <DraggableList
           books={sortedBooks}
           onReorder={setCustomBooks}
@@ -291,11 +322,20 @@ export default function AdminBooksScreen() {
       />
 
       {/* ── Add Book Modal ────────────────────────────────────────────────── */}
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
-        <View style={s.modalOverlay}>
-          <View style={s.modalBox}>
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => { setShowModal(false); setNewBookName(''); }}>
+        <Pressable style={s.modalOverlay} onPress={() => { setShowModal(false); setNewBookName(''); }}>
+          <Pressable style={s.modalBox} onPress={() => {}}>
             <View style={s.modalHandle} />
-            <Text style={s.modalTitle}>New Book</Text>
+            <View style={s.modalTitleRow}>
+              <Text style={s.modalTitle}>New Book</Text>
+              <TouchableOpacity
+                style={s.modalCloseBtn}
+                onPress={() => { setShowModal(false); setNewBookName(''); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <XIcon color={C.textMuted} size={16} />
+              </TouchableOpacity>
+            </View>
             <Text style={s.modalSub}>Give it a clear, recognisable name</Text>
             <TextInput
               style={s.modalInput}
@@ -319,11 +359,11 @@ export default function AdminBooksScreen() {
                 onPress={handleCreate}
                 disabled={!newBookName.trim() || createBook.isPending}
               >
-                <Text style={s.createBtnText}>{createBook.isPending ? 'Creating...' : 'Create'}</Text>
+                <Text style={s.createBtnText}>{createBook.isPending ? 'Creating…' : 'Create'}</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -337,7 +377,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // Header
   header:        { backgroundColor: C.primary, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 },
   headerTop:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-  headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, marginRight: 12 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   bizIconBox:  { width: 44, height: 44, borderRadius: 12, backgroundColor: C.onPrimaryIconBg, alignItems: 'center', justifyContent: 'center' },
@@ -377,6 +417,16 @@ const makeStyles = (C, Font) => StyleSheet.create({
   sortBtnText:      { fontSize: 12, fontFamily: Font.semiBold, color: C.primary, lineHeight: 18 },
   sortBtnTextActive:{ color: C.onPrimary },
 
+  // Loading
+  loadingBox:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  loadingText: { fontSize: 14, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20 },
+
+  // Error
+  errorBox:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 40 },
+  errorTitle: { fontSize: 15, fontFamily: Font.medium, color: C.textMuted, textAlign: 'center' },
+  retryBtn:   { backgroundColor: C.primary, borderRadius: 12, paddingHorizontal: 28, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
+  retryText:  { color: C.onPrimary, fontFamily: Font.semiBold, fontSize: 14 },
+
   // Book Card
   bookCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -413,9 +463,11 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // Modal
   modalOverlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
   modalBox:     { backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
-  modalHandle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
-  modalTitle:   { fontSize: 20, fontFamily: Font.extraBold, color: C.text,     lineHeight: 28, marginBottom: 4 },
-  modalSub:     { fontSize: 13, fontFamily: Font.regular,   color: C.textMuted, lineHeight: 20, marginBottom: 20 },
+  modalHandle:   { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
+  modalTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  modalTitle:    { fontSize: 20, fontFamily: Font.extraBold, color: C.text, lineHeight: 28 },
+  modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.cardAlt, alignItems: 'center', justifyContent: 'center' },
+  modalSub:      { fontSize: 13, fontFamily: Font.regular,   color: C.textMuted, lineHeight: 20, marginBottom: 20 },
   modalInput: {
     borderWidth: 1.5, borderColor: C.border, borderRadius: 14,
     padding: 16, fontSize: 15, fontFamily: Font.regular,

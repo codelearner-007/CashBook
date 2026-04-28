@@ -7,7 +7,7 @@ export function useBooks() {
   return useQuery({
     queryKey: BOOKS_KEY,
     queryFn: apiGetBooks,
-    staleTime: 1000 * 60 * 2, // 2 min — reuse cached data
+    staleTime: 1000 * 60 * 2,
   });
 }
 
@@ -15,9 +15,29 @@ export function useCreateBook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ name, currency }) => apiCreateBook(name, currency),
-    onSuccess: (newBook) => {
-      // Optimistic: prepend new book without a full refetch
-      qc.setQueryData(BOOKS_KEY, (prev = []) => [newBook, ...prev]);
+    onMutate: async ({ name, currency = 'PKR' }) => {
+      await qc.cancelQueries({ queryKey: BOOKS_KEY });
+      const snapshot = qc.getQueryData(BOOKS_KEY);
+      qc.setQueryData(BOOKS_KEY, (prev = []) => [
+        {
+          id: '__optimistic__',
+          name,
+          currency,
+          net_balance: 0,
+          created_at: new Date().toISOString(),
+          last_entry_at: null,
+        },
+        ...prev,
+      ]);
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot !== undefined) {
+        qc.setQueryData(BOOKS_KEY, ctx.snapshot);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOKS_KEY });
     },
   });
 }
@@ -26,8 +46,19 @@ export function useDeleteBook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (bookId) => apiDeleteBook(bookId),
-    onSuccess: (_, bookId) => {
+    onMutate: async (bookId) => {
+      await qc.cancelQueries({ queryKey: BOOKS_KEY });
+      const snapshot = qc.getQueryData(BOOKS_KEY);
       qc.setQueryData(BOOKS_KEY, (prev = []) => prev.filter(b => b.id !== bookId));
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot !== undefined) {
+        qc.setQueryData(BOOKS_KEY, ctx.snapshot);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOKS_KEY });
     },
   });
 }
