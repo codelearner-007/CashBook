@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, memo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Switch, Alert, Modal, Pressable,
+  StatusBar, Switch, Alert, Modal, Pressable, Image, TextInput,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
@@ -54,43 +54,21 @@ const XIcon = ({ color, size = 16 }) => (
 
 // ── User Row ──────────────────────────────────────────────────────────────────
 
-const UserRow = memo(({ item, onToggle, onViewBooks, C, s }) => {
+const UserRow = memo(({ item, onViewBooks, C, s }) => {
   const initials = getInitials(item.full_name);
   return (
-    <View style={s.userCard}>
-      <TouchableOpacity style={s.userCardLeft} onPress={onViewBooks} activeOpacity={0.7}>
-        <View style={[s.userAvatar, { backgroundColor: item.is_active ? C.primaryLight : C.cardAlt, overflow: 'hidden' }]}>
-          {item.avatar_url
-            ? <ExpoImage source={{ uri: item.avatar_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-            : <Text style={[s.userAvatarText, { color: item.is_active ? C.primary : C.textMuted }]}>{initials}</Text>
-          }
-        </View>
-        <View style={s.userInfo}>
-          <View style={s.userNameRow}>
-            <Text style={s.userName} numberOfLines={1}>{item.full_name}</Text>
-            {!item.is_active && (
-              <View style={s.inactiveBadge}>
-                <Text style={s.inactiveBadgeText}>Inactive</Text>
-              </View>
-            )}
-          </View>
-          <Text style={s.userEmail} numberOfLines={1}>{item.email}</Text>
-          <View style={s.userMeta}>
-            <Text style={s.userMetaText}>{item.book_count} books</Text>
-            <View style={s.userMetaDot} />
-            <Text style={s.userMetaText}>{fmtStorage(item.storage_mb)}</Text>
-            <View style={s.userMetaDot} />
-            <Text style={s.userMetaText}>{item.entry_count} entries</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-      <Switch
-        value={item.is_active}
-        onValueChange={(val) => onToggle(item.id, val)}
-        trackColor={{ false: C.border, true: C.primaryMid }}
-        thumbColor={item.is_active ? C.primary : C.textSubtle}
-      />
-    </View>
+    <TouchableOpacity style={s.userCard} onPress={onViewBooks} activeOpacity={0.7}>
+      <View style={[s.userAvatar, { backgroundColor: item.is_active ? C.primaryLight : C.cardAlt, overflow: 'hidden' }]}>
+        {item.avatar_url
+          ? <ExpoImage source={{ uri: item.avatar_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+          : <Text style={[s.userAvatarText, { color: item.is_active ? C.primary : C.textMuted }]}>{initials}</Text>
+        }
+      </View>
+      <View style={s.userInfo}>
+        <Text style={s.userName} numberOfLines={1}>{item.full_name}</Text>
+        <Text style={s.userEmail} numberOfLines={1}>{item.email}</Text>
+      </View>
+    </TouchableOpacity>
   );
 });
 
@@ -129,7 +107,8 @@ export default function AdminUsersScreen() {
     );
   }, [isDark, toggleTheme, updateProfile]);
 
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: allUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
     queryKey: ['admin-users'],
@@ -158,8 +137,21 @@ export default function AdminUsersScreen() {
     onSuccess:  () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
-  const handleViewBooks = useCallback((user) => {
-    setSelectedUser(user);
+  const selectedUser = useMemo(
+    () => allUsers.find(u => u.id === selectedUserId) ?? null,
+    [allUsers, selectedUserId],
+  );
+
+  const filteredUsers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allUsers;
+    return allUsers.filter(
+      u => u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q),
+    );
+  }, [allUsers, searchQuery]);
+
+  const handleViewBooks = useCallback((userId) => {
+    setSelectedUserId(userId);
   }, []);
 
   const handleToggleUser = useCallback((userId, isActive) => {
@@ -194,18 +186,42 @@ export default function AdminUsersScreen() {
   const renderUser = useCallback(({ item }) => (
     <UserRow
       item={item}
-      onToggle={handleToggleUser}
-      onViewBooks={() => handleViewBooks(item)}
+      onViewBooks={() => handleViewBooks(item.id)}
       C={C}
       s={s}
     />
-  ), [C, s, handleToggleUser, handleViewBooks]);
+  ), [C, s, handleViewBooks]);
 
   const ListHeader = (
-    <View style={s.sectionHeader}>
-      <Text style={s.sectionTitle}>All Users</Text>
-      <View style={s.sectionBadge}>
-        <Text style={s.sectionBadgeText}>{allUsers.length} registered</Text>
+    <View>
+      <View style={s.sectionHeader}>
+        <Text style={s.sectionTitle}>All Users</Text>
+        <View style={s.sectionBadge}>
+          <Text style={s.sectionBadgeText}>{allUsers.length} registered</Text>
+        </View>
+      </View>
+      <View style={s.searchBar}>
+        <TextInput
+          style={s.searchInput}
+          placeholder="Search by name or email…"
+          placeholderTextColor={C.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+        <View style={s.searchBtn}>
+          {/* magnifier circle */}
+          <View style={{ width: 13, height: 13, borderRadius: 6.5, borderWidth: 2.5, borderColor: '#fff' }} />
+          {/* handle */}
+          <View style={{
+            position: 'absolute', bottom: 5, right: 5,
+            width: 6, height: 2.5, borderRadius: 1.5,
+            backgroundColor: '#fff',
+            transform: [{ rotate: '45deg' }],
+          }} />
+        </View>
       </View>
     </View>
   );
@@ -231,11 +247,18 @@ export default function AdminUsersScreen() {
       <View style={s.header}>
         <View style={s.headerTop}>
 
-          {/* Left — logo + brand + badge */}
+          {/* Left — avatar + brand + badge */}
           <View style={s.headerLeft}>
-            <View style={s.logoBox}>
-              <Text style={s.logoLetter}>C</Text>
-            </View>
+            <TouchableOpacity
+              onPress={goToProfile}
+              activeOpacity={0.8}
+              style={s.avatarCircle}
+            >
+              {adminProfile?.avatar_url
+                ? <Image source={{ uri: adminProfile.avatar_url }} style={s.avatarImg} />
+                : <Text style={s.avatarText}>{adminInitials}</Text>
+              }
+            </TouchableOpacity>
             <View style={s.brandBlock}>
               <Text style={s.brandLabel}>CASHBOOK</Text>
               <Text style={s.headerTitle}>Dashboard</Text>
@@ -246,18 +269,12 @@ export default function AdminUsersScreen() {
             </View>
           </View>
 
-          {/* Right — theme toggle + profile avatar */}
+          {/* Right — theme toggle only */}
           <View style={s.headerActions}>
             <TouchableOpacity onPress={handleThemeToggle} style={s.iconBtn} activeOpacity={0.8}>
               {isDark
                 ? <SunIcon  color={C.onPrimary} size={18} />
                 : <MoonIcon color={C.onPrimary} size={18} />}
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.avatarBtn, { overflow: 'hidden' }]} onPress={goToProfile} activeOpacity={0.8}>
-              {adminProfile?.avatar_url
-                ? <ExpoImage source={{ uri: adminProfile.avatar_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                : <Text style={s.avatarText}>{adminInitials}</Text>
-              }
             </TouchableOpacity>
           </View>
         </View>
@@ -277,7 +294,7 @@ export default function AdminUsersScreen() {
 
       {/* ── Users List ───────────────────────────────────────────────────── */}
       <FlatList
-        data={allUsers}
+        data={filteredUsers}
         keyExtractor={item => item.id}
         renderItem={renderUser}
         showsVerticalScrollIndicator={false}
@@ -287,14 +304,14 @@ export default function AdminUsersScreen() {
       />
 
       {/* ── User Books Modal ─────────────────────────────────────────────── */}
-      {selectedUser && (
+      {selectedUserId != null && selectedUser && (
         <Modal
           visible
           animationType="slide"
           transparent
-          onRequestClose={() => setSelectedUser(null)}
+          onRequestClose={() => setSelectedUserId(null)}
         >
-          <Pressable style={s.modalOverlay} onPress={() => setSelectedUser(null)}>
+          <Pressable style={s.modalOverlay} onPress={() => setSelectedUserId(null)}>
             <Pressable style={s.modalBox} onPress={() => {}}>
               <View style={s.modalHandle} />
 
@@ -310,35 +327,40 @@ export default function AdminUsersScreen() {
                 </View>
                 <TouchableOpacity
                   style={s.modalCloseBtn}
-                  onPress={() => setSelectedUser(null)}
+                  onPress={() => setSelectedUserId(null)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <XIcon color={C.textMuted} size={16} />
                 </TouchableOpacity>
               </View>
 
-              {/* Badge row */}
+              {/* Stats badges */}
               <View style={s.modalBadgeRow}>
                 <View style={s.modalBadge}>
-                  <Text style={s.modalBadgeText}>
-                    {selectedUser.book_count} books
-                  </Text>
+                  <Text style={s.modalBadgeText}>{selectedUser.book_count} books</Text>
                 </View>
                 <View style={s.modalBadge}>
-                  <Text style={s.modalBadgeText}>
-                    {selectedUser.entry_count} entries
-                  </Text>
+                  <Text style={s.modalBadgeText}>{selectedUser.entry_count} entries</Text>
                 </View>
                 <View style={s.modalBadge}>
-                  <Text style={s.modalBadgeText}>
-                    {fmtStorage(selectedUser.storage_mb)}
+                  <Text style={s.modalBadgeText}>{fmtStorage(selectedUser.storage_mb)}</Text>
+                </View>
+              </View>
+
+              {/* Active toggle */}
+              <View style={s.modalToggleRow}>
+                <View>
+                  <Text style={s.modalToggleLabel}>Account Status</Text>
+                  <Text style={s.modalToggleSub}>
+                    {selectedUser.is_active ? 'User is currently active' : 'User is currently inactive'}
                   </Text>
                 </View>
-                <View style={[s.modalBadge, selectedUser.is_active ? s.modalBadgeActive : s.modalBadgeInactive]}>
-                  <Text style={[s.modalBadgeText, selectedUser.is_active ? s.modalBadgeTextActive : s.modalBadgeTextInactive]}>
-                    {selectedUser.is_active ? 'Active' : 'Inactive'}
-                  </Text>
-                </View>
+                <Switch
+                  value={selectedUser.is_active}
+                  onValueChange={(val) => handleToggleUser(selectedUser.id, val)}
+                  trackColor={{ false: C.border, true: C.primaryMid }}
+                  thumbColor={selectedUser.is_active ? C.primary : C.textSubtle}
+                />
               </View>
 
             </Pressable>
@@ -360,14 +382,10 @@ const makeStyles = (C, Font) => StyleSheet.create({
   headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
-  // Logo
-  logoBox: {
-    width: 54, height: 54, borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.38)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  logoLetter: { fontSize: 26, fontFamily: Font.extraBold, color: C.onPrimary },
+  // Avatar circle (header left)
+  avatarCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.onPrimaryIconBg, borderWidth: 2, borderColor: C.onPrimarySubtle, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg:    { width: 44, height: 44, borderRadius: 22 },
+  avatarText:   { fontSize: 14, fontFamily: Font.bold, color: C.onPrimary },
 
   // Brand block
   brandBlock:  {},
@@ -391,13 +409,6 @@ const makeStyles = (C, Font) => StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarBtn: {
-    width: 46, height: 46, borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.85)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { fontSize: 14, fontFamily: Font.bold, color: C.onPrimary },
 
   // Divider between brand row and stats
   headerDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.14)', marginBottom: 16 },
@@ -420,26 +431,38 @@ const makeStyles = (C, Font) => StyleSheet.create({
   sectionBadge:     { backgroundColor: C.primaryLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   sectionBadgeText: { fontSize: 11, fontFamily: Font.semiBold, color: C.primary, lineHeight: 16 },
 
+  // Search bar
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.card,
+    marginHorizontal: 16, marginBottom: 12,
+    borderRadius: 50,
+    paddingLeft: 18, paddingRight: 4, paddingVertical: 4,
+    borderWidth: 1.5, borderColor: C.border,
+  },
+  searchInput: {
+    flex: 1, fontSize: 14, fontFamily: Font.regular,
+    color: C.text, padding: 0, margin: 0, height: 40,
+    outlineWidth: 0,
+  },
+  searchBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
   // User card
   userCard: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.card, marginHorizontal: 16, marginBottom: 10,
-    borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: C.border,
-    minHeight: 80,
+    borderRadius: 50, paddingVertical: 6, paddingRight: 18, paddingLeft: 6,
+    borderWidth: 1.5, borderColor: C.border,
   },
-  userCardLeft:   { flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 10 },
-  userAvatar:     { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  userAvatarText: { fontSize: 16, fontFamily: Font.extraBold },
-  userInfo:       { flex: 1, marginRight: 10 },
-  userNameRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  userName:       { fontSize: 14, fontFamily: Font.semiBold, color: C.text,     lineHeight: 20, flexShrink: 1 },
-  inactiveBadge:  { backgroundColor: '#FEF2F2', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: '#FECACA' },
-  inactiveBadgeText: { fontSize: 10, fontFamily: Font.bold, color: '#DC2626', lineHeight: 14 },
-  userEmail:      { fontSize: 12, fontFamily: Font.regular, color: C.textMuted, lineHeight: 18, marginBottom: 4 },
-  userMeta:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  userMetaText:   { fontSize: 11, fontFamily: Font.regular, color: C.textSubtle, lineHeight: 16 },
-  userMetaDot:    { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.textSubtle },
+  userAvatar:     { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  userAvatarText: { fontSize: 15, fontFamily: Font.extraBold },
+  userInfo:       { flex: 1 },
+  userName:       { fontSize: 14, fontFamily: Font.semiBold, color: C.text,     lineHeight: 20 },
+  userEmail:      { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18, marginTop: 2 },
 
   // Empty
   empty:        { alignItems: 'center', paddingTop: 70, paddingHorizontal: 40 },
@@ -458,12 +481,16 @@ const makeStyles = (C, Font) => StyleSheet.create({
   modalSubtitle:   { fontSize: 12, fontFamily: Font.regular,   color: C.textMuted, lineHeight: 18, marginTop: 2 },
   modalCloseBtn:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.cardAlt, alignItems: 'center', justifyContent: 'center' },
 
-  modalBadgeRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
-  modalBadge:           { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: C.cardAlt },
-  modalBadgeActive:     { backgroundColor: C.primaryLight, borderWidth: 1, borderColor: C.primaryMid },
-  modalBadgeInactive:   { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
-  modalBadgeText:       { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18 },
-  modalBadgeTextActive: { color: C.primary },
-  modalBadgeTextInactive: { color: '#DC2626' },
+  modalBadgeRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 20 },
+  modalBadge:     { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: C.cardAlt },
+  modalBadgeText: { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18 },
+
+  modalToggleRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: C.cardAlt, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: C.border,
+  },
+  modalToggleLabel: { fontSize: 14, fontFamily: Font.semiBold, color: C.text,     lineHeight: 20 },
+  modalToggleSub:   { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18, marginTop: 2 },
 
 });
