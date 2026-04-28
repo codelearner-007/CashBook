@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useCallback, memo } from 'react';
+import React, { useState, useMemo, useCallback, memo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   SafeAreaView, StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../hooks/useTheme';
-import { useBooks, useCreateBook, useDeleteBook } from '../../hooks/useBooks';
+import { useBooks, useCreateBook, useRenameBook, useDeleteBook } from '../../hooks/useBooks';
 import { useBookSort } from '../../hooks/useBookSort';
 import { useAuthStore } from '../../store/authStore';
 import { shadow } from '../../constants/shadows';
@@ -116,6 +116,13 @@ const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
   const balance      = item.net_balance ?? 0;
   const accent       = CARD_ACCENTS[index % CARD_ACCENTS.length];
   const bookInitials = getInitials(item.name);
+  const moreRef      = useRef(null);
+
+  const handleMorePress = () => {
+    moreRef.current?.measureInWindow((x, y, width, height) => {
+      onMenuOpen({ pageX: x, pageY: y, width, height });
+    });
+  };
 
   return (
     <TouchableOpacity style={s.bookCard} onPress={onPress} activeOpacity={0.85}>
@@ -131,7 +138,8 @@ const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
           <Text style={[s.balanceText, { color: C.text }]}>{fmt(balance)}</Text>
         </View>
         <TouchableOpacity
-          onPress={onMenuOpen}
+          ref={moreRef}
+          onPress={handleMorePress}
           style={s.moreBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
@@ -143,17 +151,12 @@ const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
 });
 
 // ── BooksView ─────────────────────────────────────────────────────────────────
-// Props:
-//   workspaceLabel   — string shown in header subtitle
-//   fabBottom        — absolute bottom offset for the FAB (80 with bottom nav, 16 without)
-//   listPaddingBottom— FlatList / DraggableList bottom padding
-//   showBottomNav    — render the Cashbooks / Help / Settings tab bar
 
 export default function BooksView({
-  workspaceLabel   = 'Personal Workspace ▾',
-  fabBottom        = 80,
+  workspaceLabel    = 'Personal Workspace ▾',
+  fabBottom         = 80,
   listPaddingBottom = 130,
-  showBottomNav    = false,
+  showBottomNav     = false,
 }) {
   const router = useRouter();
   const { C, Font, isDark, toggleTheme } = useTheme();
@@ -163,6 +166,7 @@ export default function BooksView({
 
   const { data: books = [], isLoading, isError, refetch } = useBooks();
   const createBook = useCreateBook();
+  const renameBook = useRenameBook();
   const deleteBook = useDeleteBook();
 
   const {
@@ -170,9 +174,17 @@ export default function BooksView({
     handleSortSelect, setCustomBooks, sortLabel,
   } = useBookSort(books);
 
+  // Add-book modal
   const [showModal,   setShowModal]   = useState(false);
   const [newBookName, setNewBookName] = useState('');
-  const [menuBook,    setMenuBook]    = useState(null);
+
+  // Popup menu state: { book, anchor } or null
+  const [menuState, setMenuState] = useState(null);
+
+  // Dialog states
+  const [renameDialog,      setRenameDialog]      = useState(null); // book | null
+  const [renameText,        setRenameText]        = useState('');
+  const [deleteDialog,      setDeleteDialog]      = useState(null); // book | null
 
   const currency = useMemo(() => {
     if (!books.length) return '';
@@ -185,6 +197,8 @@ export default function BooksView({
     personal: books.length,
   }), [books]);
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   const handleCreate = useCallback(() => {
     if (!newBookName.trim()) return;
     createBook.mutate(
@@ -195,13 +209,38 @@ export default function BooksView({
     setShowModal(false);
   }, [newBookName, createBook]);
 
-  const handleDelete = useCallback((id, name) => {
-    setMenuBook(null);
-    Alert.alert('Delete Book', `Delete "${name}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteBook.mutate(id) },
-    ]);
-  }, [deleteBook]);
+  const handleMenuSelect = useCallback((key, book) => {
+    setMenuState(null);
+    if (!book) return;
+    switch (key) {
+      case 'rename':
+        setRenameDialog(book);
+        setRenameText(book.name);
+        break;
+      case 'delete':
+        setDeleteDialog(book);
+        break;
+    }
+  }, []);
+
+  const handleRenameSubmit = useCallback(() => {
+    if (!renameText.trim() || !renameDialog) return;
+    renameBook.mutate(
+      { bookId: renameDialog.id, name: renameText.trim() },
+      { onError: () => Alert.alert('Error', 'Could not rename book. Please try again.') },
+    );
+    setRenameDialog(null);
+    setRenameText('');
+  }, [renameText, renameDialog, renameBook]);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteDialog) return;
+    const bookId = deleteDialog.id;
+    setDeleteDialog(null);
+    deleteBook.mutate(bookId, {
+      onError: () => Alert.alert('Error', 'Could not delete book. Please try again.'),
+    });
+  }, [deleteDialog, deleteBook]);
 
   const userInitials = useMemo(() => getInitials(user?.full_name ?? ''), [user]);
   const userName     = user?.full_name ?? '';
@@ -214,7 +253,7 @@ export default function BooksView({
     <BookCard
       item={item} index={index} C={C} s={s}
       onPress={() => handleBookPress(item)}
-      onMenuOpen={() => setMenuBook(item)}
+      onMenuOpen={(anchor) => setMenuState({ book: item, anchor })}
     />
   ), [C, s, handleBookPress]);
 
@@ -316,7 +355,7 @@ export default function BooksView({
           books={sortedBooks}
           onReorder={setCustomBooks}
           onBookPress={handleBookPress}
-          onBookDelete={(book) => setMenuBook(book)}
+          onBookMenu={(book, anchor) => setMenuState({ book, anchor })}
           listPaddingBottom={listPaddingBottom}
           C={C}
           Font={Font}
@@ -358,13 +397,14 @@ export default function BooksView({
         </View>
       )}
 
-      {/* ── Book action menu ────────────────────────────────────────────── */}
+      {/* ── Popup book menu ─────────────────────────────────────────────── */}
       <BookMenu
-        book={menuBook}
+        book={menuState?.book}
+        anchor={menuState?.anchor}
         C={C}
         Font={Font}
-        onClose={() => setMenuBook(null)}
-        onDelete={() => handleDelete(menuBook.id, menuBook.name)}
+        onClose={() => setMenuState(null)}
+        onSelect={handleMenuSelect}
       />
 
       {/* ── Sort sheet ──────────────────────────────────────────────────── */}
@@ -375,7 +415,64 @@ export default function BooksView({
         onClose={() => setShowSort(false)}
       />
 
-      {/* ── Add book modal ───────────────────────────────────────────────── */}
+      {/* ── Rename dialog ───────────────────────────────────────────────── */}
+      <Modal visible={!!renameDialog} transparent animationType="fade" onRequestClose={() => setRenameDialog(null)}>
+        <Pressable style={s.dialogOverlay} onPress={() => setRenameDialog(null)}>
+          <Pressable style={s.dialogCard} onPress={() => {}}>
+            <Text style={s.dialogTitle}>Rename</Text>
+            <Text style={s.dialogSub}>Enter a new name for this book</Text>
+            <TextInput
+              style={s.dialogInput}
+              placeholder="Book name"
+              placeholderTextColor={C.textSubtle}
+              value={renameText}
+              onChangeText={setRenameText}
+              autoFocus
+              maxLength={40}
+            />
+            <Text style={s.charCount}>{renameText.length}/40</Text>
+            <View style={s.dialogBtns}>
+              <TouchableOpacity style={s.dlgCancel} onPress={() => setRenameDialog(null)}>
+                <Text style={s.dlgCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.dlgAction, !renameText.trim() && s.dlgActionDisabled]}
+                onPress={handleRenameSubmit}
+                disabled={!renameText.trim() || renameBook.isPending}
+              >
+                <Text style={s.dlgActionText}>{renameBook.isPending ? 'Saving…' : 'Save'}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Delete dialog ───────────────────────────────────────────────── */}
+      <Modal visible={!!deleteDialog} transparent animationType="fade" onRequestClose={() => setDeleteDialog(null)}>
+        <Pressable style={s.dialogOverlay} onPress={() => setDeleteDialog(null)}>
+          <Pressable style={s.dialogCard} onPress={() => {}}>
+            <Text style={s.dialogTitle}>Delete Book</Text>
+            <Text style={s.dialogSub}>
+              Delete <Text style={{ fontFamily: Font.semiBold, color: C.text }}>"{deleteDialog?.name}"</Text>?{'\n'}
+              This will permanently remove the book and all its entries. This cannot be undone.
+            </Text>
+            <View style={s.dialogBtns}>
+              <TouchableOpacity style={s.dlgCancel} onPress={() => setDeleteDialog(null)}>
+                <Text style={s.dlgCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.dlgDanger}
+                onPress={handleDeleteConfirm}
+                disabled={deleteBook.isPending}
+              >
+                <Text style={s.dlgDangerText}>{deleteBook.isPending ? 'Deleting…' : 'Delete'}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Add book modal (slide-up) ────────────────────────────────────── */}
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={closeModal}>
         <Pressable style={s.modalOverlay} onPress={closeModal}>
           <Pressable style={s.modalBox} onPress={() => {}}>
@@ -493,7 +590,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   emptyTitle:   { fontSize: 17, fontFamily: Font.bold,    color: C.text,     lineHeight: 26, marginBottom: 8 },
   emptySub:     { fontSize: 13, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20, textAlign: 'center' },
 
-  // FAB (bottom is injected as inline style)
+  // FAB
   fab: {
     position: 'absolute', alignSelf: 'center',
     backgroundColor: C.primary, borderRadius: 32,
@@ -509,7 +606,23 @@ const makeStyles = (C, Font) => StyleSheet.create({
   navLabel:       { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 16 },
   navLabelActive: { fontSize: 11, fontFamily: Font.bold,   color: C.primary,   lineHeight: 16 },
 
-  // Modal
+  // Centered dialog (rename / duplicate / delete / placeholder)
+  dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  dialogCard:    { width: '100%', backgroundColor: C.card, borderRadius: 20, padding: 24 },
+  dialogTitle:   { fontSize: 18, fontFamily: Font.extraBold, color: C.text, lineHeight: 26, marginBottom: 8 },
+  dialogSub:     { fontSize: 13, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20, marginBottom: 20 },
+  dialogInput:   { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, padding: 14, fontSize: 15, fontFamily: Font.regular, color: C.text, backgroundColor: C.background, marginBottom: 6, lineHeight: 22 },
+  charCount:     { fontSize: 11, fontFamily: Font.regular, color: C.textSubtle, textAlign: 'right', marginBottom: 20, lineHeight: 16 },
+  dialogBtns:    { flexDirection: 'row', gap: 12 },
+  dlgCancel:     { flex: 1, borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  dlgCancelText: { fontFamily: Font.semiBold, fontSize: 14, color: C.textMuted },
+  dlgAction:     { flex: 1, backgroundColor: C.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  dlgActionDisabled: { backgroundColor: C.border },
+  dlgActionText: { fontFamily: Font.bold, fontSize: 14, color: C.onPrimary },
+  dlgDanger:     { flex: 1, backgroundColor: '#E53935', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  dlgDangerText: { fontFamily: Font.bold, fontSize: 14, color: '#fff' },
+
+  // Slide-up modal (add new book)
   modalOverlay:    { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
   modalBox:        { backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
   modalHandle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
@@ -518,7 +631,6 @@ const makeStyles = (C, Font) => StyleSheet.create({
   modalCloseBtn:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.cardAlt, alignItems: 'center', justifyContent: 'center' },
   modalSub:        { fontSize: 13, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20, marginBottom: 20 },
   modalInput:      { borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16, fontSize: 15, fontFamily: Font.regular, color: C.text, backgroundColor: C.background, marginBottom: 6, lineHeight: 22 },
-  charCount:       { fontSize: 11, fontFamily: Font.regular, color: C.textSubtle, textAlign: 'right', marginBottom: 20, lineHeight: 16 },
   modalActions:    { flexDirection: 'row', gap: 12 },
   cancelBtn:       { flex: 1, borderWidth: 1.5, borderColor: C.border, borderRadius: 14, paddingVertical: 15, alignItems: 'center', minHeight: 52 },
   cancelBtnText:   { fontFamily: Font.semiBold, fontSize: 15, color: C.textMuted, lineHeight: 22 },

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGetBooks, apiCreateBook, apiDeleteBook } from '../lib/api';
+import { apiGetBooks, apiCreateBook, apiUpdateBook, apiDeleteBook } from '../lib/api';
 
 const BOOKS_KEY = ['books'];
 
@@ -35,6 +35,27 @@ export function useCreateBook() {
       if (ctx?.snapshot !== undefined) {
         qc.setQueryData(BOOKS_KEY, ctx.snapshot);
       }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOKS_KEY });
+    },
+  });
+}
+
+export function useRenameBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bookId, name }) => apiUpdateBook(bookId, { name }),
+    onMutate: async ({ bookId, name }) => {
+      await qc.cancelQueries({ queryKey: BOOKS_KEY });
+      const snapshot = qc.getQueryData(BOOKS_KEY);
+      qc.setQueryData(BOOKS_KEY, (prev = []) =>
+        prev.map(b => b.id === bookId ? { ...b, name } : b)
+      );
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot !== undefined) qc.setQueryData(BOOKS_KEY, ctx.snapshot);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BOOKS_KEY });

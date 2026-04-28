@@ -1,82 +1,99 @@
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
-import { CARD_ACCENTS } from '../../constants/colors';
+import { View, Text, TouchableOpacity, Modal, Pressable, Dimensions, StyleSheet } from 'react-native';
 
-const getInitials = (str = '') =>
-  str.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const POPUP_W = 220;
 
-const TrashIcon = ({ color, size = 18 }) => (
+// ── Icons ─────────────────────────────────────────────────────────────────────
+
+const PencilIcon = ({ color, size = 16 }) => (
   <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size * 0.65, height: size * 0.7, borderWidth: 1.5, borderColor: color, borderRadius: 2, marginTop: size * 0.18 }} />
-    <View style={{ position: 'absolute', top: 0, width: size * 0.85, height: 2, backgroundColor: color, borderRadius: 1 }} />
-    <View style={{ position: 'absolute', top: -size * 0.12, width: size * 0.42, height: size * 0.18, borderWidth: 1.5, borderColor: color, borderRadius: 2 }} />
-    {[0.25, 0.5, 0.75].map(x => (
-      <View key={x} style={{ position: 'absolute', bottom: size * 0.08, left: size * x - 0.75, width: 1.5, height: size * 0.38, backgroundColor: color, borderRadius: 1 }} />
-    ))}
+    <View style={{ width: size * 0.68, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }] }} />
+    <View style={{ position: 'absolute', top: size * 0.05, right: size * 0.08, width: size * 0.28, height: size * 0.28, backgroundColor: color, borderTopLeftRadius: 3, borderTopRightRadius: 3, transform: [{ rotate: '-45deg' }] }} />
+    <View style={{ position: 'absolute', bottom: size * 0.02, left: size * 0.06, width: size * 0.2, height: size * 0.2, borderBottomWidth: 2, borderLeftWidth: 2, borderColor: color, transform: [{ rotate: '-45deg' }] }} />
   </View>
 );
 
-const BookMenu = memo(({ book, onDelete, onClose, C, Font }) => {
+const TrashIcon = ({ color, size = 16 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 0.65, height: size * 0.65, borderWidth: 1.5, borderColor: color, borderRadius: 2, marginTop: size * 0.2 }} />
+    <View style={{ position: 'absolute', top: size * 0.1, width: size * 0.82, height: 1.5, backgroundColor: color, borderRadius: 1 }} />
+    <View style={{ position: 'absolute', top: 0, width: size * 0.4, height: size * 0.16, borderWidth: 1.5, borderColor: color, borderRadius: 2 }} />
+  </View>
+);
+
+// ── Menu items config ─────────────────────────────────────────────────────────
+
+const ITEMS = [
+  { key: 'rename', label: 'Rename',      Icon: PencilIcon, danger: false },
+  { key: 'delete', label: 'Delete Book', Icon: TrashIcon,  danger: true  },
+];
+
+// ── Popup menu ────────────────────────────────────────────────────────────────
+
+const BookMenu = memo(({ book, anchor, onClose, onSelect, C, Font }) => {
   if (!book) return null;
-  const accent   = CARD_ACCENTS[0];
-  const initials = getInitials(book.name);
+
+  const ITEM_H  = 48;
+  const PAD_V   = 6;
+  const POPUP_H = ITEMS.length * ITEM_H + PAD_V * 2 + 8;
+
+  const anchorX = anchor?.pageX ?? SCREEN_W - POPUP_W - 16;
+  const anchorY = anchor?.pageY ?? SCREEN_H / 2;
+  const btnW    = anchor?.width  ?? 32;
+  const btnH    = anchor?.height ?? 32;
+
+  let left = anchorX - POPUP_W + btnW;
+  let top  = anchorY + btnH + 6;
+
+  if (top + POPUP_H > SCREEN_H - 60) top  = anchorY - POPUP_H - 6;
+  if (left < 8)                       left = 8;
+  if (left + POPUP_W > SCREEN_W - 8)  left = SCREEN_W - POPUP_W - 8;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
-        onPress={onClose}
-      >
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1 }} onPress={onClose}>
         <Pressable
-          style={{ backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 12, paddingBottom: 32, paddingHorizontal: 20 }}
+          style={{
+            position: 'absolute', top, left,
+            width: POPUP_W,
+            backgroundColor: C.card,
+            borderRadius: 14,
+            paddingVertical: PAD_V,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.18,
+            shadowRadius: 16,
+            elevation: 16,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: C.border,
+          }}
           onPress={() => {}}
         >
-          {/* Handle */}
-          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 }} />
-
-          {/* Book identity */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: accent + '18', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 15, fontFamily: Font.extraBold, color: accent }}>{initials}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontFamily: Font.semiBold, color: C.text, lineHeight: 22 }} numberOfLines={1}>
-                {book.name}
+          {ITEMS.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              onPress={() => onSelect(item.key, book)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                ...(item.key === 'delete' ? {
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: C.border,
+                  marginTop: 4,
+                } : {}),
+              }}
+              activeOpacity={0.7}
+            >
+              <item.Icon color={item.danger ? '#E53935' : C.textSubtle} size={16} />
+              <Text style={{ fontSize: 14, fontFamily: Font.medium, color: item.danger ? '#E53935' : C.text, lineHeight: 20 }}>
+                {item.label}
               </Text>
-              <Text style={{ fontSize: 12, fontFamily: Font.regular, color: C.textMuted, lineHeight: 18 }}>
-                Book options
-              </Text>
-            </View>
-          </View>
-
-          {/* Divider */}
-          <View style={{ height: 1, backgroundColor: C.border, marginBottom: 8 }} />
-
-          {/* Delete row */}
-          <TouchableOpacity
-            onPress={onDelete}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16, paddingHorizontal: 4, borderRadius: 12, marginTop: 4 }}
-            activeOpacity={0.7}
-          >
-            <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
-              <TrashIcon color="#C62828" size={18} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontFamily: Font.semiBold, color: '#C62828', lineHeight: 22 }}>Delete Book</Text>
-              <Text style={{ fontSize: 12, fontFamily: Font.regular, color: C.textMuted, lineHeight: 18 }}>
-                Permanently remove this book and all its entries
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Cancel */}
-          <TouchableOpacity
-            onPress={onClose}
-            style={{ marginTop: 8, paddingVertical: 15, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, alignItems: 'center' }}
-            activeOpacity={0.8}
-          >
-            <Text style={{ fontFamily: Font.semiBold, fontSize: 15, color: C.textMuted }}>Cancel</Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
         </Pressable>
       </Pressable>
     </Modal>

@@ -44,10 +44,17 @@ const DotsIcon = ({ color }) => (
 
 // ── Drag book card (book row with integrated handle) ──────────────────────────
 
-const DragBookCard = memo(({ item, index, isActive, handleProps, onPress, onDelete, C, Font }) => {
-  const accent  = CARD_ACCENTS[index % CARD_ACCENTS.length];
-  const balance = item.net_balance ?? 0;
-  const s       = cardStyles(C, Font);
+const DragBookCard = memo(({ item, index, isActive, handleProps, onPress, onMenu, C, Font }) => {
+  const accent   = CARD_ACCENTS[index % CARD_ACCENTS.length];
+  const balance  = item.net_balance ?? 0;
+  const s        = cardStyles(C, Font);
+  const moreRef  = useRef(null);
+
+  const handleMorePress = () => {
+    moreRef.current?.measureInWindow((x, y, width, height) => {
+      onMenu({ pageX: x, pageY: y, width, height });
+    });
+  };
 
   return (
     <View style={[s.card, isActive && s.cardActive]}>
@@ -73,7 +80,8 @@ const DragBookCard = memo(({ item, index, isActive, handleProps, onPress, onDele
             <Text style={[s.pillText, { color: C.text }]}>{fmt(balance)}</Text>
           </View>
           <TouchableOpacity
-            onPress={onDelete}
+            ref={moreRef}
+            onPress={handleMorePress}
             style={s.moreBtn}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -102,7 +110,7 @@ export default function DraggableList({
   books,
   onReorder,
   onBookPress,
-  onBookDelete,
+  onBookMenu,
   listPaddingBottom = 130,
   C,
   Font,
@@ -247,7 +255,7 @@ export default function DraggableList({
                 isActive={isActive}
                 handleProps={makeHandleProps(idx)}
                 onPress={() => onBookPress(book)}
-                onDelete={() => onBookDelete(book)}
+                onMenu={(anchor) => onBookMenu(book, anchor)}
                 C={C}
                 Font={Font}
               />
