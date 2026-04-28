@@ -1,13 +1,13 @@
 import React, { useMemo, useCallback, memo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Switch, Alert, Modal, ActivityIndicator, Pressable,
+  StatusBar, Switch, Alert, Modal, Pressable,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
-import { apiGetAllUsers, apiToggleUserStatus, apiGetBooks, apiGetUserBooks } from '../lib/api';
+import { apiGetAllUsers, apiToggleUserStatus, apiGetBooks } from '../lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -132,12 +132,6 @@ export default function AdminUsersScreen() {
       refetchBooks();
     }, [refetchUsers, refetchBooks])
   );
-
-  const { data: userBooks = [], isLoading: userBooksLoading } = useQuery({
-    queryKey: ['user-books', selectedUser?.id],
-    queryFn:  () => apiGetUserBooks(selectedUser.id),
-    enabled:  !!selectedUser,
-  });
 
   const toggleUserMutation = useMutation({
     mutationFn: ({ userId, isActive }) => apiToggleUserStatus(userId, isActive),
@@ -324,56 +318,6 @@ export default function AdminUsersScreen() {
                 </View>
               </View>
 
-              {/* Divider */}
-              <View style={s.modalDivider} />
-
-              {/* Books list */}
-              {userBooksLoading ? (
-                <View style={s.modalLoading}>
-                  <ActivityIndicator size="small" color={C.primary} />
-                  <Text style={s.modalLoadingText}>Loading books…</Text>
-                </View>
-              ) : userBooks.length === 0 ? (
-                <View style={s.modalEmpty}>
-                  <Text style={s.modalEmptyText}>No books yet</Text>
-                </View>
-              ) : (
-                <>
-                  <FlatList
-                    data={userBooks}
-                    keyExtractor={item => item.id}
-                    style={s.bookList}
-                    scrollEnabled={userBooks.length > 5}
-                    renderItem={({ item }) => {
-                      const bal = item.net_balance ?? 0;
-                      return (
-                        <View style={s.bookRow}>
-                          <View style={s.bookRowLeft}>
-                            <Text style={s.bookRowName} numberOfLines={1}>
-                              {item.name}
-                            </Text>
-                            <Text style={s.bookRowCurrency}>{item.currency}</Text>
-                          </View>
-                          <Text style={[
-                            s.bookRowBalance,
-                            { color: bal >= 0 ? C.cashIn : C.cashOut },
-                          ]}>
-                            {bal >= 0 ? '+' : ''}{bal.toLocaleString()}
-                          </Text>
-                        </View>
-                      );
-                    }}
-                  />
-                  <View style={s.modalTotalRow}>
-                    <Text style={s.modalTotalLabel}>Net Total</Text>
-                    <Text style={s.modalTotalValue}>
-                      {userBooks
-                        .reduce((acc, b) => acc + (b.net_balance ?? 0), 0)
-                        .toLocaleString()}
-                    </Text>
-                  </View>
-                </>
-              )}
             </Pressable>
           </Pressable>
         </Modal>
@@ -499,25 +443,4 @@ const makeStyles = (C, Font) => StyleSheet.create({
   modalBadgeTextActive: { color: C.primary },
   modalBadgeTextInactive: { color: '#DC2626' },
 
-  modalDivider:    { height: 1, backgroundColor: C.border, marginBottom: 16 },
-
-  modalLoading:     { alignItems: 'center', paddingVertical: 32, gap: 10 },
-  modalLoadingText: { fontSize: 13, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20 },
-
-  modalEmpty:     { alignItems: 'center', paddingVertical: 32 },
-  modalEmptyText: { fontSize: 14, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20 },
-
-  bookList: { maxHeight: 320 },
-  bookRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  bookRowLeft:     { flex: 1, marginRight: 12 },
-  bookRowName:     { fontSize: 14, fontFamily: Font.semiBold, color: C.text,      lineHeight: 20 },
-  bookRowCurrency: { fontSize: 11, fontFamily: Font.regular,  color: C.textSubtle, lineHeight: 16, marginTop: 2 },
-  bookRowBalance:  { fontSize: 14, fontFamily: Font.bold, lineHeight: 20 },
-
-  modalTotalRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginTop: 4, borderTopWidth: 1.5, borderTopColor: C.primaryMid },
-  modalTotalLabel: { fontSize: 13, fontFamily: Font.semiBold,  color: C.textMuted, lineHeight: 20 },
-  modalTotalValue: { fontSize: 16, fontFamily: Font.extraBold, color: C.text,      lineHeight: 24 },
 });
