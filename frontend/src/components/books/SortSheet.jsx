@@ -103,7 +103,7 @@ export default function SortSheet({ visible, current, onSelect, onClose }) {
 
   const handleSelect = (key) => {
     onSelect(key);
-    if (key !== 'custom') onClose();
+    onClose();
   };
 
   return (
@@ -143,15 +143,6 @@ export default function SortSheet({ visible, current, onSelect, onClose }) {
               />
             ))}
           </View>
-
-          {current === 'custom' && (
-            <View style={s.customHint}>
-              <GripIcon color={C.primary} size={14} />
-              <Text style={s.customHintText}>
-                Drag the  ⠿  handle on any book to reorder it
-              </Text>
-            </View>
-          )}
 
           <TouchableOpacity style={s.doneBtn} onPress={onClose} activeOpacity={0.85}>
             <Text style={s.doneBtnText}>Done</Text>

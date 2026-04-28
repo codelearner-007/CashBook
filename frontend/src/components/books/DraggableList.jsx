@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, Fragment, useMemo, memo, useEffect } from 'react';
+import { useState, useRef, useCallback, Fragment, memo, useEffect } from 'react';
 import {
   View, Text, ScrollView, Animated, StyleSheet, TouchableOpacity,
 } from 'react-native';
@@ -206,14 +206,6 @@ export default function DraggableList({
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: listPaddingBottom }}
     >
-      {/* Section label */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 }}>
-        <DragHandleIcon color={C.primary} />
-        <Text style={{ marginLeft: 8, fontSize: 12, fontFamily: Font.medium, color: C.primary, lineHeight: 18 }}>
-          Hold  ⠿  and drag to reorder
-        </Text>
-      </View>
-
       {items.map((book, idx) => {
         const isActive = idx === dragIdx;
 
@@ -278,25 +270,26 @@ const cardStyles = (C, Font) => StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.card,
-    borderRadius: 16, borderWidth: 1, borderColor: C.border,
-    minHeight: 72, overflow: 'hidden',
+    borderRadius: 50, borderWidth: 1.5, borderColor: C.border,
+    paddingVertical: 6, paddingLeft: 6, paddingRight: 14,
+    overflow: 'hidden',
   },
   cardActive: {
     borderColor: C.primary,
   },
   handle: {
-    paddingHorizontal: 12, paddingVertical: 20,
+    paddingHorizontal: 10, paddingVertical: 14,
     alignItems: 'center', justifyContent: 'center',
   },
-  handleDivider: { width: 1, height: 36, backgroundColor: C.border },
-  body:   { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, paddingLeft: 12 },
-  iconBox:{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  iconText:{ fontSize: 16, fontFamily: Font.extraBold },
+  handleDivider: { width: 1, height: 28, backgroundColor: C.border, marginRight: 4 },
+  body:   { flex: 1, flexDirection: 'row', alignItems: 'center', paddingLeft: 8 },
+  iconBox:{ width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  iconText:{ fontSize: 15, fontFamily: Font.extraBold },
   info:   { flex: 1, marginRight: 8 },
-  name:   { fontSize: 14, fontFamily: Font.semiBold, color: C.text, lineHeight: 20, marginBottom: 3 },
-  date:   { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18 },
-  right:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pill:   { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 64, alignItems: 'center' },
+  name:   { fontSize: 14, fontFamily: Font.semiBold, color: C.text,      lineHeight: 20 },
+  date:   { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18, marginTop: 2 },
+  right:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pill:   { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, minWidth: 56, alignItems: 'center' },
   pillText:{ fontSize: 13, fontFamily: Font.bold, lineHeight: 18 },
-  moreBtn:{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  moreBtn:{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 });

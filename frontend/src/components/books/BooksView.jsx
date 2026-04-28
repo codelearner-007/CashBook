@@ -121,6 +121,7 @@ const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
   const accent       = CARD_ACCENTS[index % CARD_ACCENTS.length];
   const bookInitials = getInitials(item.name);
   const moreRef      = useRef(null);
+  const lastEntry    = fmtLastEntry(item.last_entry_at);
 
   const handleMorePress = () => {
     moreRef.current?.measureInWindow((x, y, width, height) => {
@@ -135,9 +136,9 @@ const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
       </View>
       <View style={s.bookInfo}>
         <Text style={s.bookName} numberOfLines={1}>{item.name}</Text>
-        {fmtLastEntry(item.last_entry_at) != null && (
-          <Text style={s.bookDate} numberOfLines={1}>{fmtLastEntry(item.last_entry_at)}</Text>
-        )}
+        <Text style={s.bookDate} numberOfLines={1}>
+          {lastEntry ?? 'No entries yet'}
+        </Text>
       </View>
       <View style={s.bookRight}>
         <View style={[s.balancePill, { backgroundColor: C.cardAlt }]}>
@@ -184,6 +185,13 @@ export default function BooksView({
     sortMode, sortedBooks, showSort, setShowSort,
     handleSortSelect, setCustomBooks, sortLabel,
   } = useBookSort(books);
+
+  const [hasArranged, setHasArranged] = useState(false);
+
+  const handleSortSelectFull = useCallback((key) => {
+    setHasArranged(false);
+    handleSortSelect(key);
+  }, [handleSortSelect]);
 
   // Add-book modal
   const [showModal,   setShowModal]   = useState(false);
@@ -291,17 +299,28 @@ export default function BooksView({
   const ListHeader = useMemo(() => (
     <View style={s.sectionHeader}>
       <Text style={s.sectionTitle}>Your Books</Text>
-      <TouchableOpacity
-        style={[s.sortBtn, sortMode !== 'updated' && s.sortBtnActive]}
-        onPress={() => setShowSort(true)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={[s.sortBtnText, sortMode !== 'updated' && s.sortBtnTextActive]}>
-          {sortMode === 'updated' ? 'Sort  ≡' : `${sortLabel}  ≡`}
-        </Text>
-      </TouchableOpacity>
+      {sortMode === 'custom' && !hasArranged ? (
+        <TouchableOpacity
+          style={s.doneArrangeBtn}
+          onPress={() => setHasArranged(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.8}
+        >
+          <Text style={s.doneArrangeBtnText}>Done ✓</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[s.sortBtn, sortMode !== 'updated' && s.sortBtnActive]}
+          onPress={() => setShowSort(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={[s.sortBtnText, sortMode !== 'updated' && s.sortBtnTextActive]}>
+            {sortMode === 'updated' ? 'Sort  ≡' : `${sortLabel}  ≡`}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
-  ), [s, sortMode, sortLabel, setShowSort]);
+  ), [s, sortMode, sortLabel, hasArranged, setShowSort]);
 
   const ListEmpty = useMemo(() => (
     <View style={s.empty}>
@@ -381,7 +400,7 @@ export default function BooksView({
             <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : sortMode === 'custom' ? (
+      ) : sortMode === 'custom' && !hasArranged ? (
         <DraggableList
           books={sortedBooks}
           onReorder={setCustomBooks}
@@ -442,7 +461,7 @@ export default function BooksView({
       <SortSheet
         visible={showSort}
         current={sortMode}
-        onSelect={handleSortSelect}
+        onSelect={handleSortSelectFull}
         onClose={() => setShowSort(false)}
       />
 
@@ -592,10 +611,12 @@ const makeStyles = (C, Font) => StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10,
   },
   sectionTitle:     { fontSize: 15, fontFamily: Font.bold, color: C.text, lineHeight: 22 },
-  sortBtn:          { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: C.primaryLight, borderWidth: 1, borderColor: C.primaryMid },
-  sortBtnActive:    { backgroundColor: C.primary },
+  sortBtn:          { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: C.primaryLight },
+  sortBtnActive:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 24, backgroundColor: C.primary, ...shadow(C.primary, 2, 8, 0.28) },
   sortBtnText:      { fontSize: 12, fontFamily: Font.semiBold, color: C.primary, lineHeight: 18 },
-  sortBtnTextActive:{ color: C.onPrimary },
+  sortBtnTextActive:{ fontSize: 12, fontFamily: Font.extraBold, color: C.onPrimary, lineHeight: 18, letterSpacing: 0.6 },
+  doneArrangeBtn:   { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 24, backgroundColor: C.primary, flexDirection: 'row', alignItems: 'center', ...shadow(C.primary, 2, 8, 0.28) },
+  doneArrangeBtnText: { fontSize: 12, fontFamily: Font.extraBold, color: C.onPrimary, lineHeight: 18, letterSpacing: 0.6 },
 
   // Loading / error
   loadingBox:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
@@ -606,16 +627,16 @@ const makeStyles = (C, Font) => StyleSheet.create({
   retryText:   { color: C.onPrimary, fontFamily: Font.semiBold, fontSize: 14 },
 
   // Book card
-  bookCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, marginHorizontal: 16, marginBottom: 10, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, minHeight: 72 },
-  bookIconBox:  { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  bookInitials: { fontSize: 16, fontFamily: Font.extraBold },
+  bookCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, marginHorizontal: 16, marginBottom: 10, borderRadius: 50, paddingVertical: 6, paddingLeft: 6, paddingRight: 14, borderWidth: 1.5, borderColor: C.border },
+  bookIconBox:  { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  bookInitials: { fontSize: 15, fontFamily: Font.extraBold },
   bookInfo:     { flex: 1, marginRight: 8 },
-  bookName:     { fontSize: 14, fontFamily: Font.semiBold, color: C.text,     lineHeight: 20, marginBottom: 3 },
-  bookDate:     { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18 },
-  bookRight:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  balancePill:  { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 64, alignItems: 'center' },
+  bookName:     { fontSize: 14, fontFamily: Font.semiBold, color: C.text,      lineHeight: 20 },
+  bookDate:     { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18, marginTop: 2 },
+  bookRight:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  balancePill:  { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, minWidth: 56, alignItems: 'center' },
   balanceText:  { fontSize: 13, fontFamily: Font.bold, lineHeight: 18 },
-  moreBtn:      { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  moreBtn:      { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 
   // Empty state
   empty:        { alignItems: 'center', paddingTop: 70, paddingHorizontal: 40 },
