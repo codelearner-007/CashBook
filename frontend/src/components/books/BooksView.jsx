@@ -23,8 +23,9 @@ const getInitials = (str = '') =>
   str.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
 
 const fmtLastEntry = (iso) => {
-  if (!iso) return 'No entries yet';
-  const d    = new Date(iso);
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
   const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   return `${date}  ·  ${time}`;
@@ -132,7 +133,9 @@ const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
       </View>
       <View style={s.bookInfo}>
         <Text style={s.bookName} numberOfLines={1}>{item.name}</Text>
-        <Text style={s.bookDate} numberOfLines={1}>{fmtLastEntry(item.last_entry_at)}</Text>
+        {fmtLastEntry(item.last_entry_at) != null && (
+          <Text style={s.bookDate} numberOfLines={1}>{fmtLastEntry(item.last_entry_at)}</Text>
+        )}
       </View>
       <View style={s.bookRight}>
         <View style={[s.balancePill, { backgroundColor: C.cardAlt }]}>

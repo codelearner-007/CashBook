@@ -11,8 +11,9 @@ const clamp    = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const fmt      = (n) => (n < 0 ? '-' : '+') + Math.abs(n).toLocaleString();
 const initials = (s = '') => s.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 const fmtLastEntry = (iso) => {
-  if (!iso) return 'No entries yet';
-  const d    = new Date(iso);
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
   const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   return `${date}  ·  ${time}`;
@@ -73,7 +74,9 @@ const DragBookCard = memo(({ item, index, isActive, handleProps, onPress, onMenu
         </View>
         <View style={s.info}>
           <Text style={s.name} numberOfLines={1}>{item.name}</Text>
-          <Text style={s.date} numberOfLines={1}>{fmtLastEntry(item.last_entry_at)}</Text>
+          {fmtLastEntry(item.last_entry_at) != null && (
+            <Text style={s.date} numberOfLines={1}>{fmtLastEntry(item.last_entry_at)}</Text>
+          )}
         </View>
         <View style={s.right}>
           <View style={[s.pill, { backgroundColor: C.cardAlt }]}>
