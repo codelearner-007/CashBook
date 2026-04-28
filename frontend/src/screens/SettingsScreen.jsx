@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   StatusBar, ScrollView, Alert, useWindowDimensions,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
@@ -10,6 +11,7 @@ import { useProfile } from '../hooks/useProfile';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { Font } from '../constants/fonts';
+import { getCurrency } from '../constants/currencies';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -139,22 +141,14 @@ const LogoutIcon = ({ color, size = 14 }) => (
 
 // ── Section data ──────────────────────────────────────────────────────────────
 
-const SECTIONS = [
-  {
-    title: 'Account',
-    items: [
-      { Icon: UserIcon,     label: 'Profile',           sub: null,                    route: '/(app)/settings/profile', accent: 'primary' },
-      { Icon: BuildingIcon, label: 'Business Settings', sub: "My Business",           route: '/(app)/settings/business', accent: 'primary' },
-      { Icon: CurrencyIcon, label: 'Currency',          sub: 'PKR – Pakistani Rupee', route: null,                      accent: 'primary' },
-    ],
-  },
+const APP_SECTIONS = [
   {
     title: 'App',
     items: [
-      { Icon: BellIcon,   label: 'Notifications',    sub: 'Manage alerts',    route: null, accent: 'primary' },
+      { Icon: BellIcon,   label: 'Notifications',     sub: 'Manage alerts',   route: null, accent: 'primary' },
       { Icon: ShieldIcon, label: 'Privacy & Security', sub: 'PIN, biometric', route: null, accent: 'primary' },
-      { Icon: CloudIcon,  label: 'Backup & Sync',    sub: 'Last synced: Now', route: null, accent: 'primary' },
-      { Icon: GlobeIcon,  label: 'Language',         sub: 'English',          route: null, accent: 'primary' },
+      { Icon: CloudIcon,  label: 'Backup & Sync',     sub: 'Last synced: Now', route: null, accent: 'primary' },
+      { Icon: GlobeIcon,  label: 'Language',          sub: 'English',          route: null, accent: 'primary' },
     ],
   },
   {
@@ -202,7 +196,7 @@ const rowStyles = StyleSheet.create({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-export default function SettingsScreen({ applyTop = true, showBottomNav = false }) {
+export default function SettingsScreen({ applyTop = true, showBottomNav = false, profileRoute = '/(app)/settings/profile' }) {
   const router    = useRouter();
   const { C }     = useTheme();
   const clearUser = useAuthStore((s) => s.clearUser);
@@ -213,6 +207,22 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false 
 
   const initials = (profile?.full_name ?? '?')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  const currencyCode  = profile?.currency ?? 'PKR';
+  const currencyEntry = getCurrency(currencyCode);
+  const currencySub   = `${currencyEntry.code} – ${currencyEntry.name}`;
+
+  const SECTIONS = useMemo(() => [
+    {
+      title: 'Account',
+      items: [
+        { Icon: UserIcon,     label: 'Profile',           sub: null,          route: profileRoute,               accent: 'primary' },
+        { Icon: BuildingIcon, label: 'Business Settings', sub: 'My Business', route: '/(app)/settings/business', accent: 'primary' },
+        { Icon: CurrencyIcon, label: 'Currency',          sub: currencySub,   route: '/(app)/settings/currency', accent: 'primary' },
+      ],
+    },
+    ...APP_SECTIONS,
+  ], [currencySub]);
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -255,9 +265,15 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false 
 
         {/* Avatar Card */}
         <View style={[s.avatarCard, { backgroundColor: C.card, borderColor: C.border }]}>
-          <View style={[s.avatar, { backgroundColor: C.primary, borderColor: C.card }]}>
-            <Text style={s.avatarInitials}>{initials}</Text>
-          </View>
+          {profile?.avatar_url ? (
+            <View style={[s.avatar, { borderColor: C.card }]}>
+              <ExpoImage source={{ uri: profile.avatar_url }} style={{ width: '100%', height: '100%', borderRadius: 36 }} contentFit="cover" />
+            </View>
+          ) : (
+            <View style={[s.avatar, { backgroundColor: C.primary, borderColor: C.card }]}>
+              <Text style={s.avatarInitials}>{initials}</Text>
+            </View>
+          )}
           <Text style={[s.avatarName,  { color: C.text,      fontFamily: Font.bold }]}>
             {profile?.full_name ?? '—'}
           </Text>
@@ -266,7 +282,7 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false 
           </Text>
           <TouchableOpacity
             style={[s.editBtn, { backgroundColor: C.primaryLight, borderColor: C.primary }]}
-            onPress={() => router.push('/(app)/settings/profile')}
+            onPress={() => router.push(profileRoute)}
             activeOpacity={0.8}
           >
             <Text style={[s.editBtnText, { color: C.primary, fontFamily: Font.semiBold }]}>Edit Profile</Text>

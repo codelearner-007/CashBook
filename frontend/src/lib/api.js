@@ -69,6 +69,16 @@ export const apiUpdateProfile = async (payload) => {
   return (await api.put('/api/v1/profile', payload)).data;
 };
 
+/** POST /api/v1/upload/avatar — multipart upload, returns { avatar_url } */
+export const apiUploadAvatar = async (uri, mimeType = 'image/jpeg') => {
+  const filename = uri.split('/').pop() || 'avatar.jpg';
+  const formData = new FormData();
+  formData.append('file', { uri, type: mimeType, name: filename });
+  return (await api.post('/api/v1/upload/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })).data;
+};
+
 
 // ── Entries ────────────────────────────────────────────────────────────────────
 

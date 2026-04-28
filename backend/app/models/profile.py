@@ -11,6 +11,8 @@ class ProfileResponse(BaseModel):
     avatar_url: Optional[str] = None
     role: Literal["superadmin", "user"] = "user"
     is_active: bool = True
+    currency: str = "PKR"
+    is_dark_mode: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -19,6 +21,8 @@ class ProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
+    currency: Optional[str] = None
+    is_dark_mode: Optional[bool] = None
 
 
 class UserWithStats(ProfileResponse):

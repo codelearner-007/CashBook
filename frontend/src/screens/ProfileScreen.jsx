@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   StatusBar, ScrollView, Alert, Modal, Animated,
+  ActivityIndicator,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
-import { useProfile, useUpdateProfile } from '../hooks/useProfile';
+import { useProfile, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile';
 import { Font } from '../constants/fonts';
 import AppInput from '../components/ui/Input';
 
@@ -226,6 +229,286 @@ const sd = StyleSheet.create({
   },
 });
 
+// ── Photo Picker Sheet ────────────────────────────────────────────────────────
+
+const ViewPhotoIcon = () => (
+  <View style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+    {/* Eye outline */}
+    <View style={{ width: 22, height: 13, borderRadius: 11, borderWidth: 2, borderColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#7C3AED' }} />
+    </View>
+  </View>
+);
+
+const CameraSheetIcon = () => (
+  <View style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 22, height: 15, borderRadius: 4, borderWidth: 2, borderColor: '#2563EB', alignItems: 'center', justifyContent: 'center', position: 'absolute', bottom: 1 }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, borderWidth: 2, borderColor: '#2563EB' }} />
+    </View>
+    <View style={{ width: 8, height: 5, borderTopLeftRadius: 2, borderTopRightRadius: 2, borderWidth: 2, borderColor: '#2563EB', borderBottomWidth: 0, position: 'absolute', top: 2, left: 5 }} />
+  </View>
+);
+
+const GallerySheetIcon = () => (
+  <View style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 22, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#16A34A', overflow: 'hidden' }}>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A', position: 'absolute', top: 3, right: 3 }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'flex-end' }}>
+        <View style={{ width: 0, height: 0, borderLeftWidth: 8, borderRightWidth: 8, borderBottomWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: '#16A34A' }} />
+        <View style={{ width: 0, height: 0, borderLeftWidth: 7, borderRightWidth: 7, borderBottomWidth: 9, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: '#16A34A', marginLeft: -3 }} />
+      </View>
+    </View>
+  </View>
+);
+
+const ChevronRight = ({ color }) => (
+  <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 6, height: 6, borderRightWidth: 2, borderTopWidth: 2, borderColor: color, transform: [{ rotate: '45deg' }] }} />
+  </View>
+);
+
+function PhotoPickerSheet({ visible, onDismiss, onCamera, onGallery, onViewPhoto, currentUri, userName, userInitials, C }) {
+  const slideY    = useRef(new Animated.Value(420)).current;
+  const bgOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    slideY.setValue(420);
+    bgOpacity.setValue(0);
+    Animated.parallel([
+      Animated.timing(bgOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.spring(slideY, { toValue: 0, tension: 170, friction: 22, useNativeDriver: true }),
+    ]).start();
+  }, [visible]);
+
+  const close = (then) => {
+    Animated.parallel([
+      Animated.timing(bgOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(slideY,    { toValue: 420, duration: 220, useNativeDriver: true }),
+    ]).start(() => { onDismiss(); then?.(); });
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent visible animationType="none" onRequestClose={() => close()} statusBarTranslucent>
+      <Animated.View style={[ps.overlay, { opacity: bgOpacity }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => close()} />
+
+        <Animated.View style={[ps.sheet, { backgroundColor: C.card, transform: [{ translateY: slideY }] }]}>
+
+          {/* Handle */}
+          <View style={[ps.handle, { backgroundColor: C.border }]} />
+
+          {/* Avatar preview */}
+          <View style={ps.previewWrap}>
+            <View style={[ps.previewCircle, { borderColor: C.border,
+              backgroundColor: currentUri ? C.card : C.primary }]}>
+              {currentUri
+                ? <ExpoImage source={{ uri: currentUri }} style={{ width: '100%', height: '100%', borderRadius: 42 }} contentFit="cover" />
+                : <Text style={[ps.previewInitials, { color: '#fff' }]}>{userInitials}</Text>
+              }
+            </View>
+            <Text style={[ps.previewName, { color: C.text }]}>{userName || 'Profile Photo'}</Text>
+            <Text style={[ps.previewSub,  { color: C.textMuted }]}>Change your profile picture</Text>
+          </View>
+
+          {/* Options */}
+          <View style={[ps.optionsCard, { backgroundColor: C.background, borderColor: C.border }]}>
+
+            {/* View Photo — only when a photo exists */}
+            {currentUri && (
+              <>
+                <TouchableOpacity
+                  style={ps.optionRow}
+                  activeOpacity={0.65}
+                  onPress={() => close(() => setTimeout(onViewPhoto, 300))}
+                >
+                  <View style={[ps.optionIcon, { backgroundColor: '#F5F3FF' }]}>
+                    <ViewPhotoIcon />
+                  </View>
+                  <View style={ps.optionBody}>
+                    <Text style={[ps.optionTitle, { color: C.text }]}>View Photo</Text>
+                    <Text style={[ps.optionDesc,  { color: C.textMuted }]}>See your current photo</Text>
+                  </View>
+                  <ChevronRight color={C.textMuted} />
+                </TouchableOpacity>
+                <View style={[ps.rowDivider, { backgroundColor: C.border }]} />
+              </>
+            )}
+
+            <TouchableOpacity
+              style={ps.optionRow}
+              activeOpacity={0.65}
+              onPress={() => close(() => setTimeout(onCamera, 380))}
+            >
+              <View style={[ps.optionIcon, { backgroundColor: '#EFF6FF' }]}>
+                <CameraSheetIcon />
+              </View>
+              <View style={ps.optionBody}>
+                <Text style={[ps.optionTitle, { color: C.text }]}>Take Photo</Text>
+                <Text style={[ps.optionDesc,  { color: C.textMuted }]}>Open camera to capture</Text>
+              </View>
+              <ChevronRight color={C.textMuted} />
+            </TouchableOpacity>
+
+            <View style={[ps.rowDivider, { backgroundColor: C.border }]} />
+
+            <TouchableOpacity
+              style={ps.optionRow}
+              activeOpacity={0.65}
+              onPress={() => close(() => setTimeout(onGallery, 380))}
+            >
+              <View style={[ps.optionIcon, { backgroundColor: '#F0FDF4' }]}>
+                <GallerySheetIcon />
+              </View>
+              <View style={ps.optionBody}>
+                <Text style={[ps.optionTitle, { color: C.text }]}>Choose from Gallery</Text>
+                <Text style={[ps.optionDesc,  { color: C.textMuted }]}>Pick from your photos</Text>
+              </View>
+              <ChevronRight color={C.textMuted} />
+            </TouchableOpacity>
+
+          </View>
+
+          {/* Cancel */}
+          <TouchableOpacity
+            style={[ps.cancelBtn, { backgroundColor: C.background, borderColor: C.border }]}
+            activeOpacity={0.7}
+            onPress={() => close()}
+          >
+            <Text style={[ps.cancelText, { color: C.textMuted }]}>Cancel</Text>
+          </TouchableOpacity>
+
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const ps = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.52)', justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingBottom: 40, paddingTop: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.14, shadowRadius: 24, elevation: 22,
+  },
+  handle: {
+    width: 38, height: 4, borderRadius: 2,
+    alignSelf: 'center', marginBottom: 18,
+  },
+
+  previewWrap: { alignItems: 'center', paddingBottom: 20, paddingHorizontal: 24 },
+  previewCircle: {
+    width: 90, height: 90, borderRadius: 45, borderWidth: 3,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 10, elevation: 6,
+  },
+  previewInitials: { fontSize: 34, fontFamily: Font.extraBold },
+  previewName:     { fontSize: 16, fontFamily: Font.bold,    marginBottom: 3 },
+  previewSub:      { fontSize: 12, fontFamily: Font.regular },
+
+  optionsCard: {
+    marginHorizontal: 16, borderRadius: 16,
+    borderWidth: 1, overflow: 'hidden', marginBottom: 12,
+  },
+  optionRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 15,
+  },
+  optionIcon: {
+    width: 46, height: 46, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center', marginRight: 14,
+  },
+  optionBody:  { flex: 1 },
+  optionTitle: { fontSize: 15, fontFamily: Font.semiBold, marginBottom: 2 },
+  optionDesc:  { fontSize: 12, fontFamily: Font.regular },
+  rowDivider:  { height: 1, marginLeft: 76 },
+
+  cancelBtn: {
+    marginHorizontal: 16, borderRadius: 14, borderWidth: 1,
+    paddingVertical: 15, alignItems: 'center',
+  },
+  cancelText: { fontSize: 15, fontFamily: Font.semiBold },
+});
+
+// ── Image Viewer ─────────────────────────────────────────────────────────────
+
+function ImageViewerModal({ visible, uri, name, initials, C, onClose }) {
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.88)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    fadeAnim.setValue(0);
+    scaleAnim.setValue(0.88);
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, tension: 180, friction: 12, useNativeDriver: true }),
+    ]).start();
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <Animated.View style={[iv.bg, { opacity: fadeAnim }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+
+        {/* Close button */}
+        <TouchableOpacity style={iv.closeBtn} onPress={onClose} activeOpacity={0.8}>
+          <View style={{ width: 16, height: 2.5, backgroundColor: '#fff', borderRadius: 2, position: 'absolute', transform: [{ rotate: '45deg'  }] }} />
+          <View style={{ width: 16, height: 2.5, backgroundColor: '#fff', borderRadius: 2, position: 'absolute', transform: [{ rotate: '-45deg' }] }} />
+        </TouchableOpacity>
+
+        {/* Avatar */}
+        <Animated.View style={[iv.imgWrap, { transform: [{ scale: scaleAnim }] }]}>
+          {uri ? (
+            <ExpoImage source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+          ) : (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary }}>
+              <Text style={{ fontSize: 72, fontFamily: Font.extraBold, color: '#fff' }}>{initials}</Text>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Name */}
+        <Animated.View style={[iv.nameWrap, { opacity: fadeAnim }]}>
+          <Text style={iv.nameTxt}>{name || 'Profile Photo'}</Text>
+          <Text style={iv.subTxt}>Profile Photo</Text>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const iv = StyleSheet.create({
+  bg: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.94)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  closeBtn: {
+    position: 'absolute', top: 56, right: 20, zIndex: 20,
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  imgWrap: {
+    width: 260, height: 260, borderRadius: 130,
+    overflow: 'hidden',
+    borderWidth: 4, borderColor: 'rgba(255,255,255,0.22)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.6, shadowRadius: 40, elevation: 20,
+  },
+  nameWrap: { alignItems: 'center', marginTop: 28 },
+  nameTxt:  { fontSize: 22, fontFamily: Font.bold, color: '#fff', marginBottom: 6 },
+  subTxt:   { fontSize: 13, fontFamily: Font.regular, color: 'rgba(255,255,255,0.5)' },
+});
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
@@ -235,9 +518,14 @@ export default function ProfileScreen() {
   const { data: profile, isLoading, isError } = useProfile();
   const updateProfile = useUpdateProfile();
 
-  const [name,        setName]        = useState('');
-  const [phone,       setPhone]       = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [name,           setName]          = useState('');
+  const [phone,          setPhone]         = useState('');
+  const [showSuccess,    setShowSuccess]   = useState(false);
+  const [localAvatarUri, setLocalAvatarUri] = useState(null);
+  const [showPhotoSheet,  setShowPhotoSheet]  = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+
+  const uploadAvatar = useUploadAvatar();
 
   // Sync form when data loads
   useEffect(() => {
@@ -253,6 +541,38 @@ export default function ProfileScreen() {
   const isDirty = profile
     ? name.trim() !== (profile.full_name ?? '') || phone !== (profile.phone ?? '')
     : false;
+
+  const handlePickImage = async (source) => {
+    if (source === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Camera access is required to take a photo.');
+        return;
+      }
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Photo library access is required.');
+        return;
+      }
+    }
+
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+
+    if (!result.canceled && result.assets?.[0]) {
+      const asset = result.assets[0];
+      setLocalAvatarUri(asset.uri);
+      uploadAvatar.mutate(
+        { uri: asset.uri, mimeType: asset.mimeType || 'image/jpeg' },
+        {
+          onSuccess: () => setLocalAvatarUri(null),
+          onError:   () => { setLocalAvatarUri(null); Alert.alert('Upload failed', 'Could not upload photo. Please try again.'); },
+        }
+      );
+    }
+  };
 
   const handleUpdate = () => {
     if (!name.trim()) return;
@@ -293,21 +613,29 @@ export default function ProfileScreen() {
             {/* Avatar card — overlaps hero */}
             <View style={[s.avatarCard, { backgroundColor: C.card, borderColor: C.border }]}>
               <View style={s.avatarWrap}>
-                <View style={[s.avatar, { backgroundColor: C.primary, borderColor: C.card }]}>
-                  <Text style={s.avatarInitials}>{initials}</Text>
-                </View>
+                {(localAvatarUri || profile?.avatar_url) ? (
+                  <View style={[s.avatar, { borderColor: C.card }]}>
+                    <ExpoImage
+                      source={{ uri: localAvatarUri || profile.avatar_url }}
+                      style={{ width: '100%', height: '100%', borderRadius: 36 }}
+                      contentFit="cover"
+                    />
+                  </View>
+                ) : (
+                  <View style={[s.avatar, { backgroundColor: C.primary, borderColor: C.card }]}>
+                    <Text style={s.avatarInitials}>{initials}</Text>
+                  </View>
+                )}
                 <TouchableOpacity
                   style={[s.cameraBtn, { backgroundColor: C.primaryDark, borderColor: C.card }]}
                   activeOpacity={0.8}
-                  onPress={() =>
-                    Alert.alert('Change Photo', 'Choose an option', [
-                      { text: 'Camera',  onPress: () => {} },
-                      { text: 'Gallery', onPress: () => {} },
-                      { text: 'Cancel',  style: 'cancel' },
-                    ])
-                  }
+                  disabled={uploadAvatar.isPending}
+                  onPress={() => setShowPhotoSheet(true)}
                 >
-                  <CameraIcon size={13} />
+                  {uploadAvatar.isPending
+                    ? <ActivityIndicator size={12} color="#fff" />
+                    : <CameraIcon size={13} />
+                  }
                 </TouchableOpacity>
               </View>
               <Text style={[s.avatarName,  { color: C.text }]}>{profile?.full_name ?? '—'}</Text>
@@ -366,6 +694,25 @@ export default function ProfileScreen() {
 
       </ScrollView>
       <SuccessDialog visible={showSuccess} onDismiss={() => setShowSuccess(false)} C={C} />
+      <PhotoPickerSheet
+        visible={showPhotoSheet}
+        onDismiss={() => setShowPhotoSheet(false)}
+        onCamera={() => handlePickImage('camera')}
+        onGallery={() => handlePickImage('gallery')}
+        onViewPhoto={() => setShowImageViewer(true)}
+        currentUri={localAvatarUri || profile?.avatar_url || null}
+        userName={profile?.full_name ?? ''}
+        userInitials={initials}
+        C={C}
+      />
+      <ImageViewerModal
+        visible={showImageViewer}
+        uri={localAvatarUri || profile?.avatar_url || null}
+        name={profile?.full_name ?? ''}
+        initials={initials}
+        C={C}
+        onClose={() => setShowImageViewer(false)}
+      />
     </SafeAreaView>
   );
 }

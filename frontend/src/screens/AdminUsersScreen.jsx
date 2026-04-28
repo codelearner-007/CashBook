@@ -3,10 +3,13 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, Switch, Alert, Modal, Pressable,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
+import { useProfile, useUpdateProfile } from '../hooks/useProfile';
+import Toast from '../lib/toast';
 import { apiGetAllUsers, apiToggleUserStatus, apiGetBooks } from '../lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -56,10 +59,11 @@ const UserRow = memo(({ item, onToggle, onViewBooks, C, s }) => {
   return (
     <View style={s.userCard}>
       <TouchableOpacity style={s.userCardLeft} onPress={onViewBooks} activeOpacity={0.7}>
-        <View style={[s.userAvatar, { backgroundColor: item.is_active ? C.primaryLight : C.cardAlt }]}>
-          <Text style={[s.userAvatarText, { color: item.is_active ? C.primary : C.textMuted }]}>
-            {initials}
-          </Text>
+        <View style={[s.userAvatar, { backgroundColor: item.is_active ? C.primaryLight : C.cardAlt, overflow: 'hidden' }]}>
+          {item.avatar_url
+            ? <ExpoImage source={{ uri: item.avatar_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+            : <Text style={[s.userAvatarText, { color: item.is_active ? C.primary : C.textMuted }]}>{initials}</Text>
+          }
         </View>
         <View style={s.userInfo}>
           <View style={s.userNameRow}>
@@ -108,6 +112,22 @@ export default function AdminUsersScreen() {
   const s         = useMemo(() => makeStyles(C, Font), [C, Font]);
   const user = useAuthStore((st) => st.user);
   const qc   = useQueryClient();
+  const { data: adminProfile } = useProfile();
+  const updateProfile = useUpdateProfile();
+
+  const handleThemeToggle = useCallback(() => {
+    const next = !isDark;
+    toggleTheme();
+    updateProfile.mutate(
+      { is_dark_mode: next },
+      {
+        onError: () => {
+          toggleTheme();
+          Toast.show({ type: 'error', text1: 'Could not save theme preference.' });
+        },
+      },
+    );
+  }, [isDark, toggleTheme, updateProfile]);
 
   const [selectedUser, setSelectedUser] = useState(null);
 
@@ -158,7 +178,7 @@ export default function AdminUsersScreen() {
   }, [toggleUserMutation]);
 
   const goToProfile = useCallback(() => {
-    router.push('/(app)/settings/profile');
+    router.push('/(app)/dashboard/profile');
   }, [router]);
 
   const stats = useMemo(() => {
@@ -228,13 +248,16 @@ export default function AdminUsersScreen() {
 
           {/* Right — theme toggle + profile avatar */}
           <View style={s.headerActions}>
-            <TouchableOpacity onPress={toggleTheme} style={s.iconBtn} activeOpacity={0.8}>
+            <TouchableOpacity onPress={handleThemeToggle} style={s.iconBtn} activeOpacity={0.8}>
               {isDark
                 ? <SunIcon  color={C.onPrimary} size={18} />
                 : <MoonIcon color={C.onPrimary} size={18} />}
             </TouchableOpacity>
-            <TouchableOpacity style={s.avatarBtn} onPress={goToProfile} activeOpacity={0.8}>
-              <Text style={s.avatarText}>{adminInitials}</Text>
+            <TouchableOpacity style={[s.avatarBtn, { overflow: 'hidden' }]} onPress={goToProfile} activeOpacity={0.8}>
+              {adminProfile?.avatar_url
+                ? <ExpoImage source={{ uri: adminProfile.avatar_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                : <Text style={s.avatarText}>{adminInitials}</Text>
+              }
             </TouchableOpacity>
           </View>
         </View>

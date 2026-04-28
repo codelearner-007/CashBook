@@ -28,12 +28,23 @@
       ]
     },
     "ios": {
-      "bundleIdentifier": "com.yourname.cashbook"
+      "bundleIdentifier": "com.yourname.cashbook",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CashBook uses your camera to set a profile photo.",
+        "NSPhotoLibraryUsageDescription": "CashBook accesses your photo library to set a profile photo."
+      }
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "CashBook accesses your photos to set a profile photo.",
+          "cameraPermission": "CashBook uses your camera to take a profile photo."
+        }
+      ]
     ]
   }
 }

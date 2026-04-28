@@ -37,6 +37,7 @@ frontend/
 │       └── settings/
 │           ├── index.jsx         # → SettingsScreen
 │           ├── profile.jsx       # → ProfileScreen
+│           ├── currency.jsx      # → CurrencyScreen
 │           └── business/
 │               ├── index.jsx     # → BusinessSettingsScreen
 │               ├── profile.jsx   # → BusinessProfileScreen
@@ -70,6 +71,7 @@ frontend/
 │   │   └── bookFieldsStore.js    # Zustand: per-book field visibility toggles
 │   └── constants/
 │       ├── colors.js             # LightColors, DarkColors, CARD_ACCENTS
+│       ├── currencies.js         # CURRENCIES list (160+ ISO 4217), getCurrency(code) helper
 │       ├── fonts.js              # Font.regular/medium/semiBold/bold/extraBold
 │       ├── categories.js         # Default category list
 │       └── shadows.js            # Shadow presets
@@ -185,6 +187,15 @@ frontend/
 
 ---
 
+### `CurrencyScreen` → `/(app)/settings/currency`
+- Full list of world currencies from `constants/currencies.js` (160+ ISO 4217 entries)
+- Search bar filters by code, name, or symbol (client-side, no API call)
+- Selected currency is highlighted with a checkmark; code comes from `profile?.currency`
+- Tapping a row → `useUpdateProfile().mutate({ currency: code })` → `invalidate(['profile'])` → `router.back()`
+- `SettingsScreen` reads `profile.currency`, looks it up with `getCurrency()`, and shows `"CODE – Name"` as the sub-label
+
+---
+
 ## Books CRUD — Data Flow
 
 ### Create
@@ -233,6 +244,7 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `apiDeleteBook(bookId)` | DELETE | `/api/v1/books/:id` |
 | `apiGetProfile()` | GET | `/api/v1/profile` |
 | `apiUpdateProfile(payload)` | PUT | `/api/v1/profile` |
+| `apiUploadAvatar(uri, mimeType)` | POST | `/api/v1/upload/avatar` — multipart, returns `{ avatar_url }` |
 | `apiGetEntries(bookId, params)` | GET | `/api/v1/books/:id/entries` |
 | `apiGetSummary(bookId)` | GET | `/api/v1/books/:id/summary` |
 | `apiCreateEntry(bookId, payload)` | POST | `/api/v1/books/:id/entries` |

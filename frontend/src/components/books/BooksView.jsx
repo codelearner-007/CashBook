@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, memo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable,
+  StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable, Image,
 } from 'react-native';
 import SafeAreaView from '../ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { useBooks, useCreateBook, useRenameBook, useDeleteBook } from '../../hooks/useBooks';
 import { useBookSort } from '../../hooks/useBookSort';
 import { useAuthStore } from '../../store/authStore';
+import { useProfile, useUpdateProfile } from '../../hooks/useProfile';
+import Toast from '../../lib/toast';
 import { shadow } from '../../constants/shadows';
 import { CARD_ACCENTS } from '../../constants/colors';
 import SortSheet from './SortSheet';
@@ -170,6 +172,9 @@ export default function BooksView({
 
   const user = useAuthStore((st) => st.user);
 
+  const { data: profile } = useProfile();
+  const updateProfile = useUpdateProfile();
+
   const { data: books = [], isLoading, isError, refetch } = useBooks();
   const createBook = useCreateBook();
   const renameBook = useRenameBook();
@@ -192,11 +197,7 @@ export default function BooksView({
   const [renameText,        setRenameText]        = useState('');
   const [deleteDialog,      setDeleteDialog]      = useState(null); // book | null
 
-  const currency = useMemo(() => {
-    if (!books.length) return '';
-    const uniq = [...new Set(books.map(b => b.currency).filter(Boolean))];
-    return uniq.length === 1 ? uniq[0] : '';
-  }, [books]);
+  const currency = profile?.currency ?? 'PKR';
 
   const stats = useMemo(() => ({
     total:    books.reduce((acc, b) => acc + (b.net_balance ?? 0), 0),
@@ -205,10 +206,25 @@ export default function BooksView({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  const handleThemeToggle = useCallback(() => {
+    const next = !isDark;
+    toggleTheme();
+    updateProfile.mutate(
+      { is_dark_mode: next },
+      {
+        onError: () => {
+          toggleTheme(); // roll back
+          Toast.show({ type: 'error', text1: 'Could not save theme preference.' });
+        },
+      },
+    );
+  }, [isDark, toggleTheme, updateProfile]);
+
   const handleCreate = useCallback(() => {
     if (!newBookName.trim()) return;
+    const currency = profile?.currency ?? 'PKR';
     createBook.mutate(
-      { name: newBookName.trim() },
+      { name: newBookName.trim(), currency },
       {
         onSuccess: () => {
           setNewBookName('');
@@ -305,26 +321,26 @@ export default function BooksView({
       <View style={s.header}>
         <View style={s.headerTop}>
           <View style={s.headerLeft}>
-            <View style={s.bizIconBox}>
-              <Text style={s.bizIconText}>{userInitials.charAt(0)}</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/(app)/settings/profile')}
+              activeOpacity={0.8}
+              style={s.avatarCircle}
+            >
+              {profile?.avatar_url
+                ? <Image source={{ uri: profile.avatar_url }} style={s.avatarImg} />
+                : <Text style={s.avatarText}>{userInitials}</Text>
+              }
+            </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={s.bizName} numberOfLines={1}>{userName || 'My Account'}</Text>
               <Text style={s.bizSub}>{workspaceLabel}</Text>
             </View>
           </View>
           <View style={s.headerActions}>
-            <TouchableOpacity onPress={toggleTheme} style={s.iconBtn} activeOpacity={0.8}>
+            <TouchableOpacity onPress={handleThemeToggle} style={s.iconBtn} activeOpacity={0.8}>
               {isDark
                 ? <SunIcon  color={C.onPrimary} size={18} />
                 : <MoonIcon color={C.onPrimary} size={18} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={s.avatarCircle}
-              onPress={() => router.push('/(app)/settings')}
-              activeOpacity={0.8}
-            >
-              <Text style={s.avatarText}>{userInitials}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -549,7 +565,8 @@ const makeStyles = (C, Font) => StyleSheet.create({
   bizSub:      { fontSize: 12, fontFamily: Font.regular,   color: C.onPrimaryMuted, lineHeight: 18, marginTop: 1 },
 
   iconBtn:      { width: 44, height: 44, borderRadius: 22, backgroundColor: C.onPrimaryIconBg, alignItems: 'center', justifyContent: 'center' },
-  avatarCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.onPrimaryIconBg, borderWidth: 2, borderColor: C.onPrimarySubtle, alignItems: 'center', justifyContent: 'center' },
+  avatarCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.onPrimaryIconBg, borderWidth: 2, borderColor: C.onPrimarySubtle, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg:    { width: 44, height: 44, borderRadius: 22 },
   avatarText:   { fontSize: 14, fontFamily: Font.bold, color: C.onPrimary },
 
   // Balance

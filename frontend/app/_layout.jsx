@@ -13,6 +13,7 @@ import {
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 import { useAuthStore } from '../src/store/authStore';
+import { useThemeStore } from '../src/store/themeStore';
 import { supabase } from '../src/lib/supabase';
 import { apiGetProfile } from '../src/lib/api';
 
@@ -82,6 +83,7 @@ async function resolveProfile(session) {
 function SupabaseAuthListener() {
   const setUser   = useAuthStore((s) => s.setUser);
   const clearUser = useAuthStore((s) => s.clearUser);
+  const setIsDark = useThemeStore((s) => s.setIsDark);
 
   useEffect(() => {
     // Restore session on app start
@@ -89,6 +91,7 @@ function SupabaseAuthListener() {
       if (session) {
         const profile = await resolveProfile(session);
         setUser(profile, session);
+        if (profile.is_dark_mode !== undefined) setIsDark(!!profile.is_dark_mode);
       }
     });
 
@@ -98,8 +101,10 @@ function SupabaseAuthListener() {
         if (event === 'SIGNED_IN' && session) {
           const profile = await resolveProfile(session);
           setUser(profile, session);
+          if (profile.is_dark_mode !== undefined) setIsDark(!!profile.is_dark_mode);
         } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
           clearUser();
+          setIsDark(false);
           queryClient.clear();
         } else if (event === 'TOKEN_REFRESHED' && session) {
           const prev = useAuthStore.getState().user;

@@ -191,11 +191,11 @@ Query params: `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | POST | `/attachment` | Upload entry photo to Supabase Storage | ✅ |
+| POST | `/avatar` | Upload profile photo to Supabase Storage (`avatars` bucket) | ✅ |
 
-- Body: `multipart/form-data` with `entry_id` (form field) + `file` (image)
-- Max size: 5 MB; allowed types: JPEG, PNG, WebP, HEIC
-- Path in bucket: `{user_id}/{entry_id}/attachment.{ext}`
-- Returns: `{ "attachment_url": "<signed-url-1h>", "path": "..." }`
+- `/attachment` — `multipart/form-data` with `entry_id` (form field) + `file` (image); path `{user_id}/{entry_id}/attachment.{ext}`; returns signed URL (1 h)
+- `/avatar` — `multipart/form-data` with `file` (image only); path `{user_id}/profile.{ext}`; creates/uses public `avatars` bucket; updates `profiles.avatar_url`; returns `{ "avatar_url": "<public-url>" }`
+- Both: max 5 MB; allowed types: JPEG, PNG, WebP, HEIC
 
 ---
 
@@ -203,8 +203,8 @@ Query params: `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 
 ### `models/profile.py`
 ```python
-class ProfileResponse:    id, email, full_name, phone, avatar_url, role, is_active, created_at, updated_at
-class ProfileUpdate:      full_name?, phone?, avatar_url?
+class ProfileResponse:    id, email, full_name, phone, avatar_url, role, is_active, currency (default 'PKR'), created_at, updated_at
+class ProfileUpdate:      full_name?, phone?, avatar_url?, currency?
 class UserWithStats:      ProfileResponse + book_count, entry_count, storage_mb
 class StatusUpdate:       is_active: bool
 ```
