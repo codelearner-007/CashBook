@@ -66,7 +66,14 @@ async def toggle_user_status(
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found or is superadmin")
     u = result.data[0]
-    return {**u, "book_count": 0, "entry_count": 0, "storage_mb": 0.0}
+
+    books_res   = sb.table("books").select("id").eq("user_id", user_id).execute()
+    book_count  = len(books_res.data or [])
+    entries_res = sb.table("entries").select("id").eq("user_id", user_id).execute()
+    entry_count = len(entries_res.data or [])
+    storage_mb  = round(0.2 + entry_count * 0.0005, 2)
+
+    return {**u, "book_count": book_count, "entry_count": entry_count, "storage_mb": storage_mb}
 
 
 @router.get("/users/{user_id}/books", response_model=List[BookResponse])

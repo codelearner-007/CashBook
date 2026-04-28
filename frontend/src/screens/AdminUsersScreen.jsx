@@ -1,12 +1,12 @@
-import React, { useMemo, useCallback, memo } from 'react';
+import React, { useMemo, useCallback, memo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, Switch, Alert,
+  SafeAreaView, StatusBar, Switch, Alert, Modal, ActivityIndicator, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
-import { apiGetAllUsers, apiToggleUserStatus, apiGetBooks } from '../lib/api';
+import { apiGetAllUsers, apiToggleUserStatus, apiGetBooks, apiGetUserBooks } from '../lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,35 +41,44 @@ const MoonIcon = ({ color, size = 18 }) => (
   </View>
 );
 
+const XIcon = ({ color, size = 16 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '45deg' }] }} />
+    <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }] }} />
+  </View>
+);
+
 // ── User Row ──────────────────────────────────────────────────────────────────
 
-const UserRow = memo(({ item, onToggle, C, s }) => {
+const UserRow = memo(({ item, onToggle, onViewBooks, C, s }) => {
   const initials = getInitials(item.full_name);
   return (
     <View style={s.userCard}>
-      <View style={[s.userAvatar, { backgroundColor: item.is_active ? C.primaryLight : C.cardAlt }]}>
-        <Text style={[s.userAvatarText, { color: item.is_active ? C.primary : C.textMuted }]}>
-          {initials}
-        </Text>
-      </View>
-      <View style={s.userInfo}>
-        <View style={s.userNameRow}>
-          <Text style={s.userName} numberOfLines={1}>{item.full_name}</Text>
-          {!item.is_active && (
-            <View style={s.inactiveBadge}>
-              <Text style={s.inactiveBadgeText}>Inactive</Text>
-            </View>
-          )}
+      <TouchableOpacity style={s.userCardLeft} onPress={onViewBooks} activeOpacity={0.7}>
+        <View style={[s.userAvatar, { backgroundColor: item.is_active ? C.primaryLight : C.cardAlt }]}>
+          <Text style={[s.userAvatarText, { color: item.is_active ? C.primary : C.textMuted }]}>
+            {initials}
+          </Text>
         </View>
-        <Text style={s.userEmail} numberOfLines={1}>{item.email}</Text>
-        <View style={s.userMeta}>
-          <Text style={s.userMetaText}>{item.book_count} books</Text>
-          <View style={s.userMetaDot} />
-          <Text style={s.userMetaText}>{fmtStorage(item.storage_mb)}</Text>
-          <View style={s.userMetaDot} />
-          <Text style={s.userMetaText}>{item.entry_count} entries</Text>
+        <View style={s.userInfo}>
+          <View style={s.userNameRow}>
+            <Text style={s.userName} numberOfLines={1}>{item.full_name}</Text>
+            {!item.is_active && (
+              <View style={s.inactiveBadge}>
+                <Text style={s.inactiveBadgeText}>Inactive</Text>
+              </View>
+            )}
+          </View>
+          <Text style={s.userEmail} numberOfLines={1}>{item.email}</Text>
+          <View style={s.userMeta}>
+            <Text style={s.userMetaText}>{item.book_count} books</Text>
+            <View style={s.userMetaDot} />
+            <Text style={s.userMetaText}>{fmtStorage(item.storage_mb)}</Text>
+            <View style={s.userMetaDot} />
+            <Text style={s.userMetaText}>{item.entry_count} entries</Text>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
       <Switch
         value={item.is_active}
         onValueChange={(val) => onToggle(item.id, val)}
@@ -99,6 +108,8 @@ export default function AdminUsersScreen() {
   const user = useAuthStore((st) => st.user);
   const qc   = useQueryClient();
 
+  const [selectedUser, setSelectedUser] = useState(null);
+
   const { data: allUsers = [], isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn:  apiGetAllUsers,
@@ -109,10 +120,20 @@ export default function AdminUsersScreen() {
     queryFn:  apiGetBooks,
   });
 
+  const { data: userBooks = [], isLoading: userBooksLoading } = useQuery({
+    queryKey: ['user-books', selectedUser?.id],
+    queryFn:  () => apiGetUserBooks(selectedUser.id),
+    enabled:  !!selectedUser,
+  });
+
   const toggleUserMutation = useMutation({
     mutationFn: ({ userId, isActive }) => apiToggleUserStatus(userId, isActive),
     onSuccess:  () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
+
+  const handleViewBooks = useCallback((user) => {
+    setSelectedUser(user);
+  }, []);
 
   const handleToggleUser = useCallback((userId, isActive) => {
     Alert.alert(
@@ -144,8 +165,14 @@ export default function AdminUsersScreen() {
   const adminInitials = useMemo(() => getInitials(user?.full_name ?? 'AD'), [user]);
 
   const renderUser = useCallback(({ item }) => (
-    <UserRow item={item} onToggle={handleToggleUser} C={C} s={s} />
-  ), [C, s, handleToggleUser]);
+    <UserRow
+      item={item}
+      onToggle={handleToggleUser}
+      onViewBooks={() => handleViewBooks(item)}
+      C={C}
+      s={s}
+    />
+  ), [C, s, handleToggleUser, handleViewBooks]);
 
   const ListHeader = (
     <View style={s.sectionHeader}>
@@ -228,6 +255,116 @@ export default function AdminUsersScreen() {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
       />
+
+      {/* ── User Books Modal ─────────────────────────────────────────────── */}
+      {selectedUser && (
+        <Modal
+          visible
+          animationType="slide"
+          transparent
+          onRequestClose={() => setSelectedUser(null)}
+        >
+          <Pressable style={s.modalOverlay} onPress={() => setSelectedUser(null)}>
+            <Pressable style={s.modalBox} onPress={() => {}}>
+              <View style={s.modalHandle} />
+
+              {/* Header */}
+              <View style={s.modalHeader}>
+                <View style={s.modalHeaderLeft}>
+                  <Text style={s.modalTitle} numberOfLines={1}>
+                    {selectedUser.full_name}
+                  </Text>
+                  <Text style={s.modalSubtitle} numberOfLines={1}>
+                    {selectedUser.email}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={s.modalCloseBtn}
+                  onPress={() => setSelectedUser(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <XIcon color={C.textMuted} size={16} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Badge row */}
+              <View style={s.modalBadgeRow}>
+                <View style={s.modalBadge}>
+                  <Text style={s.modalBadgeText}>
+                    {selectedUser.book_count} books
+                  </Text>
+                </View>
+                <View style={s.modalBadge}>
+                  <Text style={s.modalBadgeText}>
+                    {selectedUser.entry_count} entries
+                  </Text>
+                </View>
+                <View style={s.modalBadge}>
+                  <Text style={s.modalBadgeText}>
+                    {fmtStorage(selectedUser.storage_mb)}
+                  </Text>
+                </View>
+                <View style={[s.modalBadge, selectedUser.is_active ? s.modalBadgeActive : s.modalBadgeInactive]}>
+                  <Text style={[s.modalBadgeText, selectedUser.is_active ? s.modalBadgeTextActive : s.modalBadgeTextInactive]}>
+                    {selectedUser.is_active ? 'Active' : 'Inactive'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Divider */}
+              <View style={s.modalDivider} />
+
+              {/* Books list */}
+              {userBooksLoading ? (
+                <View style={s.modalLoading}>
+                  <ActivityIndicator size="small" color={C.primary} />
+                  <Text style={s.modalLoadingText}>Loading books…</Text>
+                </View>
+              ) : userBooks.length === 0 ? (
+                <View style={s.modalEmpty}>
+                  <Text style={s.modalEmptyText}>No books yet</Text>
+                </View>
+              ) : (
+                <>
+                  <FlatList
+                    data={userBooks}
+                    keyExtractor={item => item.id}
+                    style={s.bookList}
+                    scrollEnabled={userBooks.length > 5}
+                    renderItem={({ item }) => {
+                      const bal = item.net_balance ?? 0;
+                      return (
+                        <View style={s.bookRow}>
+                          <View style={s.bookRowLeft}>
+                            <Text style={s.bookRowName} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            <Text style={s.bookRowCurrency}>{item.currency}</Text>
+                          </View>
+                          <Text style={[
+                            s.bookRowBalance,
+                            { color: bal >= 0 ? C.cashIn : C.cashOut },
+                          ]}>
+                            {bal >= 0 ? '+' : ''}{bal.toLocaleString()}
+                          </Text>
+                        </View>
+                      );
+                    }}
+                  />
+                  <View style={s.modalTotalRow}>
+                    <Text style={s.modalTotalLabel}>Net Total</Text>
+                    <Text style={s.modalTotalValue}>
+                      {userBooks
+                        .reduce((acc, b) => acc + (b.net_balance ?? 0), 0)
+                        .toLocaleString()}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -311,6 +448,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
     borderWidth: 1, borderColor: C.border,
     minHeight: 80,
   },
+  userCardLeft:   { flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 10 },
   userAvatar:     { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   userAvatarText: { fontSize: 16, fontFamily: Font.extraBold },
   userInfo:       { flex: 1, marginRight: 10 },
@@ -328,4 +466,45 @@ const makeStyles = (C, Font) => StyleSheet.create({
   emptyIconBox: { width: 80, height: 80, borderRadius: 24, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
   emptyTitle:   { fontSize: 17, fontFamily: Font.bold,    color: C.text,     lineHeight: 26, marginBottom: 8 },
   emptySub:     { fontSize: 13, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20, textAlign: 'center' },
+
+  // ── User Books Modal ──────────────────────────────────────────────────────
+  modalOverlay:  { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
+  modalBox:      { backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
+  modalHandle:   { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
+
+  modalHeader:     { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 },
+  modalHeaderLeft: { flex: 1, marginRight: 12 },
+  modalTitle:      { fontSize: 18, fontFamily: Font.extraBold, color: C.text,     lineHeight: 26 },
+  modalSubtitle:   { fontSize: 12, fontFamily: Font.regular,   color: C.textMuted, lineHeight: 18, marginTop: 2 },
+  modalCloseBtn:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.cardAlt, alignItems: 'center', justifyContent: 'center' },
+
+  modalBadgeRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
+  modalBadge:           { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: C.cardAlt },
+  modalBadgeActive:     { backgroundColor: C.primaryLight, borderWidth: 1, borderColor: C.primaryMid },
+  modalBadgeInactive:   { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
+  modalBadgeText:       { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18 },
+  modalBadgeTextActive: { color: C.primary },
+  modalBadgeTextInactive: { color: '#DC2626' },
+
+  modalDivider:    { height: 1, backgroundColor: C.border, marginBottom: 16 },
+
+  modalLoading:     { alignItems: 'center', paddingVertical: 32, gap: 10 },
+  modalLoadingText: { fontSize: 13, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20 },
+
+  modalEmpty:     { alignItems: 'center', paddingVertical: 32 },
+  modalEmptyText: { fontSize: 14, fontFamily: Font.regular, color: C.textMuted, lineHeight: 20 },
+
+  bookList: { maxHeight: 320 },
+  bookRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  bookRowLeft:     { flex: 1, marginRight: 12 },
+  bookRowName:     { fontSize: 14, fontFamily: Font.semiBold, color: C.text,      lineHeight: 20 },
+  bookRowCurrency: { fontSize: 11, fontFamily: Font.regular,  color: C.textSubtle, lineHeight: 16, marginTop: 2 },
+  bookRowBalance:  { fontSize: 14, fontFamily: Font.bold, lineHeight: 20 },
+
+  modalTotalRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginTop: 4, borderTopWidth: 1.5, borderTopColor: C.primaryMid },
+  modalTotalLabel: { fontSize: 13, fontFamily: Font.semiBold,  color: C.textMuted, lineHeight: 20 },
+  modalTotalValue: { fontSize: 16, fontFamily: Font.extraBold, color: C.text,      lineHeight: 24 },
 });

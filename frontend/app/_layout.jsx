@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import Toast from '../src/lib/toast';
-import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import { Slot, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -27,13 +27,16 @@ const queryClient = new QueryClient({
 });
 
 function AuthGuard() {
-  const user            = useAuthStore((s) => s.user);
-  const router          = useRouter();
-  const segments        = useSegments();
-  const navigationState = useRootNavigationState();
+  const user     = useAuthStore((s) => s.user);
+  const router   = useRouter();
+  const segments = useSegments();
+  const [navReady, setNavReady] = useState(false);
+
+  // Wait one full render cycle so Expo Router's assertIsReady passes
+  useEffect(() => { setNavReady(true); }, []);
 
   useEffect(() => {
-    if (!navigationState?.key) return;
+    if (!navReady) return;
 
     const inApp = segments[0] === '(app)';
 
@@ -46,7 +49,7 @@ function AuthGuard() {
         router.replace('/(app)/books');
       }
     }
-  }, [user, segments, navigationState?.key]);
+  }, [user, segments, navReady]);
 
   return null;
 }

@@ -20,6 +20,19 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// 401 → session has expired; sign out so AuthGuard redirects to login.
+// 403 → user is deactivated or lacks permission; same outcome.
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const status = error.response?.status;
+    if (status === 401 || status === 403) {
+      await supabase.auth.signOut();
+    }
+    return Promise.reject(error);
+  },
+);
+
 
 // ── Books ──────────────────────────────────────────────────────────────────────
 

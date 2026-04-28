@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, StatusBar, Dimensions, Modal, FlatList, ActivityIndicator, Alert,
+  SafeAreaView, StatusBar, Dimensions, Modal, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
@@ -104,15 +104,6 @@ function EmailModal({ visible, onClose }) {
           ) : (
             <>
               <Text style={styles.pickerSub}>Enter your email to receive a sign-in link</Text>
-              <View style={styles.emailInput}>
-                <Text
-                  style={styles.emailInputText}
-                  onPress={() => {}}
-                >
-                  {/* RN TextInput replacement using controlled state */}
-                </Text>
-              </View>
-              {/* Native TextInput */}
               <View style={styles.inputBox}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <EmailTextInput value={email} onChangeText={setEmail} />
@@ -137,8 +128,6 @@ function EmailModal({ visible, onClose }) {
   );
 }
 
-// Thin wrapper so we can import TextInput only here
-import { TextInput } from 'react-native';
 function EmailTextInput({ value, onChangeText }) {
   return (
     <TextInput
@@ -344,6 +333,4 @@ const styles = StyleSheet.create({
   },
   sendBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
   sendBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  emailInput: {},
-  emailInputText: {},
 });
