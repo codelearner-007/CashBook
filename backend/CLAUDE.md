@@ -17,13 +17,15 @@ backend/
 │   │   ├── profile.py        # GET/PUT /api/v1/profile
 │   │   ├── books.py          # GET/POST/PUT/DELETE /api/v1/books
 │   │   ├── entries.py        # GET/POST/PUT/DELETE /api/v1/books/{id}/entries + summary
+│   │   ├── contacts.py       # GET/POST/PUT/DELETE /api/v1/books/{id}/customers + /suppliers
 │   │   ├── admin.py          # GET/PATCH /api/v1/admin/* (superadmin only)
 │   │   ├── reports.py        # GET /api/v1/books/{id}/report/pdf + /excel
 │   │   └── upload.py         # POST /api/v1/upload/attachment
 │   ├── models/
 │   │   ├── profile.py        # ProfileResponse, ProfileUpdate, UserWithStats, StatusUpdate
 │   │   ├── book.py           # BookCreate, BookUpdate, BookResponse
-│   │   └── entry.py          # EntryCreate, EntryUpdate, EntryResponse, BookSummary
+│   │   ├── entry.py          # EntryCreate, EntryUpdate, EntryResponse, BookSummary
+│   │   └── contact.py        # ContactCreate, ContactUpdate, ContactResponse, ContactWithBalance
 │   ├── db/
 │   │   └── supabase.py       # Supabase service client singleton
 │   └── utils/
@@ -218,12 +220,39 @@ class BookResponse:  id, user_id, name, currency, net_balance (float, default 0)
 
 ### `models/entry.py`
 ```python
-class EntryCreate:   type, amount, remark?, category?, payment_mode, contact_name?, attachment_url?, entry_date, entry_time
+class EntryCreate:   type, amount, remark?, category?, payment_mode, contact_name?, customer_id?, supplier_id?, attachment_url?, entry_date, entry_time
 class EntryUpdate:   all EntryCreate fields optional
 class EntryResponse: EntryCreate fields + id, book_id, user_id, created_at
                      Validator strips HH:MM:SS → HH:MM (Postgres time type)
 class BookSummary:   total_in, total_out, net_balance
 ```
+
+### `models/contact.py`
+```python
+class ContactCreate:      name, phone?, email?, address?
+class ContactUpdate:      all fields optional
+class ContactResponse:    id, book_id, user_id, name, phone?, email?, address?, total_in, total_out, net_balance, created_at, updated_at
+class ContactWithBalance: ContactResponse + balance (mirrors net_balance — kept for API backwards compat)
+```
+
+### Contacts endpoints (`routers/contacts.py`) — prefix `/api/v1/books`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/{book_id}/customers` | List customers with balance | ✅ |
+| POST | `/{book_id}/customers` | Create customer (name required) | ✅ |
+| GET | `/{book_id}/customers/{id}` | Get customer with balance | ✅ |
+| PUT | `/{book_id}/customers/{id}` | Update customer (not balance) | ✅ |
+| DELETE | `/{book_id}/customers/{id}` | Delete customer (entries keep contact_name) | ✅ |
+| GET | `/{book_id}/customers/{id}/entries` | Entries linked to this customer | ✅ |
+| GET | `/{book_id}/suppliers` | List suppliers with balance | ✅ |
+| POST | `/{book_id}/suppliers` | Create supplier | ✅ |
+| GET | `/{book_id}/suppliers/{id}` | Get supplier with balance | ✅ |
+| PUT | `/{book_id}/suppliers/{id}` | Update supplier | ✅ |
+| DELETE | `/{book_id}/suppliers/{id}` | Delete supplier | ✅ |
+| GET | `/{book_id}/suppliers/{id}/entries` | Entries linked to this supplier | ✅ |
+
+**Balance rule:** `total_in`, `total_out`, `net_balance` are stored columns maintained by `trg_update_contact_balance` (DB trigger on `entries`). Read them directly from the row — never recompute in Python. `balance` in `ContactWithBalance` mirrors `net_balance`.
 
 ---
 
@@ -268,7 +297,8 @@ app.include_router(books.router,   prefix="/api/v1/books",    tags=["books"])
 app.include_router(entries.router, prefix="/api/v1/books",    tags=["entries"])
 app.include_router(reports.router, prefix="/api/v1/books",    tags=["reports"])
 app.include_router(upload.router,  prefix="/api/v1/upload",   tags=["upload"])
-app.include_router(admin.router,   prefix="/api/v1/admin",    tags=["admin"])
+app.include_router(admin.router,    prefix="/api/v1/admin",    tags=["admin"])
+app.include_router(contacts.router, prefix="/api/v1/books",    tags=["contacts"])
 ```
 
 ---

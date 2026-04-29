@@ -327,13 +327,13 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
         <View style={s.sectionWrap}>
           <View style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}>
             <TouchableOpacity style={rowStyles.row} onPress={handleLogout} activeOpacity={0.7}>
-              <View style={[rowStyles.iconBox, { backgroundColor: C.cashOutLight }]}>
-                <LogoutIcon color={C.cashOut} size={15} />
+              <View style={[rowStyles.iconBox, { backgroundColor: C.dangerLight }]}>
+                <LogoutIcon color={C.danger} size={15} />
               </View>
               <View style={rowStyles.body}>
-                <Text style={[rowStyles.label, { color: C.cashOut, fontFamily: Font.semiBold }]}>Logout</Text>
+                <Text style={[rowStyles.label, { color: C.danger, fontFamily: Font.semiBold }]}>Logout</Text>
               </View>
-              <ChevronRight color={C.cashOut} />
+              <ChevronRight color={C.danger} />
             </TouchableOpacity>
           </View>
         </View>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
+  View, Text, StyleSheet, TouchableOpacity, Pressable,
   ScrollView, Modal, FlatList,
 } from 'react-native';
 import AppInput from '../ui/Input';
 import DatePickerModal from '../ui/DatePickerModal';
 import TimePickerModal from '../ui/TimePickerModal';
+import ContactPickerModal from './ContactPickerModal';
 import { ChevronDownIcon, CheckIcon, CloseIcon } from '../ui/Icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useBookFieldsStore } from '../../store/bookFieldsStore';
@@ -27,6 +28,8 @@ const EntryForm = forwardRef(function EntryForm(
   const [category,     setCategory]     = useState(initialValues?.category ?? '');
   const [paymentMode,  setPaymentMode]  = useState(initialValues?.payment_mode ?? 'cash');
   const [contactName,  setContactName]  = useState(initialValues?.contact_name ?? '');
+  const [customerId,   setCustomerId]   = useState(initialValues?.customer_id ?? null);
+  const [supplierId,   setSupplierId]   = useState(initialValues?.supplier_id ?? null);
   const [showAllPayments,   setShowAllPayments]   = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showContactModal,  setShowContactModal]  = useState(false);
@@ -45,6 +48,8 @@ const EntryForm = forwardRef(function EntryForm(
     setCategory(initialValues.category ?? '');
     setPaymentMode(initialValues.payment_mode ?? 'cash');
     setContactName(initialValues.contact_name ?? '');
+    setCustomerId(initialValues.customer_id ?? null);
+    setSupplierId(initialValues.supplier_id ?? null);
   }, [initialValues?.id]);
 
   useImperativeHandle(ref, () => ({
@@ -55,6 +60,8 @@ const EntryForm = forwardRef(function EntryForm(
       category:     category || undefined,
       payment_mode: paymentMode,
       contact_name: contactName.trim() || undefined,
+      customer_id:  customerId || undefined,
+      supplier_id:  supplierId || undefined,
       entry_date:   date.toISOString().split('T')[0],
       entry_time:   date.toTimeString().slice(0, 5),
     }),
@@ -94,7 +101,7 @@ const EntryForm = forwardRef(function EntryForm(
               <Text style={[s.typeBtnText, isIn && { color: '#fff' }]}>Cash In</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[s.typeBtn, !isIn && { backgroundColor: C.cashOut, borderColor: C.cashOut }]}
+              style={[s.typeBtn, !isIn && { backgroundColor: C.danger, borderColor: C.danger }]}
               onPress={() => setEntryType('out')}
               activeOpacity={0.8}
             >
@@ -130,11 +137,15 @@ const EntryForm = forwardRef(function EntryForm(
         {showContact && (
           <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85} style={s.fieldGap}>
             <AppInput
-              label="Contact (Customer/Supplier)"
+              label={customerId ? 'Customer' : supplierId ? 'Supplier' : 'Contact (Customer/Supplier)'}
               value={contactName}
               placeholder="Select contact"
               editable={false}
-              rightElement={<ChevronDownIcon color={C.textMuted} size={12} />}
+              rightElement={
+                contactName
+                  ? <TouchableOpacity onPress={(e) => { e.stopPropagation(); setContactName(''); setCustomerId(null); setSupplierId(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><CloseIcon color={C.textMuted} size={14} /></TouchableOpacity>
+                  : <ChevronDownIcon color={C.textMuted} size={12} />
+              }
               isLast
             />
           </TouchableOpacity>
@@ -240,34 +251,25 @@ const EntryForm = forwardRef(function EntryForm(
         </Pressable>
       </Modal>
 
-      {/* Contact Modal */}
-      <Modal visible={showContactModal} transparent animationType="slide" onRequestClose={() => setShowContactModal(false)}>
-        <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => setShowContactModal(false)}>
-          <Pressable style={[s.modalBox, { backgroundColor: C.card }]} onPress={() => {}}>
-            <View style={[s.modalHandle, { backgroundColor: C.border }]} />
-            <View style={s.modalHeader}>
-              <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Contact Name</Text>
-              <TouchableOpacity onPress={() => setShowContactModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <CloseIcon color={C.textMuted} size={18} />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={[s.modalInput, { borderColor: C.border, color: C.text, backgroundColor: C.background, fontFamily: Font.regular }]}
-              placeholder="Type contact name…"
-              placeholderTextColor={C.textMuted}
-              value={contactName}
-              onChangeText={setContactName}
-              autoFocus
-            />
-            <TouchableOpacity
-              style={[s.modalConfirmBtn, { backgroundColor: C.primary }]}
-              onPress={() => setShowContactModal(false)}
-            >
-              <Text style={[s.modalConfirmText, { fontFamily: Font.bold }]}>Confirm</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* Contact Picker — self-contained modal */}
+      <ContactPickerModal
+        visible={showContactModal}
+        bookId={bookId}
+        selectedContactId={customerId || supplierId}
+        onSelect={({ id, name, customer_id, supplier_id }) => {
+          setContactName(name);
+          setCustomerId(customer_id || null);
+          setSupplierId(supplier_id || null);
+          setShowContactModal(false);
+        }}
+        onDeselect={() => {
+          setContactName('');
+          setCustomerId(null);
+          setSupplierId(null);
+          setShowContactModal(false);
+        }}
+        onClose={() => setShowContactModal(false)}
+      />
 
       <DatePickerModal
         visible={showDatePicker}

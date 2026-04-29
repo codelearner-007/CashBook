@@ -38,7 +38,7 @@ export default function AppInput({
   const [inputHeight, setInputHeight] = useState(22);
 
   const borderColor = error
-    ? C.cashOut
+    ? C.danger
     : focused
     ? C.primary
     : C.border;
@@ -92,7 +92,7 @@ export default function AppInput({
       </View>
 
       {!isLast && <View style={[styles.divider, { backgroundColor: C.border }]} />}
-      {error && <Text style={[styles.error, { color: C.cashOut, fontFamily: Font.regular }]}>{error}</Text>}
+      {error && <Text style={[styles.error, { color: C.danger, fontFamily: Font.regular }]}>{error}</Text>}
     </View>
   );
 }

@@ -78,7 +78,7 @@ export default function DeleteBusinessScreen() {
             Type <Text style={{ color: C.text, fontFamily: Font.bold }}>{BUSINESS_NAME}</Text> to confirm
           </Text>
           <TextInput
-            style={[s.confirmInput, { color: C.text, borderColor: isMatch ? C.cashOut : C.border, fontFamily: Font.regular }]}
+            style={[s.confirmInput, { color: C.text, borderColor: isMatch ? C.danger : C.border, fontFamily: Font.regular }]}
             value={confirm}
             onChangeText={setConfirm}
             placeholder="Type business name here"
@@ -116,17 +116,17 @@ const makeStyles = (C) => StyleSheet.create({
   content: { padding: 16, paddingTop: 24, gap: 16 },
 
   warningCard: {
-    backgroundColor: '#FEF2F2', borderRadius: 16,
-    borderWidth: 1, borderColor: '#FECACA',
+    backgroundColor: C.dangerLight, borderRadius: 16,
+    borderWidth: 1, borderColor: C.danger,
     padding: 20, alignItems: 'center',
   },
   warningIconBox: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: C.cashOut, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    backgroundColor: C.danger, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
   },
   warningIcon:  { fontSize: 22, fontFamily: Font.extraBold, color: '#fff', lineHeight: 28 },
-  warningTitle: { fontSize: 16, fontFamily: Font.bold, color: C.cashOut, marginBottom: 8, textAlign: 'center' },
-  warningBody:  { fontSize: 13, fontFamily: Font.regular, color: '#B91C1C', lineHeight: 20, textAlign: 'center' },
+  warningTitle: { fontSize: 16, fontFamily: Font.bold, color: C.danger, marginBottom: 8, textAlign: 'center' },
+  warningBody:  { fontSize: 13, fontFamily: Font.regular, color: C.danger, lineHeight: 20, textAlign: 'center' },
 
   confirmCard:   { borderRadius: 16, borderWidth: 1, padding: 16 },
   confirmLabel:  { fontSize: 13, fontFamily: Font.regular, lineHeight: 20, marginBottom: 12 },
@@ -136,7 +136,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
 
   deleteBtn: {
-    backgroundColor: C.cashOut, borderRadius: 14,
+    backgroundColor: C.danger, borderRadius: 14,
     paddingVertical: 16, alignItems: 'center',
   },
   deleteBtnText: { fontSize: 15, fontFamily: Font.bold, color: '#fff' },

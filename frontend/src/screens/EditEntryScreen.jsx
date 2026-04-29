@@ -94,7 +94,7 @@ export default function EditEntryScreen() {
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           disabled={deleteEntry.isPending}
         >
-          <TrashIcon color="#DC2626" size={20} />
+          <TrashIcon color={C.danger} size={20} />
         </TouchableOpacity>
       </View>
 

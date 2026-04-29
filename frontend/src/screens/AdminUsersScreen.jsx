@@ -168,11 +168,11 @@ const UserRow = memo(({ item, onViewBooks, C, s }) => {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
           <Text style={[s.userName, { flex: 1 }]} numberOfLines={1}>{item.full_name}</Text>
           <View style={[s.userStatusPill, {
-            backgroundColor: item.is_active ? C.cashInLight : C.cashOutLight,
-            borderColor:     item.is_active ? `${C.cashIn}55` : `${C.cashOut}55`,
+            backgroundColor: item.is_active ? C.cashInLight : C.dangerLight,
+            borderColor:     item.is_active ? `${C.cashIn}55` : `${C.danger}55`,
           }]}>
-            <View style={[s.userStatusDot, { backgroundColor: item.is_active ? C.cashIn : C.cashOut }]} />
-            <Text style={[s.userStatusText, { color: item.is_active ? C.cashIn : C.cashOut }]}>
+            <View style={[s.userStatusDot, { backgroundColor: item.is_active ? C.cashIn : C.danger }]} />
+            <Text style={[s.userStatusText, { color: item.is_active ? C.cashIn : C.danger }]}>
               {item.is_active ? 'Active' : 'Inactive'}
             </Text>
           </View>
@@ -479,14 +479,14 @@ export default function AdminUsersScreen() {
                 <Text style={s.modalUserEmail}>{selectedUser.email}</Text>
 
                 <View style={[s.modalStatusPill, {
-                  backgroundColor: selectedUser.is_active ? C.cashInLight : C.cashOutLight,
-                  borderColor: selectedUser.is_active ? C.cashIn : C.cashOut,
+                  backgroundColor: selectedUser.is_active ? C.cashInLight : C.dangerLight,
+                  borderColor: selectedUser.is_active ? C.cashIn : C.danger,
                 }]}>
                   <View style={[s.modalStatusDot, {
-                    backgroundColor: selectedUser.is_active ? C.cashIn : C.cashOut,
+                    backgroundColor: selectedUser.is_active ? C.cashIn : C.danger,
                   }]} />
                   <Text style={[s.modalStatusPillText, {
-                    color: selectedUser.is_active ? C.cashIn : C.cashOut,
+                    color: selectedUser.is_active ? C.cashIn : C.danger,
                   }]}>
                     {selectedUser.is_active ? 'Active' : 'Inactive'}
                   </Text>
@@ -513,25 +513,25 @@ export default function AdminUsersScreen() {
 
               {/* ─ Account status toggle ─ */}
               <View style={[s.modalToggleCard, {
-                backgroundColor: selectedUser.is_active ? C.cashInLight : C.cashOutLight,
+                backgroundColor: selectedUser.is_active ? C.cashInLight : C.dangerLight,
                 borderColor: selectedUser.is_active
                   ? `${C.cashIn}55`
-                  : `${C.cashOut}55`,
+                  : `${C.danger}55`,
               }]}>
                 <View style={s.modalToggleLeft}>
                   <View style={[s.modalToggleIconBox, {
                     backgroundColor: selectedUser.is_active
                       ? `${C.cashIn}22`
-                      : `${C.cashOut}22`,
+                      : `${C.danger}22`,
                   }]}>
                     <LockIcon
-                      color={selectedUser.is_active ? C.cashIn : C.cashOut}
+                      color={selectedUser.is_active ? C.cashIn : C.danger}
                       size={14}
                     />
                   </View>
                   <View>
                     <Text style={[s.modalToggleTitle, {
-                      color: selectedUser.is_active ? C.cashIn : C.cashOut,
+                      color: selectedUser.is_active ? C.cashIn : C.danger,
                     }]}>
                       Account Status
                     </Text>
@@ -544,10 +544,10 @@ export default function AdminUsersScreen() {
                   value={selectedUser.is_active}
                   onValueChange={(val) => handleToggleUser(selectedUser.id, val)}
                   trackColor={{
-                    false: `${C.cashOut}55`,
+                    false: `${C.danger}55`,
                     true:  `${C.cashIn}77`,
                   }}
-                  thumbColor={selectedUser.is_active ? C.cashIn : C.cashOut}
+                  thumbColor={selectedUser.is_active ? C.cashIn : C.danger}
                 />
               </View>
 
@@ -569,16 +569,16 @@ export default function AdminUsersScreen() {
 
               {/* Icon circle */}
               <View style={[s.confirmIconCircle, {
-                backgroundColor: confirmState.isActive ? C.cashInLight : C.cashOutLight,
+                backgroundColor: confirmState.isActive ? C.cashInLight : C.dangerLight,
               }]}>
                 <View style={[s.confirmIconInner, {
                   backgroundColor: confirmState.isActive
                     ? `${C.cashIn}22`
-                    : `${C.cashOut}22`,
+                    : `${C.danger}22`,
                 }]}>
                   {confirmState.isActive
                     ? <CheckIcon color={C.cashIn} size={18} />
-                    : <LockIcon  color={C.cashOut} size={16} />
+                    : <LockIcon  color={C.danger} size={16} />
                   }
                 </View>
               </View>
@@ -591,10 +591,10 @@ export default function AdminUsersScreen() {
               {/* User name pill */}
               {confirmState.userName ? (
                 <View style={[s.confirmNamePill, {
-                  backgroundColor: confirmState.isActive ? C.cashInLight : C.cashOutLight,
+                  backgroundColor: confirmState.isActive ? C.cashInLight : C.dangerLight,
                 }]}>
                   <Text style={[s.confirmNameText, {
-                    color: confirmState.isActive ? C.cashIn : C.cashOut,
+                    color: confirmState.isActive ? C.cashIn : C.danger,
                   }]} numberOfLines={1}>
                     {confirmState.userName}
                   </Text>
@@ -619,7 +619,7 @@ export default function AdminUsersScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.confirmActionBtn, {
-                    backgroundColor: confirmState.isActive ? C.cashIn : C.cashOut,
+                    backgroundColor: confirmState.isActive ? C.cashIn : C.danger,
                   }]}
                   onPress={handleConfirmToggle}
                   activeOpacity={0.85}

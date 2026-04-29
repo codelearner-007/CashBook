@@ -82,12 +82,12 @@ export default function DeleteAllEntriesSheet({
               /* ── Delete form ── */
               <>
                 <View style={s.headerRow}>
-                  <View style={s.iconCircle}>
+                  <View style={[s.iconCircle, { backgroundColor: C.danger, shadowColor: C.danger }]}>
                     <Feather name="trash-2" size={20} color="#fff" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[s.title, { color: C.text, fontFamily: Font.bold }]}>Delete All Entries</Text>
-                    <Text style={[s.subtitle, { color: '#B91C1C', fontFamily: Font.medium }]}>
+                    <Text style={[s.subtitle, { color: C.danger, fontFamily: Font.medium }]}>
                       This cannot be undone
                     </Text>
                   </View>
@@ -106,7 +106,7 @@ export default function DeleteAllEntriesSheet({
                   style={[
                     s.input,
                     {
-                      borderColor: input.length > 0 ? (matched ? '#15803D' : '#B91C1C') : C.border,
+                      borderColor: input.length > 0 ? (matched ? C.cashIn : C.danger) : C.border,
                       color: C.text,
                       backgroundColor: C.background,
                       fontFamily: Font.regular,
@@ -126,7 +126,7 @@ export default function DeleteAllEntriesSheet({
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[s.btn, s.btnDelete, { opacity: matched && !isLoading ? 1 : 0.35 }]}
+                    style={[s.btn, s.btnDelete, { backgroundColor: C.danger, opacity: matched && !isLoading ? 1 : 0.35 }]}
                     onPress={() => matched && !isLoading && onConfirm()}
                     disabled={!matched || isLoading}
                     activeOpacity={0.85}
@@ -165,9 +165,8 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   iconCircle: {
     width: 44, height: 44, borderRadius: 14,
-    backgroundColor: '#B91C1C',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#B91C1C', shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   title:      { fontSize: 16, lineHeight: 22 },
@@ -185,7 +184,7 @@ const s = StyleSheet.create({
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
     flexDirection: 'row', gap: 7,
   },
-  btnDelete: { backgroundColor: '#B91C1C', borderWidth: 0 },
+  btnDelete: { borderWidth: 0 },
   btnText:   { fontSize: 14 },
 
   // Empty state

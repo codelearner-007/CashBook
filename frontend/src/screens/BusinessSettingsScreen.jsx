@@ -77,11 +77,11 @@ export default function BusinessSettingsScreen() {
                 onPress={() => router.push(item.route)}
                 activeOpacity={0.75}
               >
-                <View style={[s.iconBox, { backgroundColor: item.danger ? '#FEF2F2' : C.primaryLight }]}>
-                  <item.icon color={item.danger ? C.cashOut : C.primary} size={20} />
+                <View style={[s.iconBox, { backgroundColor: item.danger ? C.dangerLight : C.primaryLight }]}>
+                  <item.icon color={item.danger ? C.danger : C.primary} size={20} />
                 </View>
                 <View style={s.rowBody}>
-                  <Text style={[s.rowLabel, { color: item.danger ? C.cashOut : C.text }]}>{item.label}</Text>
+                  <Text style={[s.rowLabel, { color: item.danger ? C.danger : C.text }]}>{item.label}</Text>
                   <Text style={[s.rowSub, { color: C.textMuted }]}>{item.sub}</Text>
                 </View>
                 <ChevronRight color={C.textSubtle} />

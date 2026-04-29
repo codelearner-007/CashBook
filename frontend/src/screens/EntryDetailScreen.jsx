@@ -78,8 +78,8 @@ export default function EntryDetailScreen() {
   };
 
   const isIn      = entry?.type === 'in';
-  const typeColor = isIn ? C.cashIn : C.cashOut;
-  const typeBg    = isIn ? (isDark ? C.cashInLight : '#DCFCE7') : (isDark ? C.cashOutLight : '#FEE2E2');
+  const typeColor = isIn ? C.cashIn : C.danger;
+  const typeBg    = isIn ? C.cashInLight : C.dangerLight;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -156,8 +156,8 @@ export default function EntryDetailScreen() {
             <View style={[s.menuDivider, { backgroundColor: C.border }]} />
 
             <TouchableOpacity style={s.menuItem} activeOpacity={0.7} onPress={handleDelete}>
-              <TrashIcon color={C.cashOut} size={18} />
-              <Text style={[s.menuItemText, { color: C.cashOut, fontFamily: Font.medium }]}>Delete Entry</Text>
+              <TrashIcon color={C.danger} size={18} />
+              <Text style={[s.menuItemText, { color: C.danger, fontFamily: Font.medium }]}>Delete Entry</Text>
             </TouchableOpacity>
 
           </Pressable>

@@ -27,7 +27,11 @@ frontend/
 │       │       ├── book-settings.jsx             # → BookSettingsScreen
 │       │       ├── categories-settings.jsx       # → CategoriesSettingsScreen
 │       │       ├── contact-settings.jsx          # → ContactSettingsScreen
-│       │       └── payment-mode-settings.jsx     # → PaymentModeSettingsScreen
+│       │       ├── payment-mode-settings.jsx     # → PaymentModeSettingsScreen
+│       │       ├── customers.jsx                 # → ContactsListScreen (type=customer)
+│       │       ├── suppliers.jsx                 # → ContactsListScreen (type=supplier)
+│       │       ├── contact-detail.jsx            # → ContactDetailScreen
+│       │       └── contact-balance.jsx           # → ContactBalanceScreen
 │       ├── dashboard/
 │       │   ├── _layout.jsx       # Tabs layout (Users | My Books | Settings)
 │       │   ├── users.jsx         # → AdminUsersScreen  (superadmin only)
@@ -50,7 +54,8 @@ frontend/
 │   │   │   ├── DraggableList.jsx # Custom drag-reorder list for books
 │   │   │   └── SortSheet.jsx     # Sort-mode picker bottom sheet
 │   │   ├── entry/
-│   │   │   └── EntryForm.jsx     # Shared form for add/edit entry
+│   │   │   ├── EntryForm.jsx         # Shared form for add/edit entry
+│   │   │   └── ContactPickerModal.jsx # Bottom sheet: search customers/suppliers, create new, import from phone
 │   │   └── ui/
 │   │       ├── Input.jsx
 │   │       ├── Icons.jsx
@@ -59,6 +64,7 @@ frontend/
 │   ├── hooks/
 │   │   ├── useBooks.js           # useBooks, useCreateBook, useDeleteBook (React Query)
 │   │   ├── useBookSort.js        # Sort state + sorted list derivation
+│   │   ├── useContacts.js        # useCustomers/Suppliers, useCreateContact, useDeleteContact, etc.
 │   │   ├── useProfile.js         # useProfile, useUpdateProfile
 │   │   └── useTheme.js           # Returns { C, Font, isDark, toggleTheme }
 │   ├── lib/
@@ -259,6 +265,18 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `apiCreateEntry(bookId, payload)` | POST | `/api/v1/books/:id/entries` |
 | `apiUpdateEntry(bookId, entryId, payload)` | PUT | `/api/v1/books/:id/entries/:eid` |
 | `apiDeleteEntry(bookId, entryId)` | DELETE | `/api/v1/books/:id/entries/:eid` |
+| `apiGetCustomers(bookId)` | GET | `/api/v1/books/:id/customers` |
+| `apiCreateCustomer(bookId, payload)` | POST | `/api/v1/books/:id/customers` |
+| `apiGetCustomer(bookId, id)` | GET | `/api/v1/books/:id/customers/:id` |
+| `apiUpdateCustomer(bookId, id, payload)` | PUT | `/api/v1/books/:id/customers/:id` |
+| `apiDeleteCustomer(bookId, id)` | DELETE | `/api/v1/books/:id/customers/:id` |
+| `apiGetCustomerEntries(bookId, id)` | GET | `/api/v1/books/:id/customers/:id/entries` |
+| `apiGetSuppliers(bookId)` | GET | `/api/v1/books/:id/suppliers` |
+| `apiCreateSupplier(bookId, payload)` | POST | `/api/v1/books/:id/suppliers` |
+| `apiGetSupplier(bookId, id)` | GET | `/api/v1/books/:id/suppliers/:id` |
+| `apiUpdateSupplier(bookId, id, payload)` | PUT | `/api/v1/books/:id/suppliers/:id` |
+| `apiDeleteSupplier(bookId, id)` | DELETE | `/api/v1/books/:id/suppliers/:id` |
+| `apiGetSupplierEntries(bookId, id)` | GET | `/api/v1/books/:id/suppliers/:id/entries` |
 | `apiGetAllUsers()` | GET | `/api/v1/admin/users` |
 | `apiToggleUserStatus(userId, is_active)` | PATCH | `/api/v1/admin/users/:id/status` |
 | `apiGetUserBooks(userId)` | GET | `/api/v1/admin/users/:id/books` |
@@ -303,6 +321,12 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `['summary', bookId]` | 2 min | — | Book balance summary |
 | `['profile']` | 5 min | — | User profile |
 | `['user-books', userId]` | 0 | — | Specific user's books (admin modal) |
+| `['customers', bookId]` | 2 min | — | All customers for a book |
+| `['customer', bookId, id]` | 2 min | — | Single customer with balance |
+| `['customer-entries', bookId, id]` | 2 min | — | Entries linked to a customer |
+| `['suppliers', bookId]` | 2 min | — | All suppliers for a book |
+| `['supplier', bookId, id]` | 2 min | — | Single supplier with balance |
+| `['supplier-entries', bookId, id]` | 2 min | — | Entries linked to a supplier |
 
 Mutations use `qc.setQueryData(...)` for optimistic updates + `qc.invalidateQueries(...)` on success to sync with DB.
 

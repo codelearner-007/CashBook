@@ -113,6 +113,60 @@ export const apiDeleteAllEntries = async (bookId) => {
 };
 
 
+// ── Customers ─────────────────────────────────────────────────────────────────
+
+/** GET /api/v1/books/:bookId/customers */
+export const apiGetCustomers = async (bookId) =>
+  (await api.get(`/api/v1/books/${bookId}/customers`)).data;
+
+/** POST /api/v1/books/:bookId/customers */
+export const apiCreateCustomer = async (bookId, payload) =>
+  (await api.post(`/api/v1/books/${bookId}/customers`, payload)).data;
+
+/** GET /api/v1/books/:bookId/customers/:id */
+export const apiGetCustomer = async (bookId, contactId) =>
+  (await api.get(`/api/v1/books/${bookId}/customers/${contactId}`)).data;
+
+/** PUT /api/v1/books/:bookId/customers/:id */
+export const apiUpdateCustomer = async (bookId, contactId, payload) =>
+  (await api.put(`/api/v1/books/${bookId}/customers/${contactId}`, payload)).data;
+
+/** DELETE /api/v1/books/:bookId/customers/:id */
+export const apiDeleteCustomer = async (bookId, contactId) =>
+  api.delete(`/api/v1/books/${bookId}/customers/${contactId}`);
+
+/** GET /api/v1/books/:bookId/customers/:id/entries */
+export const apiGetCustomerEntries = async (bookId, contactId) =>
+  (await api.get(`/api/v1/books/${bookId}/customers/${contactId}/entries`)).data;
+
+
+// ── Suppliers ─────────────────────────────────────────────────────────────────
+
+/** GET /api/v1/books/:bookId/suppliers */
+export const apiGetSuppliers = async (bookId) =>
+  (await api.get(`/api/v1/books/${bookId}/suppliers`)).data;
+
+/** POST /api/v1/books/:bookId/suppliers */
+export const apiCreateSupplier = async (bookId, payload) =>
+  (await api.post(`/api/v1/books/${bookId}/suppliers`, payload)).data;
+
+/** GET /api/v1/books/:bookId/suppliers/:id */
+export const apiGetSupplier = async (bookId, contactId) =>
+  (await api.get(`/api/v1/books/${bookId}/suppliers/${contactId}`)).data;
+
+/** PUT /api/v1/books/:bookId/suppliers/:id */
+export const apiUpdateSupplier = async (bookId, contactId, payload) =>
+  (await api.put(`/api/v1/books/${bookId}/suppliers/${contactId}`, payload)).data;
+
+/** DELETE /api/v1/books/:bookId/suppliers/:id */
+export const apiDeleteSupplier = async (bookId, contactId) =>
+  api.delete(`/api/v1/books/${bookId}/suppliers/${contactId}`);
+
+/** GET /api/v1/books/:bookId/suppliers/:id/entries */
+export const apiGetSupplierEntries = async (bookId, contactId) =>
+  (await api.get(`/api/v1/books/${bookId}/suppliers/${contactId}/entries`)).data;
+
+
 // ── Admin (superadmin only) ────────────────────────────────────────────────────
 
 /** GET /api/v1/admin/users */

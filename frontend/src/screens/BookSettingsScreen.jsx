@@ -82,22 +82,32 @@ export default function BookSettingsScreen() {
 
   const ENTRY_FIELDS = [
     {
-      icon: 'users',
-      label: 'Contact',
-      sub: 'Manage contacts for this book',
-      route: `${basePath}/[id]/contact-settings`,
+      icon: 'user-check',
+      label: 'Customers',
+      sub: 'Manage customers for this book',
+      route: `${basePath}/[id]/customers`,
+      params: { type: 'customer' },
+    },
+    {
+      icon: 'truck',
+      label: 'Suppliers',
+      sub: 'Manage suppliers for this book',
+      route: `${basePath}/[id]/suppliers`,
+      params: { type: 'supplier' },
     },
     {
       icon: 'tag',
       label: 'Categories',
       sub: 'Add or remove categories',
       route: `${basePath}/[id]/categories-settings`,
+      params: {},
     },
     {
       icon: 'credit-card',
       label: 'Payment Mode',
       sub: 'Configure payment modes',
       route: `${basePath}/[id]/payment-mode-settings`,
+      params: {},
     },
   ];
 
@@ -140,20 +150,20 @@ export default function BookSettingsScreen() {
 
         {/* Danger Zone */}
         <Text style={[s.sectionLabel, { marginTop: 24 }]}>DANGER ZONE</Text>
-        <View style={[s.card, { backgroundColor: C.card, borderColor: '#FCA5A5' }]}>
+        <View style={[s.card, { backgroundColor: C.card, borderColor: C.danger }]}>
           <TouchableOpacity
             style={s.row}
             onPress={() => setShowDeleteSheet(true)}
             activeOpacity={0.75}
           >
-            <View style={[s.iconBox, { backgroundColor: '#FEE2E2' }]}>
-              <Feather name="trash-2" size={18} color="#B91C1C" />
+            <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
+              <Feather name="trash-2" size={18} color={C.danger} />
             </View>
             <View style={s.rowBody}>
-              <Text style={[s.rowLabel, { color: '#B91C1C' }]}>Delete All Entries</Text>
+              <Text style={[s.rowLabel, { color: C.danger }]}>Delete All Entries</Text>
               <Text style={s.rowSub}>Permanently removes all entries from this book</Text>
             </View>
-            <Feather name="chevron-right" size={18} color="#B91C1C" />
+            <Feather name="chevron-right" size={18} color={C.danger} />
           </TouchableOpacity>
         </View>
 
@@ -164,7 +174,7 @@ export default function BookSettingsScreen() {
             <View key={item.label}>
               <TouchableOpacity
                 style={s.row}
-                onPress={() => router.push({ pathname: item.route, params: { id, name: bookName } })}
+                onPress={() => router.push({ pathname: item.route, params: { id, name: bookName, ...(item.params || {}) } })}
                 activeOpacity={0.75}
               >
                 <View style={[s.iconBox, { backgroundColor: C.primaryLight }]}>

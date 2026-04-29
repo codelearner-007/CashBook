@@ -11,6 +11,8 @@ class EntryCreate(BaseModel):
     category: Optional[str] = None
     payment_mode: str = "cash"
     contact_name: Optional[str] = None
+    customer_id: Optional[str] = None
+    supplier_id: Optional[str] = None
     attachment_url: Optional[str] = None
     entry_date: str   # YYYY-MM-DD
     entry_time: str   # HH:MM
@@ -23,6 +25,8 @@ class EntryUpdate(BaseModel):
     category: Optional[str] = None
     payment_mode: Optional[str] = None
     contact_name: Optional[str] = None
+    customer_id: Optional[str] = None
+    supplier_id: Optional[str] = None
     attachment_url: Optional[str] = None
     entry_date: Optional[str] = None
     entry_time: Optional[str] = None
@@ -38,6 +42,8 @@ class EntryResponse(BaseModel):
     category: Optional[str] = None
     payment_mode: str
     contact_name: Optional[str] = None
+    customer_id: Optional[str] = None
+    supplier_id: Optional[str] = None
     attachment_url: Optional[str] = None
     entry_date: str
     entry_time: str

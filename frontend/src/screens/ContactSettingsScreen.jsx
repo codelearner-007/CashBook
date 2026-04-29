@@ -126,7 +126,7 @@ export default function ContactSettingsScreen() {
               onPress={() => removeContact(item.id)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Feather name="trash-2" size={16} color={C.cashOut} />
+              <Feather name="trash-2" size={16} color={C.danger} />
             </TouchableOpacity>
           </View>
         )}

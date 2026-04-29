@@ -20,6 +20,8 @@ Supabase provides three things for CashBook:
 3. `supabase/migrations/003_fix_last_entry_at.sql` — fix last_entry_at computation
 4. `supabase/migrations/004_avatars_bucket.sql` (now `005_avatars_bucket.sql`) — create public `avatars` storage bucket + RLS policies
 5. `supabase/migrations/006_add_currency_to_profiles.sql` — add `currency` column to profiles (default `'PKR'`)
+6. `supabase/migrations/007_add_dark_mode_to_profiles.sql` — add `is_dark_mode` boolean to profiles
+7. `supabase/migrations/008_contacts.sql` — `customers` and `suppliers` tables (with stored `total_in`/`total_out`/`net_balance`) + `customer_id`/`supplier_id` FK columns on entries; RLS; `trg_update_contact_balance` trigger keeps balances in sync automatically
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -62,6 +64,31 @@ Supabase provides three things for CashBook:
 
 ---
 
+### `public.customers` (one table per book)
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | uuid | PK, default `gen_random_uuid()` |
+| `book_id` | uuid | FK → `public.books(id)` ON DELETE CASCADE, NOT NULL |
+| `user_id` | uuid | FK → `auth.users(id)` ON DELETE CASCADE, NOT NULL |
+| `name` | text | NOT NULL |
+| `phone` | text | nullable |
+| `email` | text | nullable |
+| `address` | text | nullable |
+| `total_in` | numeric(14,2) | NOT NULL, default 0 — maintained by trigger |
+| `total_out` | numeric(14,2) | NOT NULL, default 0 — maintained by trigger |
+| `net_balance` | numeric(14,2) | NOT NULL, default 0 — maintained by trigger |
+| `created_at` | timestamptz | default `now()` |
+| `updated_at` | timestamptz | default `now()` (auto-updated by trigger) |
+
+**`total_in`, `total_out`, `net_balance` are maintained automatically** by the `trg_update_contact_balance` trigger on the `entries` table. Never compute them in application code — read directly from the row.
+
+### `public.suppliers` (same structure as customers)
+
+Identical columns to `customers`, including `total_in`, `total_out`, `net_balance`. Kept as a separate table by design — each book has its own customer and supplier lists.
+
+---
+
 ### `public.entries`
 
 | Column | Type | Constraints |
@@ -74,7 +101,9 @@ Supabase provides three things for CashBook:
 | `remark` | text | nullable |
 | `category` | text | nullable |
 | `payment_mode` | text | default `'cash'` |
-| `contact_name` | text | nullable |
+| `contact_name` | text | nullable (snapshot of name for display even if contact deleted) |
+| `customer_id` | uuid | FK → `public.customers(id)` ON DELETE SET NULL, nullable |
+| `supplier_id` | uuid | FK → `public.suppliers(id)` ON DELETE SET NULL, nullable |
 | `attachment_url` | text | nullable |
 | `entry_date` | date | NOT NULL, default `current_date` |
 | `entry_time` | time | NOT NULL, default `current_time` |
@@ -139,6 +168,9 @@ create policy "Users own their entries" on public.entries
 | `profiles_updated_at` | `profiles` | BEFORE UPDATE | Maintain `updated_at` |
 | `books_updated_at` | `books` | BEFORE UPDATE | Maintain `updated_at` |
 | `trg_update_book_balance` | `entries` | AFTER INSERT/UPDATE/DELETE | Maintain `books.net_balance` |
+| `customers_updated_at` | `customers` | BEFORE UPDATE | Maintain `updated_at` |
+| `suppliers_updated_at` | `suppliers` | BEFORE UPDATE | Maintain `updated_at` |
+| `trg_update_contact_balance` | `entries` | AFTER INSERT/UPDATE/DELETE | Maintain `customers.total_in/out/net_balance` and `suppliers.total_in/out/net_balance` |
 
 ### Balance trigger logic (`update_book_balance`)
 - **INSERT:** `net_balance += amount` if `type='in'`, `-= amount` if `type='out'`

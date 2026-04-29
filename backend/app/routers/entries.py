@@ -60,6 +60,8 @@ async def create_entry(
         "category": payload.category,
         "payment_mode": payload.payment_mode,
         "contact_name": payload.contact_name,
+        "customer_id": payload.customer_id,
+        "supplier_id": payload.supplier_id,
         "attachment_url": payload.attachment_url,
         "entry_date": payload.entry_date,
         "entry_time": payload.entry_time,

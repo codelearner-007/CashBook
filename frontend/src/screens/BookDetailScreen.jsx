@@ -119,7 +119,7 @@ const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark }) => {
         <Text style={s.entryMeta}>Entry by You  ·  {fmt12h(item.entry_time)}</Text>
       </View>
       <Text
-        style={[s.entryAmount, { color: item.type === 'in' ? C.cashIn : C.cashOut }]}
+        style={[s.entryAmount, { color: item.type === 'in' ? C.cashIn : C.danger }]}
         numberOfLines={1}
         allowFontScaling={false}
       >
@@ -132,7 +132,7 @@ const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark }) => {
 // ── BalanceCard ───────────────────────────────────────────────────────────────
 
 const BalanceCard = memo(({ summary, onViewReports, C, Font, s }) => {
-  const netColor = summary.net_balance >= 0 ? C.cashIn : C.cashOut;
+  const netColor = summary.net_balance >= 0 ? C.cashIn : C.danger;
   return (
     <View style={s.balanceCard}>
       <Text style={s.netLabel}>Net Balance</Text>
@@ -155,7 +155,7 @@ const BalanceCard = memo(({ summary, onViewReports, C, Font, s }) => {
         <View style={s.balanceSubDivider} />
         <View style={s.balanceSub}>
           <Text style={s.subLabel}>Total Out (-)</Text>
-          <Text style={[s.subAmount, { color: C.cashOut }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          <Text style={[s.subAmount, { color: C.danger }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {summary.total_out.toLocaleString()}
           </Text>
         </View>
@@ -623,12 +623,12 @@ export default function BookDetailScreen() {
                   <Text style={[s.typePickerSub, { color: C.textMuted }]}>Income entries</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[s.typePickerBtn, { borderColor: filterType === 'out' ? C.cashOut : C.border, backgroundColor: filterType === 'out' ? C.cashOutLight : C.card }]}
+                  style={[s.typePickerBtn, { borderColor: filterType === 'out' ? C.danger : C.border, backgroundColor: filterType === 'out' ? C.dangerLight : C.card }]}
                   onPress={() => applyFilter('type', 'out')}
                   activeOpacity={0.8}
                 >
-                  <Feather name="arrow-down-circle" size={28} color={filterType === 'out' ? C.cashOut : C.textMuted} />
-                  <Text style={[s.typePickerLabel, { color: filterType === 'out' ? C.cashOut : C.text, fontFamily: Font.bold }]}>Cash Out</Text>
+                  <Feather name="arrow-down-circle" size={28} color={filterType === 'out' ? C.danger : C.textMuted} />
+                  <Text style={[s.typePickerLabel, { color: filterType === 'out' ? C.danger : C.text, fontFamily: Font.bold }]}>Cash Out</Text>
                   <Text style={[s.typePickerSub, { color: C.textMuted }]}>Expense entries</Text>
                 </TouchableOpacity>
               </View>
@@ -808,8 +808,8 @@ export default function BookDetailScreen() {
                   onPress={item.onPress}
                   activeOpacity={0.7}
                 >
-                  <Feather name={item.icon} size={16} color={item.danger ? '#B91C1C' : C.textMuted} />
-                  <Text style={[s.menuItemText, { color: item.danger ? '#B91C1C' : C.text, fontFamily: Font.medium }]}>
+                  <Feather name={item.icon} size={16} color={item.danger ? C.danger : C.textMuted} />
+                  <Text style={[s.menuItemText, { color: item.danger ? C.danger : C.text, fontFamily: Font.medium }]}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
@@ -855,7 +855,7 @@ export default function BookDetailScreen() {
           <Text style={s.actionBtnText}>CASH IN</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[s.actionBtn, { backgroundColor: C.cashOut }]}
+          style={[s.actionBtn, { backgroundColor: C.danger }]}
           onPress={() => router.push({
             pathname: `${basePath}/[id]/add-entry`,
             params: { id, type: 'out' },

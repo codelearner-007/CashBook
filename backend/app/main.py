@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import books, entries, reports, upload, profile, admin
+from app.routers import books, entries, reports, upload, profile, admin, contacts
 
 app = FastAPI(title="CashBook API", version="1.0.0")
 
@@ -22,7 +22,8 @@ app.include_router(books.router,   prefix="/api/v1/books",    tags=["books"])
 app.include_router(entries.router, prefix="/api/v1/books",    tags=["entries"])
 app.include_router(reports.router, prefix="/api/v1/books",    tags=["reports"])
 app.include_router(upload.router,  prefix="/api/v1/upload",   tags=["upload"])
-app.include_router(admin.router,   prefix="/api/v1/admin",    tags=["admin"])
+app.include_router(admin.router,    prefix="/api/v1/admin",    tags=["admin"])
+app.include_router(contacts.router, prefix="/api/v1/books",    tags=["contacts"])
 
 
 @app.get("/health")

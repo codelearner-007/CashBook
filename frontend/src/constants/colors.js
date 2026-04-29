@@ -19,6 +19,10 @@ export const LightColors = {
   cashOut:          '#B91C1C',          // red-700
   cashOutLight:     '#FEE2E2',          // red-100
 
+  // Danger (red) — used for delete actions, destructive UI, cash out amounts
+  danger:           '#B91C1C',          // red-700
+  dangerLight:      '#FEE2E2',          // red-100
+
   // Surface
   background:       '#F8FAFC',          // slate-50
   card:             '#FFFFFF',
@@ -58,6 +62,10 @@ export const DarkColors = {
   cashInLight:      '#052E16',          // green-950
   cashOut:          '#DC2626',          // red-600
   cashOutLight:     '#3B0000',          // near-black red tint
+
+  // Danger (red) — used for delete actions, destructive UI, cash out amounts
+  danger:           '#DC2626',          // red-600
+  dangerLight:      '#3B0000',          // near-black red tint
 
   // Surface — true blacks
   background:       '#000000',          // pure black
