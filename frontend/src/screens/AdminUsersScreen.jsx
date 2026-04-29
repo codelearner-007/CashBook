@@ -1,9 +1,10 @@
-import React, { useMemo, useCallback, memo, useState } from 'react';
+import React, { useMemo, useCallback, memo, useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Switch, Modal, Pressable, Image,
+  StatusBar, Switch, Modal, Pressable, Image, Animated,
 } from 'react-native';
 import SearchBar from '../components/ui/SearchBar';
+import { Font } from '../constants/fonts';
 import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -13,6 +14,75 @@ import { useProfile, useUpdateProfile } from '../hooks/useProfile';
 import Toast from '../lib/toast';
 import { apiGetAllUsers, apiToggleUserStatus, apiGetBooks } from '../lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// ── Super Admin header badge (vibrant + twinkling) ───────────────────────────
+
+const SA_SPARKS = [
+  { top: -4, left:  2 },
+  { top: -4, right: 4 },
+  { bottom: -4, left: 10 },
+  { bottom: -4, right: 2 },
+];
+const SA_SPARK_COLORS = ['#FCD34D', '#F59E0B', '#FDE68A', '#D97706'];
+
+function SuperAdminBadge() {
+  const glow   = useRef(new Animated.Value(1)).current;
+  const sparks = useRef(SA_SPARKS.map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, { toValue: 0.45, duration: 800, useNativeDriver: true }),
+        Animated.timing(glow, { toValue: 1.0,  duration: 800, useNativeDriver: true }),
+        Animated.delay(200),
+      ])
+    ).start();
+
+    sparks.forEach((anim, i) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 280),
+          Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0, duration: 220, useNativeDriver: true }),
+          Animated.delay(700),
+        ])
+      ).start();
+    });
+
+    return () => [glow, ...sparks].forEach(a => a.stopAnimation());
+  }, []);
+
+  return (
+    <View style={{ position: 'relative', alignSelf: 'flex-start' }}>
+      <Animated.View style={[sab.badge, { opacity: glow }]}>
+        <View style={sab.dot} />
+        <Text style={sab.text}>Super Admin</Text>
+      </Animated.View>
+      {SA_SPARKS.map((pos, i) => (
+        <Animated.View
+          key={i}
+          style={[sab.spark, pos, {
+            backgroundColor: SA_SPARK_COLORS[i],
+            opacity: sparks[i],
+            transform: [{ rotate: '45deg' }, { scale: sparks[i] }],
+          }]}
+        />
+      ))}
+    </View>
+  );
+}
+
+const sab = StyleSheet.create({
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(251,191,36,0.22)',
+    borderWidth: 1, borderColor: 'rgba(251,191,36,0.55)',
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  dot:   { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FCD34D' },
+  text:  { fontSize: 10, fontFamily: Font.semiBold, color: '#FCD34D', letterSpacing: 0.4 },
+  spark: { position: 'absolute', width: 4, height: 4, borderRadius: 1 },
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -95,7 +165,18 @@ const UserRow = memo(({ item, onViewBooks, C, s }) => {
         }
       </View>
       <View style={s.userInfo}>
-        <Text style={s.userName} numberOfLines={1}>{item.full_name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+          <Text style={[s.userName, { flex: 1 }]} numberOfLines={1}>{item.full_name}</Text>
+          <View style={[s.userStatusPill, {
+            backgroundColor: item.is_active ? C.cashInLight : C.cashOutLight,
+            borderColor:     item.is_active ? `${C.cashIn}55` : `${C.cashOut}55`,
+          }]}>
+            <View style={[s.userStatusDot, { backgroundColor: item.is_active ? C.cashIn : C.cashOut }]} />
+            <Text style={[s.userStatusText, { color: item.is_active ? C.cashIn : C.cashOut }]}>
+              {item.is_active ? 'Active' : 'Inactive'}
+            </Text>
+          </View>
+        </View>
         <Text style={s.userEmail} numberOfLines={1}>{item.email}</Text>
       </View>
     </TouchableOpacity>
@@ -138,29 +219,32 @@ export default function AdminUsersScreen() {
   }, [isDark, toggleTheme, updateProfile]);
 
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [confirmState, setConfirmState] = useState(null);
+  const [searchQuery,    setSearchQuery]    = useState('');
+  const [confirmState,   setConfirmState]   = useState(null);
+  const [activeFilter,   setActiveFilter]   = useState('all'); // 'all' | 'active' | 'inactive'
 
-  const { data: allUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
+  const { data: allUsers = [], isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn:  apiGetAllUsers,
     staleTime: 0,
     refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     refetchInterval: 10000,
   });
 
-  const { data: books = [], refetch: refetchBooks } = useQuery({
+  const { data: books = [] } = useQuery({
     queryKey: ['books'],
     queryFn:  apiGetBooks,
     staleTime: 0,
     refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   useFocusEffect(
     useCallback(() => {
-      refetchUsers();
-      refetchBooks();
-    }, [refetchUsers, refetchBooks])
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['books'] });
+    }, [qc])
   );
 
   const toggleUserMutation = useMutation({
@@ -175,11 +259,13 @@ export default function AdminUsersScreen() {
 
   const filteredUsers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return allUsers;
-    return allUsers.filter(
+    let users = !q ? allUsers : allUsers.filter(
       u => u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q),
     );
-  }, [allUsers, searchQuery]);
+    if (activeFilter === 'active')   return users.filter(u =>  u.is_active);
+    if (activeFilter === 'inactive') return users.filter(u => !u.is_active);
+    return users;
+  }, [allUsers, searchQuery, activeFilter]);
 
   const handleViewBooks = useCallback((userId) => {
     setSelectedUserId(userId);
@@ -221,17 +307,51 @@ export default function AdminUsersScreen() {
 
   const ListHeader = (
     <View>
-      <View style={s.sectionHeader}>
-        <Text style={s.sectionTitle}>All Users</Text>
-        <View style={s.sectionBadge}>
-          <Text style={s.sectionBadgeText}>{allUsers.length} registered</Text>
-        </View>
-      </View>
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
         placeholder="Search by name or email…"
       />
+
+      {/* Divider above filters */}
+      <View style={[s.listDivider, { marginBottom: 0 }]} />
+
+      {/* Segmented filter control */}
+      <View style={[s.segmentWrap, { backgroundColor: C.cardAlt, borderColor: C.border }]}>
+        {[
+          { key: 'all',      label: 'All',      count: allUsers.length },
+          { key: 'active',   label: 'Active',   count: allUsers.filter(u =>  u.is_active).length },
+          { key: 'inactive', label: 'Inactive', count: allUsers.filter(u => !u.is_active).length },
+        ].map((tab, i, arr) => {
+          const on = activeFilter === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => setActiveFilter(tab.key)}
+              activeOpacity={0.75}
+              style={[
+                s.segment,
+                on && { backgroundColor: C.primary },
+                i < arr.length - 1 && { borderRightWidth: 1, borderRightColor: C.border },
+              ]}
+            >
+              <Text style={[s.segmentText, { color: on ? '#fff' : C.textMuted }]}>
+                {tab.label}
+              </Text>
+              <View style={[s.segmentCount, {
+                backgroundColor: on ? 'rgba(255,255,255,0.22)' : C.border,
+              }]}>
+                <Text style={[s.segmentCountText, { color: on ? '#fff' : C.textMuted }]}>
+                  {tab.count}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Divider below filters / above user list */}
+      <View style={s.listDivider} />
     </View>
   );
 
@@ -270,6 +390,7 @@ export default function AdminUsersScreen() {
             </TouchableOpacity>
             <View style={s.brandBlock}>
               <Text style={s.headerTitle}>Dashboard</Text>
+              <SuperAdminBadge />
             </View>
           </View>
 
@@ -534,7 +655,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   avatarText:   { fontSize: 14, fontFamily: Font.bold, color: C.onPrimary },
 
   // Brand block
-  brandBlock:  {},
+  brandBlock:    { justifyContent: 'center', gap: 4 },
   brandLabel:  { fontSize: 9, fontFamily: Font.bold, color: C.onPrimaryMuted, letterSpacing: 1.8, marginBottom: 1 },
   headerTitle: { fontSize: 20, fontFamily: Font.extraBold, color: C.onPrimary, lineHeight: 26 },
 
@@ -558,27 +679,43 @@ const makeStyles = (C, Font) => StyleSheet.create({
   statDivider: { width: 1, height: 36, backgroundColor: C.onPrimaryIconBg },
 
   // List
-  listContent: { paddingBottom: 24 },
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10,
-  },
-  sectionTitle:     { fontSize: 15, fontFamily: Font.bold, color: C.text, lineHeight: 22 },
-  sectionBadge:     { backgroundColor: C.primaryLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  sectionBadgeText: { fontSize: 11, fontFamily: Font.semiBold, color: C.primary, lineHeight: 16 },
+  listContent: { paddingTop: 12, paddingBottom: 32 },
 
   // User card
   userCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card, marginHorizontal: 16, marginBottom: 10,
-    borderRadius: 50, paddingVertical: 6, paddingRight: 18, paddingLeft: 6,
+    backgroundColor: C.card, marginHorizontal: 16, marginBottom: 8,
+    borderRadius: 50, paddingVertical: 6, paddingRight: 16, paddingLeft: 6,
     borderWidth: 1.5, borderColor: C.border,
   },
-  userAvatar:     { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  userAvatar:     { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   userAvatarText: { fontSize: 15, fontFamily: Font.extraBold },
   userInfo:       { flex: 1 },
   userName:       { fontSize: 14, fontFamily: Font.semiBold, color: C.text,     lineHeight: 20 },
-  userEmail:      { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 18, marginTop: 2 },
+  userEmail:      { fontSize: 12, fontFamily: Font.regular,  color: C.textMuted, lineHeight: 17, marginTop: 3 },
+  userStatusPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1, borderRadius: 20,
+    paddingHorizontal: 7, paddingVertical: 2,
+  },
+  userStatusDot:  { width: 5, height: 5, borderRadius: 3 },
+  userStatusText: { fontSize: 10, fontFamily: Font.semiBold, lineHeight: 14 },
+
+  listDivider: { height: 1, backgroundColor: C.border, marginBottom: 4 },
+
+  segmentWrap: {
+    flexDirection: 'row',
+    marginHorizontal: 16, marginTop: 10, marginBottom: 10,
+    borderRadius: 22, borderWidth: 1,
+    overflow: 'hidden',
+  },
+  segment: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, height: 36,
+  },
+  segmentText:      { fontSize: 12, fontFamily: Font.semiBold },
+  segmentCount:     { borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
+  segmentCountText: { fontSize: 10, fontFamily: Font.bold },
 
   // Empty
   empty:        { alignItems: 'center', paddingTop: 70, paddingHorizontal: 40 },

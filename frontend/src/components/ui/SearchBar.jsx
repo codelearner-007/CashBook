@@ -35,7 +35,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.card,
-    marginHorizontal: 16, marginBottom: 12,
+    marginHorizontal: 16, marginBottom: 6,
     borderRadius: 50,
     paddingLeft: 18, paddingRight: 4, paddingVertical: 4,
     borderWidth: 1.5, borderColor: C.border,

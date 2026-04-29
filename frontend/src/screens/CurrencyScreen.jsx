@@ -42,6 +42,47 @@ const rowStyles = StyleSheet.create({
   divider:    { height: 1, marginHorizontal: 16 },
 });
 
+// ── Popular currencies ────────────────────────────────────────────────────────
+
+const POPULAR = [
+  { code: 'USD', symbol: '$',   label: 'Dollar' },
+  { code: 'EUR', symbol: '€',   label: 'Euro'   },
+  { code: 'GBP', symbol: '£',   label: 'Pound'  },
+  { code: 'PKR', symbol: '₨',   label: 'Rupee'  },
+  { code: 'AED', symbol: 'د.إ', label: 'Dirham' },
+  { code: 'INR', symbol: '₹',   label: 'Rupee'  },
+];
+
+function PopularChips({ selectedCode, onPress, C }) {
+  return (
+    <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 }}>
+      {POPULAR.map((item) => {
+        const active = item.code === selectedCode;
+        return (
+          <TouchableOpacity
+            key={item.code}
+            onPress={() => onPress(item.code)}
+            activeOpacity={0.75}
+            style={{
+              flex: 1, alignItems: 'center', justifyContent: 'center',
+              height: 36, borderWidth: 1, borderRadius: 20,
+              backgroundColor: active ? C.primary : C.card,
+              borderColor:     active ? C.primary : C.border,
+            }}
+          >
+            <Text style={{ fontSize: 13, fontFamily: Font.bold,   color: active ? '#fff' : C.text }}>
+              {item.symbol}
+            </Text>
+            <Text style={{ fontSize: 10, fontFamily: Font.medium, color: active ? '#ffffffbb' : C.textMuted }}>
+              {item.code}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 // ── Currency Row ──────────────────────────────────────────────────────────────
 
 const CurrencyRow = ({ item, isSelected, onPress, C, isLast }) => (
@@ -145,6 +186,9 @@ export default function CurrencyScreen() {
         />
       </View>
 
+      {/* Popular chips */}
+      <PopularChips selectedCode={selectedCode} onPress={handleSelect} C={C} />
+
       {/* Count hint */}
       <Text style={[s.countHint, { color: C.textSubtle, fontFamily: Font.regular }]}>
         {filtered.length} {filtered.length === 1 ? 'currency' : 'currencies'}
@@ -194,7 +238,7 @@ const makeStyles = (C) => StyleSheet.create({
   backBtn:     { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontFamily: Font.bold, color: '#fff' },
 
-  searchWrapper: { marginTop: 16, marginBottom: -8 },
+  searchWrapper: { marginTop: 16, marginBottom: 0 },
 
   countHint: { fontSize: 11, marginHorizontal: 20, marginBottom: 8 },
 

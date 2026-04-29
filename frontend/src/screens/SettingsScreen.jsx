@@ -286,7 +286,11 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
           <Text style={[s.avatarEmail, { color: C.textMuted, fontFamily: Font.regular }]}>
             {profile?.email ?? '—'}
           </Text>
-          {isSuperAdmin && <AdminPillBadge />}
+          {isSuperAdmin && (
+            <View style={{ marginTop: 4, marginBottom: 12 }}>
+              <AdminPillBadge />
+            </View>
+          )}
           <TouchableOpacity
             style={[s.editBtn, { backgroundColor: C.primaryLight, borderColor: C.primary }]}
             onPress={() => router.push(profileRoute)}
@@ -388,7 +392,7 @@ const makeStyles = (C, hPad, showBottomNav) => StyleSheet.create({
   },
   avatarInitials: { fontSize: 28, fontFamily: Font.extraBold, color: '#fff' },
   avatarName:  { fontSize: 18, marginBottom: 3 },
-  avatarEmail: { fontSize: 13, marginBottom: 10 },
+  avatarEmail: { fontSize: 13, marginBottom: 6 },
 
   editBtn: {
     paddingHorizontal: 22, paddingVertical: 9, borderRadius: 20, borderWidth: 1,
