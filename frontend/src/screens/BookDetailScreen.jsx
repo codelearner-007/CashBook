@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { apiGetEntries, apiGetSummary, apiDeleteEntry, apiDeleteAllEntries } from '../lib/api';
 import { useBooks } from '../hooks/useBooks';
+import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { PAYMENT_MODES, CATEGORIES } from '../constants/categories';
 import SuccessDialog from '../components/ui/SuccessDialog';
 import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
@@ -281,6 +282,8 @@ export default function BookDetailScreen() {
   const [filterCategory, setFilterCategory] = useState(null);
   const [filterPayment, setFilterPayment] = useState(null);
   const [activePicker, setActivePicker] = useState(null);
+  const [contactTab, setContactTab] = useState('customers');
+  const [contactSearch, setContactSearch] = useState('');
   const [collapsed, setCollapsed] = useState({});
   const [menuVisible, setMenuVisible] = useState(false);
   const [showDeleteAllSheet, setShowDeleteAllSheet] = useState(false);
@@ -309,6 +312,13 @@ export default function BookDetailScreen() {
     if (key === 'payment') setFilterPayment(val);
     setActivePicker(null);
   }, [clearFilter]);
+
+  useEffect(() => {
+    if (activePicker === 'contact') {
+      setContactTab(customers.length > 0 ? 'customers' : 'suppliers');
+      setContactSearch('');
+    }
+  }, [activePicker]);
 
   const activeFilterCount = [filterDate, filterType, filterContact, filterCategory, filterPayment]
     .filter(Boolean).length;
@@ -388,6 +398,9 @@ export default function BookDetailScreen() {
     }
     return true;
   }), [entries, filterType, filterPayment, filterCategory, filterContact, filterDate, search]);
+
+  const { data: customers = [] } = useCustomers(id);
+  const { data: suppliers = [] } = useSuppliers(id);
 
   const bookContacts = useMemo(() =>
     [...new Set(entries.map(e => e.contact_name).filter(Boolean))],
@@ -556,8 +569,7 @@ export default function BookDetailScreen() {
             {[
               { key: 'date', label: 'Date', icon: 'calendar', display: filterDate ? DATE_LABELS[filterDate] : null },
               { key: 'type', label: 'Entry Type', icon: 'repeat', display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
-              { key: 'members', label: 'Members', icon: 'users', display: null },
-              { key: 'contact', label: 'Contact', icon: 'user', display: filterContact },
+              { key: 'contact', label: 'Cust. & Supp.', icon: 'users', display: filterContact },
               { key: 'category', label: 'Category', icon: 'tag', display: filterCategory },
               { key: 'payment', label: 'Payment', icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
             ].map(({ key, label, icon, display }) => {
@@ -611,11 +623,10 @@ export default function BookDetailScreen() {
               <Text style={[s.pickerTitle, { color: C.text, fontFamily: Font.bold }]}>
                 {activePicker === 'date' ? 'Filter by Date'
                   : activePicker === 'type' ? 'Entry Type'
-                    : activePicker === 'members' ? 'Members'
-                      : activePicker === 'contact' ? 'Filter by Contact'
-                        : activePicker === 'category' ? 'Filter by Category'
-                          : activePicker === 'payment' ? 'Payment Method'
-                            : ''}
+                    : activePicker === 'contact' ? 'Customers & Suppliers'
+                      : activePicker === 'category' ? 'Filter by Category'
+                        : activePicker === 'payment' ? 'Payment Method'
+                          : ''}
               </Text>
               <TouchableOpacity onPress={() => setActivePicker(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Feather name="x" size={20} color={C.textMuted} />
@@ -670,42 +681,96 @@ export default function BookDetailScreen() {
               </View>
             )}
 
-            {/* MEMBERS picker (pending) */}
-            {activePicker === 'members' && (
-              <View style={s.pickerEmpty}>
-                <Feather name="users" size={40} color={C.textSubtle} />
-                <Text style={[s.pickerEmptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>Members Coming Soon</Text>
-                <Text style={[s.pickerEmptySub, { color: C.textMuted }]}>Add members to filter entries by who recorded them.</Text>
-              </View>
-            )}
+            {/* CUSTOMERS & SUPPLIERS picker */}
+            {activePicker === 'contact' && (() => {
+              const isCustomerTab = contactTab === 'customers';
+              const accentColor = isCustomerTab ? C.cashIn : C.danger;
+              const accentLight = isCustomerTab ? C.cashInLight : C.dangerLight;
+              const currentList = isCustomerTab ? customers : suppliers;
+              const filteredList = contactSearch
+                ? currentList.filter(c =>
+                    c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                    (c.phone && c.phone.includes(contactSearch))
+                  )
+                : currentList;
 
-            {/* CONTACT picker */}
-            {activePicker === 'contact' && (
-              bookContacts.length === 0 ? (
-                <View style={s.pickerEmpty}>
-                  <Feather name="user-x" size={40} color={C.textSubtle} />
-                  <Text style={[s.pickerEmptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>No contacts in entries</Text>
-                  <Text style={[s.pickerEmptySub, { color: C.textMuted }]}>Add a contact when creating an entry to filter by it.</Text>
-                </View>
-              ) : (
-                <ScrollView style={s.pickerList} showsVerticalScrollIndicator={false}>
-                  {bookContacts.map(c => (
-                    <TouchableOpacity
-                      key={c}
-                      style={[s.pickerRow, { borderBottomColor: C.border }, filterContact === c && { backgroundColor: C.primaryLight }]}
-                      onPress={() => applyFilter('contact', c)}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[s.contactAvatar, { backgroundColor: C.primaryLight }]}>
-                        <Text style={[s.contactAvatarText, { color: C.primary, fontFamily: Font.bold }]}>{c.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <Text style={[s.pickerRowLabel, { color: C.text, fontFamily: filterContact === c ? Font.semiBold : Font.regular }]}>{c}</Text>
-                      {filterContact === c && <Feather name="check" size={16} color={C.primary} />}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )
-            )}
+              return (
+                <>
+                  {/* Search bar */}
+                  <SearchBar
+                    value={contactSearch}
+                    onChangeText={setContactSearch}
+                    placeholder={`Search ${isCustomerTab ? 'customers' : 'suppliers'}…`}
+                    onClear={() => setContactSearch('')}
+                    style={s.cSearchBar}
+                  />
+
+                  {/* Tabs */}
+                  <View style={[s.cTabRow, { borderBottomColor: C.border }]}>
+                    {[
+                      { key: 'customers', label: 'Customers', count: customers.length, accent: C.cashIn, accentBg: C.cashInLight },
+                      { key: 'suppliers', label: 'Suppliers', count: suppliers.length, accent: C.danger, accentBg: C.dangerLight },
+                    ].map(tab => {
+                      const active = contactTab === tab.key;
+                      return (
+                        <TouchableOpacity
+                          key={tab.key}
+                          style={[s.cTab, active && { borderBottomColor: tab.accent }]}
+                          onPress={() => { setContactTab(tab.key); setContactSearch(''); }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[s.cTabLabel, { color: active ? tab.accent : C.textMuted, fontFamily: active ? Font.bold : Font.medium }]}>
+                            {tab.label}
+                          </Text>
+                          <View style={[s.cTabBadge, { backgroundColor: active ? tab.accentBg : C.border }]}>
+                            <Text style={[s.cTabBadgeText, { color: active ? tab.accent : C.textMuted, fontFamily: Font.bold }]}>{tab.count}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* List */}
+                  {filteredList.length === 0 ? (
+                    <View style={s.pickerEmpty}>
+                      <Feather name={contactSearch ? 'search' : 'users'} size={36} color={C.textSubtle} />
+                      <Text style={[s.pickerEmptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>
+                        {contactSearch ? 'No results' : `No ${isCustomerTab ? 'customers' : 'suppliers'} yet`}
+                      </Text>
+                      <Text style={[s.pickerEmptySub, { color: C.textMuted }]}>
+                        {contactSearch ? `No match for "${contactSearch}"` : `Add ${isCustomerTab ? 'customers' : 'suppliers'} to this book first.`}
+                      </Text>
+                    </View>
+                  ) : (
+                    <ScrollView style={s.pickerList} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 0 }}>
+                      {filteredList.map((item, idx) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[s.pickerRow, { borderBottomColor: C.border }, idx === filteredList.length - 1 && { borderBottomWidth: 0 }, filterContact === item.name && { backgroundColor: C.primaryLight }]}
+                          onPress={() => applyFilter('contact', item.name)}
+                          activeOpacity={0.75}
+                        >
+                          <View style={[s.contactAvatar, { backgroundColor: accentLight }]}>
+                            <Text style={[s.contactAvatarText, { color: accentColor, fontFamily: Font.bold }]}>
+                              {item.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={s.cItemMid}>
+                            <Text style={[s.pickerRowLabel, { color: C.text, fontFamily: filterContact === item.name ? Font.semiBold : Font.regular }]}>
+                              {item.name}
+                            </Text>
+                            {item.phone ? (
+                              <Text style={[s.cItemPhone, { color: C.textMuted, fontFamily: Font.regular }]}>{item.phone}</Text>
+                            ) : null}
+                          </View>
+                          {filterContact === item.name && <Feather name="check" size={16} color={C.primary} />}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </>
+              );
+            })()}
 
             {/* CATEGORY picker */}
             {activePicker === 'category' && (
@@ -973,7 +1038,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   pickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
   pickerSheet: {
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingTop: 12, paddingBottom: 36, paddingHorizontal: 20,
+    paddingTop: 12, paddingBottom: 24, paddingHorizontal: 20,
     maxHeight: '70%',
   },
   pickerHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
@@ -1008,7 +1073,31 @@ const makeStyles = (C, Font) => StyleSheet.create({
   contactAvatarText: { fontSize: 15 },
   catDot: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-  // Empty state (members, no contacts)
+  // Customers & Suppliers picker — search bar override
+  cSearchBar: { marginHorizontal: 0, marginBottom: 14 },
+
+  // Customers & Suppliers picker — tabs
+  cTabRow: {
+    flexDirection: 'row', borderBottomWidth: 1,
+    marginBottom: 4,
+  },
+  cTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: 'transparent',
+  },
+  cTabLabel: { fontSize: 13, lineHeight: 19 },
+  cTabBadge: {
+    minWidth: 20, height: 18, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  cTabBadgeText: { fontSize: 10, lineHeight: 14 },
+
+  // List row extras
+  cItemMid: { flex: 1 },
+  cItemPhone: { fontSize: 11, lineHeight: 16, marginTop: 1 },
+
+  // Empty state (no contacts)
   pickerEmpty: { alignItems: 'center', paddingVertical: 32, gap: 10 },
   pickerEmptyTitle: { fontSize: 15, lineHeight: 22 },
   pickerEmptySub: { fontSize: 13, fontFamily: Font.regular, lineHeight: 20, textAlign: 'center', paddingHorizontal: 20 },
