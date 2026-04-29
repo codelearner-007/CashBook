@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
-  TextInput, Animated, KeyboardAvoidingView, Platform, ActivityIndicator,
+  TextInput, Animated, Keyboard, Platform, ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
@@ -10,9 +10,34 @@ export default function DeleteContactSheet({
 }) {
   const slideY    = useRef(new Animated.Value(500)).current;
   const bgOpacity = useRef(new Animated.Value(0)).current;
+  const kbOffset  = useRef(new Animated.Value(0)).current;
   const [input, setInput] = useState('');
 
   const label = contactType === 'supplier' ? 'Supplier' : 'Customer';
+
+  // Keyboard listeners — lift sheet above keyboard, reset flush on dismiss
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const up = Keyboard.addListener(showEvent, (e) => {
+      Animated.timing(kbOffset, {
+        toValue: e.endCoordinates.height,
+        duration: Platform.OS === 'ios' ? e.duration : 150,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    const down = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(kbOffset, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? e.duration : 150,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => { up.remove(); down.remove(); };
+  }, []);
 
   const animateClose = useCallback((callback) => {
     Animated.parallel([
@@ -32,21 +57,24 @@ export default function DeleteContactSheet({
     ]).start();
   }, [visible]);
 
-  const close = () => animateClose(onDismiss);
+  const close = () => {
+    Keyboard.dismiss();
+    animateClose(onDismiss);
+  };
   const matched = input.trim() === contactName?.trim();
 
   if (!visible) return null;
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={close} statusBarTranslucent>
+      {/* Dim backdrop */}
       <Animated.View style={[StyleSheet.absoluteFill, s.dimBg, { opacity: bgOpacity }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
       </Animated.View>
 
-      <KeyboardAvoidingView style={s.kavWrap} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Animated.View style={s.overlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
-
+      {/* Sheet pinned to bottom; kbOffset lifts it above keyboard */}
+      <View style={s.anchor} pointerEvents="box-none">
+        <Animated.View style={{ marginBottom: kbOffset }}>
           <Animated.View style={[s.sheet, { backgroundColor: C.card, transform: [{ translateY: slideY }] }]}>
             <View style={[s.handle, { backgroundColor: C.border }]} />
 
@@ -110,15 +138,14 @@ export default function DeleteContactSheet({
             </View>
           </Animated.View>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  dimBg:   { backgroundColor: 'rgba(0,0,0,0.55)' },
-  kavWrap: { flex: 1, justifyContent: 'flex-end' },
-  overlay: { justifyContent: 'flex-end' },
+  dimBg:  { backgroundColor: 'rgba(0,0,0,0.55)' },
+  anchor: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   sheet: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingHorizontal: 20, paddingBottom: 36, paddingTop: 10,

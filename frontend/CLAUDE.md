@@ -301,6 +301,55 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 
 ---
 
+## Bottom Sheet / Modal Pattern (keyboard-aware)
+
+Every bottom sheet that contains a `TextInput` **must** use this structure. **Never** use `KeyboardAvoidingView` for bottom sheets — it leaves residual space at the bottom on Android after the keyboard dismisses.
+
+```jsx
+// 1. Keyboard listeners (non-native driver — drives marginBottom, not transform)
+const kbOffset = useRef(new Animated.Value(0)).current;
+
+useEffect(() => {
+  const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+  const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+  const up   = Keyboard.addListener(showEvent, (e) =>
+    Animated.timing(kbOffset, { toValue: e.endCoordinates.height, duration: Platform.OS === 'ios' ? e.duration : 150, useNativeDriver: false }).start()
+  );
+  const down = Keyboard.addListener(hideEvent, (e) =>
+    Animated.timing(kbOffset, { toValue: 0, duration: Platform.OS === 'ios' ? e.duration : 150, useNativeDriver: false }).start()
+  );
+  return () => { up.remove(); down.remove(); };
+}, []);
+
+// 2. Modal structure
+<Modal transparent statusBarTranslucent>
+  {/* Dim backdrop — absoluteFill, independent of sheet layout */}
+  <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.55)', opacity: bgOpacity }]}>
+    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={close} />
+  </Animated.View>
+
+  {/* Sheet anchor: absolute bottom; kbOffset (non-native) lifts sheet above keyboard */}
+  <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }} pointerEvents="box-none">
+    <Animated.View style={{ marginBottom: kbOffset }}>
+      {/* slideY (native driver) must be on a separate inner Animated.View */}
+      <Animated.View style={[s.sheet, { transform: [{ translateY: slideY }] }]}>
+        {/* content */}
+      </Animated.View>
+    </Animated.View>
+  </View>
+</Modal>
+```
+
+**Why two nested `Animated.View`s:** `marginBottom` (non-native driver) and `transform` (native driver) cannot share the same `Animated.Value` or the same `Animated.View`. Separate wrappers are required.
+
+**Why not `KeyboardAvoidingView`:** On Android, `behavior='height'` does not fully restore the component height when the keyboard dismisses, leaving a gap between the sheet and the screen bottom.
+
+**Existing sheet components using this pattern:**
+- `components/ui/DeleteAllEntriesSheet.jsx`
+- `components/ui/DeleteContactSheet.jsx`
+
+---
+
 ## Styling Rules
 
 - Always use `useTheme()` → `{ C, Font }` — never hardcode hex colors or font family strings
