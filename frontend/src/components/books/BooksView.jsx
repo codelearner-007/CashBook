@@ -597,8 +597,8 @@ const makeStyles = (C, Font) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.background },
 
   // Header
-  header:        { backgroundColor: C.primary, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 },
-  headerTop:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
+  header:        { backgroundColor: C.primary, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 16 },
+  headerTop:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, marginRight: 12 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
@@ -613,17 +613,17 @@ const makeStyles = (C, Font) => StyleSheet.create({
   avatarText:   { fontSize: 14, fontFamily: Font.bold, color: C.onPrimary },
 
   // Balance
-  balanceSection:  { alignItems: 'center', marginBottom: 24 },
-  balanceLabel:    { fontSize: 10, fontFamily: Font.semiBold, color: C.onPrimaryMuted, letterSpacing: 1.4, marginBottom: 10 },
-  balanceAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  balanceCurrency: { fontSize: 18, fontFamily: Font.medium,   color: C.onPrimaryMuted },
-  balanceAmount:   { fontSize: 38, fontFamily: Font.extraBold, color: C.onPrimary, letterSpacing: -1, lineHeight: 46 },
+  balanceSection:  { alignItems: 'center', marginBottom: 14 },
+  balanceLabel:    { fontSize: 10, fontFamily: Font.semiBold, color: C.onPrimaryMuted, letterSpacing: 1.4, marginBottom: 6 },
+  balanceAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  balanceCurrency: { fontSize: 15, fontFamily: Font.medium,   color: C.onPrimaryMuted },
+  balanceAmount:   { fontSize: 32, fontFamily: Font.extraBold, color: C.onPrimary, letterSpacing: -1, lineHeight: 38 },
   balanceUnderline:{ width: 48, height: 3, borderRadius: 2, backgroundColor: C.onPrimarySubtle },
 
   // Stats
   statsRow:     { flexDirection: 'row', alignItems: 'center' },
   statItem:     { flex: 1, alignItems: 'center' },
-  statValue:    { fontSize: 18, fontFamily: Font.bold,   color: C.onPrimary,      marginBottom: 4, lineHeight: 24 },
+  statValue:    { fontSize: 15, fontFamily: Font.bold,   color: C.onPrimary,      marginBottom: 2, lineHeight: 20 },
   statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statDot:      { width: 6, height: 6, borderRadius: 3 },
   statLabel:    { fontSize: 11, fontFamily: Font.medium, color: C.onPrimaryMuted, lineHeight: 16 },

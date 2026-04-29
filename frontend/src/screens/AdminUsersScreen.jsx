@@ -269,7 +269,6 @@ export default function AdminUsersScreen() {
               }
             </TouchableOpacity>
             <View style={s.brandBlock}>
-              <Text style={s.brandLabel}>CASHBOOK</Text>
               <Text style={s.headerTitle}>Dashboard</Text>
               <View style={s.adminBadge}>
                 <Text style={s.adminBadgeStar}>✦ </Text>
@@ -555,9 +554,8 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   // Action buttons
   iconBtn: {
-    width: 42, height: 42, borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: C.onPrimaryIconBg,
     alignItems: 'center', justifyContent: 'center',
   },
 
