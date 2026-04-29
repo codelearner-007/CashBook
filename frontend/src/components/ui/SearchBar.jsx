@@ -56,18 +56,18 @@ const makeStyles = (C, Font) => StyleSheet.create({
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.card,
-    marginHorizontal: 16, marginBottom: 6,
+    marginHorizontal: 16, marginBottom: 4,
     borderRadius: 50,
-    paddingLeft: 18, paddingRight: 4, paddingVertical: 4,
+    paddingLeft: 14, paddingRight: 3, paddingVertical: 3,
     borderWidth: 1.5, borderColor: C.border,
   },
   searchInput: {
-    flex: 1, fontSize: 14, fontFamily: Font.regular,
-    color: C.text, padding: 0, margin: 0, height: 40,
+    flex: 1, fontSize: 13, fontFamily: Font.regular,
+    color: C.text, padding: 0, margin: 0, height: 32,
     outlineWidth: 0,
   },
   searchBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center',
   },

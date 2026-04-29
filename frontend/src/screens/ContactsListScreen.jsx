@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar,
-  FlatList, TextInput, Modal, Alert, ActivityIndicator, Animated,
-  Keyboard, Platform,
+  FlatList, Modal, Alert, ActivityIndicator, Animated,
+  Keyboard, Platform, TextInput,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
+import SearchBar from '../components/ui/SearchBar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
@@ -12,13 +13,10 @@ import { useTheme } from '../hooks/useTheme';
 import { useContacts, useCreateContact } from '../hooks/useContacts';
 
 const TYPE_CONFIG = {
-  customer: { label: 'Customers', icon: 'user', color: '#16A34A', bg: '#DCFCE7', emptyIcon: 'user-plus' },
-  supplier: { label: 'Suppliers', icon: 'truck', color: '#D97706', bg: '#FEF3C7', emptyIcon: 'truck' },
+  customer: { label: 'Customers', icon: 'user',  emptyIcon: 'user-plus' },
+  supplier: { label: 'Suppliers', icon: 'truck', emptyIcon: 'truck' },
 };
 
-function initials(name = '') {
-  return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
-}
 
 function EmptyState({ cfg, C, Font }) {
   return (
@@ -48,7 +46,7 @@ export default function ContactsListScreen() {
   const basePath = useBookBasePath();
   const { id: bookId, name: bookName, type } = useLocalSearchParams();
   const { C, Font } = useTheme();
-  const s = useMemo(() => makeStyles(C, Font), [C, Font]);
+  const s = useMemo(() => makeStyles(), []);
 
   const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.customer;
 
@@ -158,7 +156,7 @@ export default function ContactsListScreen() {
   };
 
   const renderContact = ({ item }) => {
-    const avatarBg = cfg.color + '22';
+    const avatarBg = C.primaryLight;
     const balance  = item.balance ?? 0;
     return (
       <TouchableOpacity
@@ -167,9 +165,7 @@ export default function ContactsListScreen() {
         activeOpacity={0.8}
       >
         <View style={[s.avatar, { backgroundColor: avatarBg }]}>
-          <Text style={[s.avatarText, { color: cfg.color, fontFamily: Font.extraBold }]}>
-            {initials(item.name)}
-          </Text>
+          <Feather name="user" size={20} color={C.primary} />
         </View>
 
         <View style={s.cardBody}>
@@ -182,17 +178,17 @@ export default function ContactsListScreen() {
         </View>
 
         <TouchableOpacity
-          style={[s.balancePill, { backgroundColor: C.cardAlt }]}
+          style={[s.balancePill, { backgroundColor: balance >= 0 ? C.cashInLight : C.dangerLight }]}
           onPress={() => router.push({
             pathname: `${basePath}/[id]/contact-balance`,
             params: { id: bookId, name: bookName, contactId: item.id, contactName: item.name, contactType: type },
           })}
           activeOpacity={0.8}
         >
-          <Text style={[s.balanceText, { color: C.text, fontFamily: Font.bold }]}>
-            {balance >= 0 ? '+' : ''}{Math.abs(balance).toFixed(2)}
+          <Text style={[s.balanceText, { color: balance >= 0 ? C.cashIn : C.danger, fontFamily: Font.bold }]}>
+            {Math.abs(balance).toLocaleString()}
           </Text>
-          <Feather name="chevron-right" size={11} color={C.textMuted} />
+          <Feather name="chevron-right" size={11} color={balance >= 0 ? C.cashIn : C.danger} />
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -216,21 +212,12 @@ export default function ContactsListScreen() {
 
       {/* Search */}
       <View style={[s.searchWrap, { borderBottomColor: C.border }]}>
-        <View style={[s.searchBar, { backgroundColor: C.card, borderColor: C.border }]}>
-          <Feather name="search" size={15} color={C.textMuted} />
-          <TextInput
-            style={[s.searchInput, { color: C.text, fontFamily: Font.regular }]}
-            placeholder={`Search ${cfg.label.toLowerCase()}…`}
-            placeholderTextColor={C.textMuted}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name="x" size={14} color={C.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder={`Search ${cfg.label.toLowerCase()}…`}
+          onClear={() => setSearch('')}
+        />
       </View>
 
       {/* List / empty states */}
@@ -348,7 +335,7 @@ export default function ContactsListScreen() {
   );
 }
 
-const makeStyles = (C, Font) => StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   safe: { flex: 1 },
 
   header:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14 },
@@ -357,7 +344,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   headerTitle:  { fontSize: 17, color: '#fff', lineHeight: 24 },
   headerSub:    { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
 
-  searchWrap:  { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  searchWrap:  { paddingVertical: 10, borderBottomWidth: 1 },
   searchBar:   { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 50, paddingHorizontal: 16, paddingVertical: 10 },
   searchInput: { flex: 1, fontSize: 14, lineHeight: 20, padding: 0 },
 
@@ -370,7 +357,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   cardName:    { fontSize: 14, lineHeight: 20 },
   cardSub:     { fontSize: 12, lineHeight: 18, marginTop: 1 },
 
-  balancePill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, minWidth: 64 },
+  balancePill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
   balanceText: { fontSize: 13, lineHeight: 18 },
 
   empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 60 },

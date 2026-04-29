@@ -14,8 +14,8 @@ import AppInput from '../components/ui/Input';
 import SuccessDialog from '../components/ui/SuccessDialog';
 
 const TYPE_CONFIG = {
-  customer: { label: 'Customer', color: '#16A34A', bg: '#DCFCE7', icon: 'user' },
-  supplier: { label: 'Supplier', color: '#D97706', bg: '#FEF3C7', icon: 'truck' },
+  customer: { label: 'Customer', icon: 'user' },
+  supplier: { label: 'Supplier', icon: 'truck' },
 };
 
 function initials(name = '') {
@@ -112,13 +112,13 @@ export default function ContactDetailScreen() {
             {/* Avatar card */}
             <View style={s.avatarShadow}>
               <View style={[s.avatarCard, { backgroundColor: C.card, borderColor: C.border }]}>
-                <View style={[s.avatarCircle, { backgroundColor: cfg.bg }]}>
-                  <Text style={[s.avatarInitials, { color: cfg.color }]}>{initials(name)}</Text>
+                <View style={[s.avatarCircle, { backgroundColor: C.primaryLight }]}>
+                  <Feather name="user" size={20} color={C.primary} />
                 </View>
-                <Text style={[s.avatarName, { color: C.text }]}>{name || '—'}</Text>
-                <View style={[s.typeBadge, { backgroundColor: C.background }]}>
-                  <Feather name={cfg.icon} size={11} color={cfg.color} />
-                  <Text style={[s.typeBadgeText, { color: cfg.color, fontFamily: Font.semiBold }]}>{cfg.label}</Text>
+                <Text style={[s.avatarName, { color: C.text }]} numberOfLines={1}>{name || '—'}</Text>
+                <View style={[s.typeBadge, { backgroundColor: C.primaryLight }]}>
+                  <Feather name={cfg.icon} size={11} color={C.primary} />
+                  <Text style={[s.typeBadgeText, { color: C.primary, fontFamily: Font.semiBold }]}>{cfg.label}</Text>
                 </View>
               </View>
             </View>
@@ -138,8 +138,8 @@ export default function ContactDetailScreen() {
                 <View style={[s.balanceVDivider, { backgroundColor: C.border }]} />
                 <View style={s.balanceStat}>
                   <Text style={[s.balanceStatLabel, { color: C.textMuted, fontFamily: Font.regular }]}>Net Balance</Text>
-                  <Text style={[s.balanceNetAmount, { color: balanceColor, fontFamily: Font.extraBold }]}>
-                    {netBalance >= 0 ? '+' : ''}{netBalance.toLocaleString()}
+                  <Text style={[s.balanceNetAmount, { color: balanceColor, fontFamily: Font.bold }]}>
+                    {Math.abs(netBalance).toLocaleString()}
                   </Text>
                 </View>
                 <View style={[s.balanceVDivider, { backgroundColor: C.border }]} />
@@ -278,24 +278,23 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   // Avatar card
   avatarShadow: {
-    marginHorizontal: 16, marginTop: 16, borderRadius: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07, shadowRadius: 10, elevation: 4,
+    marginHorizontal: 16, marginTop: 16, borderRadius: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   avatarCard: {
-    alignItems: 'center', borderRadius: 16,
-    paddingVertical: 20, borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 14, borderWidth: 1,
+    paddingVertical: 12, paddingHorizontal: 14, gap: 12,
   },
   avatarCircle: {
-    width: 64, height: 64, borderRadius: 32,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 10,
   },
-  avatarInitials: { fontSize: 22, fontFamily: Font.extraBold, lineHeight: 28 },
-  avatarName:     { fontSize: 16, fontFamily: Font.bold, marginBottom: 8, lineHeight: 22 },
+  avatarName: { flex: 1, fontSize: 15, fontFamily: Font.bold, lineHeight: 22 },
   typeBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
   },
   typeBadgeText: { fontSize: 12, lineHeight: 17 },
 

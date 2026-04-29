@@ -65,7 +65,7 @@ export default function EntryDetailScreen() {
       qc.invalidateQueries({ queryKey: ['entries', id] });
       qc.invalidateQueries({ queryKey: ['summary', id] });
       qc.invalidateQueries({ queryKey: ['books'] });
-      router.back();
+      router.replace({ pathname: `${basePath}/[id]`, params: { id } });
     },
   });
 
@@ -87,7 +87,7 @@ export default function EntryDetailScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => router.replace({ pathname: `${basePath}/[id]`, params: { id } })} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <ChevronLeftIcon color="#fff" size={22} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Entry Detail</Text>

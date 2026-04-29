@@ -4,6 +4,7 @@ import {
   FlatList, ActivityIndicator,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
+import SearchBar from '../components/ui/SearchBar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
@@ -66,8 +67,10 @@ const EntryCard = memo(({ item, C, Font, s, isDark }) => {
   const badgeBg   = meta.bg   ?? (isDark ? C.primaryLight : C.primaryLight);
   const badgeText = meta.text ?? C.primary;
 
+  const typeColor = item.type === 'in' ? C.cashIn : C.danger;
   return (
-    <View style={s.entryCard}>
+    <View style={[s.entryCard, { backgroundColor: C.card, borderColor: C.border }]}>
+      <View style={[s.entryTypeBar, { backgroundColor: typeColor }]} />
       <View style={[s.entryBadge, { backgroundColor: badgeBg }]}>
         <Text style={[s.entryBadgeText, { color: badgeText }]} numberOfLines={1}>
           {item.payment_mode
@@ -76,20 +79,16 @@ const EntryCard = memo(({ item, C, Font, s, isDark }) => {
         </Text>
       </View>
       <View style={s.entryMid}>
-        <Text style={s.entryRemark} numberOfLines={1}>
+        <Text style={[s.entryRemark, { color: C.text }]} numberOfLines={1}>
           {item.remark || 'No remark'}
         </Text>
         {item.category ? (
-          <Text style={s.entryCategory} numberOfLines={1}>{item.category}</Text>
+          <Text style={[s.entryCategory, { color: C.textMuted }]} numberOfLines={1}>{item.category}</Text>
         ) : null}
-        <Text style={s.entryMeta}>Entry by You  ·  {fmt12h(item.entry_time)}</Text>
+        <Text style={[s.entryMeta, { color: C.textMuted }]}>Entry by You  ·  {fmt12h(item.entry_time)}</Text>
       </View>
-      <Text
-        style={[s.entryAmount, { color: item.type === 'in' ? C.cashIn : C.danger }]}
-        numberOfLines={1}
-        allowFontScaling={false}
-      >
-        {item.amount?.toLocaleString()}
+      <Text style={[s.entryAmount, { color: typeColor }]} numberOfLines={1} allowFontScaling={false}>
+        {item.type === 'in' ? '+' : '-'}{item.amount?.toLocaleString()}
       </Text>
     </View>
   );
@@ -99,9 +98,9 @@ const EntryCard = memo(({ item, C, Font, s, isDark }) => {
 
 function SummaryCard({ label, value, color, C, Font }) {
   return (
-    <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 12, padding: 12, alignItems: 'center', gap: 4 }}>
-      <Text style={{ fontSize: 11, fontFamily: Font.regular, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</Text>
-      <Text style={{ fontSize: 18, fontFamily: Font.bold, color }}>{value}</Text>
+    <View style={{ flex: 1, alignItems: 'center', gap: 3 }}>
+      <Text style={{ fontSize: 10, fontFamily: Font.medium, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{label}</Text>
+      <Text style={{ fontSize: 15, fontFamily: Font.bold, color }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
     </View>
   );
 }
@@ -122,6 +121,7 @@ export default function ContactBalanceScreen() {
   const cfg = TYPE_CONFIG[contactType] || TYPE_CONFIG.customer;
 
   const [collapsed, setCollapsed] = useState({});
+  const [search, setSearch] = useState('');
 
   const toggleDate = useCallback((date) => {
     setCollapsed(prev => ({ ...prev, [date]: !prev[date] }));
@@ -134,20 +134,32 @@ export default function ContactBalanceScreen() {
   const totalOut = contact?.total_out ?? entries.reduce((sum, e) => sum + (e.type === 'out' ? e.amount : 0), 0);
   const balance  = totalIn - totalOut;
 
-  const grouped = useMemo(() => groupByDate(entries), [entries]);
+  const filtered = useMemo(() => {
+    if (!search.trim()) return entries;
+    const q = search.toLowerCase();
+    return entries.filter(e =>
+      (e.remark || '').toLowerCase().includes(q) ||
+      (e.category || '').toLowerCase().includes(q) ||
+      (e.payment_mode || '').toLowerCase().includes(q) ||
+      String(e.amount).includes(q)
+    );
+  }, [entries, search]);
+
+  const grouped = useMemo(() => groupByDate(filtered), [filtered]);
 
   const renderItem = useCallback(({ item: group }) => {
     const isCollapsed = !!collapsed[group.date];
     return (
       <View>
         <TouchableOpacity
-          style={s.dateLabelRow}
+          style={[s.dateLabelRow, { backgroundColor: C.background }]}
           onPress={() => toggleDate(group.date)}
           activeOpacity={0.7}
         >
-          <Text style={s.dateLabel}>{formatDate(group.date)}</Text>
+          <View style={[s.dateDot, { backgroundColor: C.primary }]} />
+          <Text style={[s.dateLabel, { color: C.textMuted }]}>{formatDate(group.date)}</Text>
           <View style={{ transform: [{ rotate: isCollapsed ? '0deg' : '180deg' }] }}>
-            <Feather name="chevron-down" size={14} color={C.textMuted} />
+            <Feather name="chevron-down" size={13} color={C.textMuted} />
           </View>
         </TouchableOpacity>
         {!isCollapsed && group.items.map((entry) => (
@@ -181,25 +193,32 @@ export default function ContactBalanceScreen() {
       </View>
 
       {/* Summary */}
-      <View style={[s.summaryBar, { backgroundColor: C.card, borderBottomColor: C.border }]}>
-        <SummaryCard label="Total In"  value={totalIn.toFixed(2)}  color={C.cashIn} C={C} Font={Font} />
-        <View style={[s.summaryDivider, { backgroundColor: C.border }]} />
-        <SummaryCard label="Total Out" value={totalOut.toFixed(2)} color={C.danger} C={C} Font={Font} />
-        <View style={[s.summaryDivider, { backgroundColor: C.border }]} />
-        <SummaryCard
-          label="Net"
-          value={(balance >= 0 ? '+' : '') + balance.toFixed(2)}
-          color={balance >= 0 ? C.cashIn : C.danger}
-          C={C} Font={Font}
-        />
+      <View style={[s.summaryWrap, { backgroundColor: C.card, borderBottomColor: C.border }]}>
+        <View style={[s.summaryCard, { borderColor: C.border }]}>
+          <SummaryCard label="Cash In"  value={totalIn.toLocaleString()}  color={C.cashIn} C={C} Font={Font} />
+          <View style={[s.summaryDivider, { backgroundColor: C.border }]} />
+          <SummaryCard
+            label="Net Balance"
+            value={Math.abs(balance).toLocaleString()}
+            color={balance >= 0 ? C.cashIn : C.danger}
+            C={C} Font={Font}
+          />
+          <View style={[s.summaryDivider, { backgroundColor: C.border }]} />
+          <SummaryCard label="Cash Out" value={totalOut.toLocaleString()} color={C.danger} C={C} Font={Font} />
+        </View>
       </View>
 
-      {/* Entry count row */}
+      {/* Search bar */}
       {!isLoading && entries.length > 0 && (
-        <View style={s.entryCountRow}>
-          <Feather name="list" size={12} color={C.textMuted} />
-          <Text style={s.entryCountText}>
-            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}  ·  total
+        <View style={[s.searchWrap, { borderBottomColor: C.border }]}>
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search entries…"
+            onClear={() => setSearch('')}
+          />
+          <Text style={[s.entryCountText, { marginLeft: 16 }]}>
+            {filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}
           </Text>
         </View>
       )}
@@ -216,6 +235,12 @@ export default function ContactBalanceScreen() {
           <Text style={[s.emptySub, { color: C.textMuted, fontFamily: Font.regular }]}>
             Entries linked to this {cfg.label.toLowerCase()} will appear here.
           </Text>
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={s.empty}>
+          <Feather name="search" size={36} color={C.border} />
+          <Text style={[s.emptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>No results</Text>
+          <Text style={[s.emptySub, { color: C.textMuted, fontFamily: Font.regular }]}>Try a different search.</Text>
         </View>
       ) : (
         <FlatList
@@ -245,52 +270,45 @@ const makeStyles = (C, Font) => StyleSheet.create({
   headerTitle:  { fontSize: 17, color: '#fff', lineHeight: 24 },
   headerSub:    { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
 
-  summaryBar:     { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8, borderBottomWidth: 1 },
-  summaryDivider: { width: 1, height: 40 },
+  summaryWrap:    { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
+  summaryCard:    { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 8 },
+  summaryDivider: { width: 1, height: 32, marginHorizontal: 4 },
 
-  // Entry count
-  entryCountRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 2,
-  },
-  entryCountText: {
-    fontSize: 12, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18, flex: 1,
-  },
+  // Search
+  searchWrap:     { paddingTop: 10, paddingBottom: 8, borderBottomWidth: 1, gap: 4 },
+  entryCountText: { fontSize: 12, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18 },
 
   // List
-  listContent: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 40 },
+  listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
   dateLabelRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 2, marginBottom: 4, paddingVertical: 2,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 10, marginBottom: 6,
+    paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8,
   },
+  dateDot:  { width: 6, height: 6, borderRadius: 3 },
   dateLabel: {
-    fontSize: 10, fontFamily: Font.semiBold, color: C.textMuted,
+    flex: 1, fontSize: 11, fontFamily: Font.semiBold,
     textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 16,
   },
 
   // Entry Card
   entryCard: {
-    backgroundColor: C.card, borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 9,
-    marginBottom: 6, flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: C.border,
+    borderRadius: 12, marginBottom: 7,
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, overflow: 'hidden',
   },
+  entryTypeBar: { width: 3, alignSelf: 'stretch' },
   entryBadge: {
     borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4,
-    marginRight: 10, minWidth: 50, alignItems: 'center', justifyContent: 'center',
+    marginLeft: 10, marginRight: 10, minWidth: 52,
+    alignItems: 'center', justifyContent: 'center',
   },
   entryBadgeText: { fontSize: 10, fontFamily: Font.bold, lineHeight: 15 },
-  entryMid:       { flex: 1, marginRight: 6 },
-  entryRemark: {
-    fontSize: 13, fontFamily: Font.semiBold, color: C.text,
-    lineHeight: 19, marginBottom: 1,
-  },
-  entryCategory: {
-    fontSize: 10, fontFamily: Font.regular, color: C.textMuted,
-    lineHeight: 15, marginBottom: 1,
-  },
-  entryMeta:   { fontSize: 10, fontFamily: Font.regular, color: C.textMuted, lineHeight: 15 },
-  entryAmount: { fontSize: 13, fontFamily: Font.medium, lineHeight: 19, minWidth: 66, textAlign: 'right' },
+  entryMid:       { flex: 1, marginRight: 8, paddingVertical: 10 },
+  entryRemark:    { fontSize: 13, fontFamily: Font.semiBold, lineHeight: 19, marginBottom: 1 },
+  entryCategory:  { fontSize: 10, fontFamily: Font.regular, lineHeight: 15, marginBottom: 1 },
+  entryMeta:      { fontSize: 10, fontFamily: Font.regular, lineHeight: 15 },
+  entryAmount:    { fontSize: 13, fontFamily: Font.bold, lineHeight: 19, minWidth: 72, textAlign: 'right', paddingRight: 12 },
 
   // Footer
   onlyYou: {

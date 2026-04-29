@@ -65,7 +65,7 @@ export default function EditEntryScreen() {
       qc.invalidateQueries({ queryKey: ['entries', id] });
       qc.invalidateQueries({ queryKey: ['summary', id] });
       qc.invalidateQueries({ queryKey: ['books'] });
-      goToBook();
+      router.back();
     },
     onError: () => Toast.show({ type: 'error', text1: 'Failed to update entry', text2: 'Please try again.' }),
   });

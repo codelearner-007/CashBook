@@ -4,6 +4,7 @@ import {
   StatusBar, Alert, ActivityIndicator,
   Modal, Pressable, ScrollView, Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import SearchBar from '../components/ui/SearchBar';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -52,14 +53,16 @@ function matchesDatePeriod(entryDate, period) {
 const DATE_LABELS = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month' };
 const PAYMENT_LABEL = { cash: 'Cash', online: 'Online', cheque: 'Cheque', other: 'Other' };
 
-function formatDate(dateStr) {
+function formatDateHeader(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' });
+  const isToday = d.toDateString() === today.toDateString();
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const dayName = isToday ? 'Today' : isYesterday ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateText = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+  return { dayName, dateText };
 }
 
 // ── Icons (Feather via @expo/vector-icons) ────────────────────────────────────
@@ -92,14 +95,14 @@ const PAYMENT_META_DARK = {
 
 // ── EntryCard ─────────────────────────────────────────────────────────────────
 
-const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark }) => {
+const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark, grouped, isLast }) => {
   const meta = isDark ? PAYMENT_META_DARK[item.payment_mode] : PAYMENT_META[item.payment_mode];
   const badgeBg = meta.bg ?? (isDark ? C.primaryLight : C.primaryLight);
   const badgeText = meta.text ?? C.primary;
 
   return (
     <TouchableOpacity
-      style={s.entryCard}
+      style={grouped ? [s.entryCardGrouped, !isLast && s.entryCardDivider] : s.entryCard}
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.75}
@@ -426,33 +429,58 @@ export default function BookDetailScreen() {
 
   const renderItem = useCallback(({ item: group }) => {
     const isCollapsed = !!collapsed[group.date];
+    const dayIn = group.items.reduce((acc, e) => e.type === 'in' ? acc + e.amount : acc, 0);
+    const dayOut = group.items.reduce((acc, e) => e.type === 'out' ? acc + e.amount : acc, 0);
+    const dayNet = dayIn - dayOut;
+    const dayNetColor = dayNet > 0 ? C.cashIn : dayNet < 0 ? C.danger : C.textMuted;
+    const { dayName, dateText } = formatDateHeader(group.date);
+
     return (
-      <View>
+      <View style={s.dateGroup}>
         <TouchableOpacity
           style={s.dateLabelRow}
           onPress={() => toggleDate(group.date)}
           activeOpacity={0.7}
         >
-          <Text style={s.dateLabel}>{formatDate(group.date)}</Text>
-          <View style={{ transform: [{ rotate: isCollapsed ? '0deg' : '180deg' }] }}>
+          <View style={s.dateLabelLeft}>
+            <Text style={s.dateDayLabel}>{dayName}</Text>
+            <Text style={s.dateDateText}>
+              {dateText}{'  ·  '}{group.items.length} {group.items.length === 1 ? 'entry' : 'entries'}
+            </Text>
+          </View>
+          {isCollapsed && (
+            <View style={s.dateLabelRight}>
+              <Text style={[s.dateDayNet, { color: dayNetColor }]}>
+                {Math.abs(dayNet).toLocaleString()}
+              </Text>
+            </View>
+          )}
+          <View style={{ transform: [{ rotate: isCollapsed ? '-90deg' : '0deg' }], marginLeft: 10 }}>
             <ChevronDownIcon color={C.textMuted} size={14} />
           </View>
         </TouchableOpacity>
-        {!isCollapsed && group.items.map((entry) => (
-          <EntryCard
-            key={entry.id}
-            item={entry}
-            C={C}
-            Font={Font}
-            s={s}
-            isDark={isDark}
-            onPress={() => router.push({
-              pathname: `${basePath}/[id]/entry-detail`,
-              params: { id, eid: entry.id },
-            })}
-            onLongPress={() => handleDelete(entry.id)}
-          />
-        ))}
+
+        {!isCollapsed && (
+          <View style={s.entriesContainer}>
+            {group.items.map((entry, index) => (
+              <EntryCard
+                key={entry.id}
+                item={entry}
+                C={C}
+                Font={Font}
+                s={s}
+                isDark={isDark}
+                grouped
+                isLast={index === group.items.length - 1}
+                onPress={() => router.push({
+                  pathname: `${basePath}/[id]/entry-detail`,
+                  params: { id, eid: entry.id },
+                })}
+                onLongPress={() => handleDelete(entry.id)}
+              />
+            ))}
+          </View>
+        )}
       </View>
     );
   }, [s, C, Font, isDark, id, router, handleDelete, collapsed, toggleDate]);
@@ -469,7 +497,7 @@ export default function BookDetailScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity
-          onPress={() => router.canGoBack() ? router.back() : router.navigate(basePath)}
+          onPress={() => router.replace(basePath)}
           style={s.backBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
@@ -519,45 +547,53 @@ export default function BookDetailScreen() {
 
         <View style={s.filterDivider} />
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.filterScroll}
-        >
-          {[
-            { key: 'date', label: 'Date', icon: 'calendar', display: filterDate ? DATE_LABELS[filterDate] : null },
-            { key: 'type', label: 'Entry Type', icon: 'repeat', display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
-            { key: 'members', label: 'Members', icon: 'users', display: null },
-            { key: 'contact', label: 'Contact', icon: 'user', display: filterContact },
-            { key: 'category', label: 'Category', icon: 'tag', display: filterCategory },
-            { key: 'payment', label: 'Payment', icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
-          ].map(({ key, label, icon, display }) => {
-            const active = !!display;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[s.fChip, active && s.fChipActive]}
-                onPress={() => setActivePicker(key)}
-                activeOpacity={0.8}
-              >
-                <Feather name={icon} size={13} color={active ? '#fff' : C.textMuted} />
-                <Text style={[s.fChipLabel, { color: active ? '#fff' : C.textMuted }]} numberOfLines={1}>
-                  {display || label}
-                </Text>
-                {active ? (
-                  <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation?.(); clearFilter(key); }}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  >
-                    <Feather name="x" size={13} color="rgba(255,255,255,0.85)" />
-                  </TouchableOpacity>
-                ) : (
-                  <Feather name="chevron-down" size={11} color={C.textSubtle} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <View style={s.filterScrollWrap}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.filterScroll}
+          >
+            {[
+              { key: 'date', label: 'Date', icon: 'calendar', display: filterDate ? DATE_LABELS[filterDate] : null },
+              { key: 'type', label: 'Entry Type', icon: 'repeat', display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
+              { key: 'members', label: 'Members', icon: 'users', display: null },
+              { key: 'contact', label: 'Contact', icon: 'user', display: filterContact },
+              { key: 'category', label: 'Category', icon: 'tag', display: filterCategory },
+              { key: 'payment', label: 'Payment', icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
+            ].map(({ key, label, icon, display }) => {
+              const active = !!display;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[s.fChip, active && s.fChipActive]}
+                  onPress={() => setActivePicker(key)}
+                  activeOpacity={0.8}
+                >
+                  <Feather name={icon} size={13} color={active ? '#fff' : C.textMuted} />
+                  <Text style={[s.fChipLabel, { color: active ? '#fff' : C.textMuted }]} numberOfLines={1}>
+                    {display || label}
+                  </Text>
+                  {active ? (
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation?.(); clearFilter(key); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                    >
+                      <Feather name="x" size={13} color="rgba(255,255,255,0.85)" />
+                    </TouchableOpacity>
+                  ) : (
+                    <Feather name="chevron-down" size={11} color={C.textSubtle} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <LinearGradient
+            colors={[`${C.background}00`, C.background]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={s.filterFade}
+            pointerEvents="none"
+          />
+        </View>
       </View>
 
 
@@ -905,29 +941,33 @@ const makeStyles = (C, Font) => StyleSheet.create({
   filterBar: {
     flexDirection: 'row', alignItems: 'center',
     paddingLeft: 16, paddingRight: 0,
-    paddingVertical: 4, height: 44,
+    paddingVertical: 2, height: 36,
   },
   filterDivider: {
-    width: 1, height: 20, backgroundColor: C.border, marginHorizontal: 8,
+    width: 1, height: 16, backgroundColor: C.border, marginHorizontal: 8,
   },
+  filterScrollWrap: { flex: 1, overflow: 'hidden' },
   filterScroll: {
-    paddingRight: 16, gap: 8,
+    paddingRight: 16, gap: 6,
     alignItems: 'center',
   },
+  filterFade: {
+    position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
+  },
   fChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12,
-    height: 34,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10,
+    height: 28,
     borderRadius: 100, borderWidth: 1.5,
     backgroundColor: C.card, borderColor: C.border,
   },
   fChipActive: {
-    height: 34,
-    paddingHorizontal: 12,
+    height: 28,
+    paddingHorizontal: 10,
     borderRadius: 100, borderWidth: 1.5,
     backgroundColor: C.primary, borderColor: C.primary,
   },
-  fChipLabel: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 16 },
+  fChipLabel: { fontSize: 11, fontFamily: Font.semiBold, lineHeight: 15 },
 
   // ── Picker modal ──
   pickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
@@ -976,22 +1016,22 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // Balance Card
   balanceCard: {
     backgroundColor: C.card, marginHorizontal: 16, marginTop: 4,
-    borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12,
+    borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8,
     borderWidth: 1, borderColor: C.border,
     alignItems: 'center',
   },
   netLabel: {
     fontSize: 11, fontFamily: Font.medium, color: C.textMuted,
-    lineHeight: 16, marginBottom: 2, letterSpacing: 0.2,
+    lineHeight: 15, marginBottom: 1, letterSpacing: 0.2,
   },
   netAmount: {
-    fontSize: 26, fontFamily: Font.extraBold,
-    lineHeight: 34, marginBottom: 10, width: '100%', textAlign: 'center',
+    fontSize: 24, fontFamily: Font.extraBold,
+    lineHeight: 30, marginBottom: 6, width: '100%', textAlign: 'center',
   },
-  balanceDivider: { height: 1, backgroundColor: C.border, marginBottom: 8, width: '100%' },
+  balanceDivider: { height: 1, backgroundColor: C.border, marginBottom: 5, width: '100%' },
   balanceSubRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 8, width: '100%',
+    marginBottom: 4, width: '100%',
   },
   balanceSub: { flex: 1, alignItems: 'center' },
   subLabel: {
@@ -1011,7 +1051,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // Entry count row
   entryCountRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 2,
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2,
   },
   entryCountText: {
     fontSize: 12, fontFamily: Font.medium, color: C.textMuted, lineHeight: 18,
@@ -1025,22 +1065,45 @@ const makeStyles = (C, Font) => StyleSheet.create({
   },
 
   // List
-  listContent: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 90 },
+  listContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 90 },
+
+  // Date group
+  dateGroup: { marginBottom: 4 },
   dateLabelRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 2, marginBottom: 4, paddingVertical: 2,
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 2, paddingHorizontal: 4, marginBottom: 4,
   },
-  dateLabel: {
-    fontSize: 10, fontFamily: Font.semiBold, color: C.textMuted,
-    textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 16,
+  dateLabelLeft: { flex: 1 },
+  dateDayLabel: {
+    fontSize: 14, fontFamily: Font.bold, color: C.text, lineHeight: 21,
+  },
+  dateDateText: {
+    fontSize: 11, fontFamily: Font.regular, color: C.textMuted, lineHeight: 17, marginTop: 1,
+  },
+  dateLabelRight: { alignItems: 'flex-end' },
+  dateDayNet: { fontSize: 14, fontFamily: Font.bold, lineHeight: 21 },
+
+  // Grouped entries container
+  entriesContainer: {
+    borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden',
   },
 
-  // Entry Card
+  // Entry Card — standalone (used by skeleton)
   entryCard: {
     backgroundColor: C.card, borderRadius: 12,
     paddingHorizontal: 12, paddingVertical: 9,
     marginBottom: 6, flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderColor: C.border,
+  },
+
+  // Entry Card — inside grouped container
+  entryCardGrouped: {
+    backgroundColor: C.card,
+    paddingHorizontal: 14, paddingVertical: 9,
+    flexDirection: 'row', alignItems: 'center',
+  },
+  entryCardDivider: {
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
   entryBadge: {
     borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4,
