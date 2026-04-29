@@ -12,6 +12,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useProfile, useUpdateProfile, useUploadAvatar } from '../hooks/useProfile';
 import { Font } from '../constants/fonts';
 import AppInput from '../components/ui/Input';
+import AdminPillBadge from '../components/ui/AdminPillBadge';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ const BackIcon = ({ color }) => (
     <View style={{ width: 9, height: 9, borderLeftWidth: 2.5, borderBottomWidth: 2.5, borderColor: color, transform: [{ rotate: '45deg' }] }} />
   </View>
 );
+
 
 const CameraIcon = ({ size = 13 }) => (
   <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -267,7 +269,7 @@ const ChevronRight = ({ color }) => (
   </View>
 );
 
-function PhotoPickerSheet({ visible, onDismiss, onCamera, onGallery, onViewPhoto, currentUri, userName, userInitials, C }) {
+function PhotoPickerSheet({ visible, onDismiss, onCamera, onGallery, onViewPhoto, currentUri, userName, userInitials, isSuperAdmin, C }) {
   const slideY    = useRef(new Animated.Value(420)).current;
   const bgOpacity = useRef(new Animated.Value(0)).current;
 
@@ -310,7 +312,8 @@ function PhotoPickerSheet({ visible, onDismiss, onCamera, onGallery, onViewPhoto
               }
             </View>
             <Text style={[ps.previewName, { color: C.text }]}>{userName || 'Profile Photo'}</Text>
-            <Text style={[ps.previewSub,  { color: C.textMuted }]}>Change your profile picture</Text>
+            {isSuperAdmin && <AdminPillBadge />}
+            <Text style={[ps.previewSub,  { color: C.textMuted, marginTop: 6 }]}>Change your profile picture</Text>
           </View>
 
           {/* Options */}
@@ -535,6 +538,8 @@ export default function ProfileScreen() {
     }
   }, [profile]);
 
+  const isSuperAdmin = profile?.role === 'superadmin';
+
   const initials = (profile?.full_name ?? '?')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -640,6 +645,7 @@ export default function ProfileScreen() {
               </View>
               <Text style={[s.avatarName,  { color: C.text }]}>{profile?.full_name ?? '—'}</Text>
               <Text style={[s.avatarEmail, { color: C.textMuted }]}>{profile?.email ?? '—'}</Text>
+              {isSuperAdmin && <AdminPillBadge />}
             </View>
 
             {/* Editable fields */}
@@ -703,6 +709,7 @@ export default function ProfileScreen() {
         currentUri={localAvatarUri || profile?.avatar_url || null}
         userName={profile?.full_name ?? ''}
         userInitials={initials}
+        isSuperAdmin={isSuperAdmin}
         C={C}
       />
       <ImageViewerModal
@@ -754,7 +761,7 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 2,
   },
   avatarName:  { fontSize: 18, fontFamily: Font.bold,    marginBottom: 3 },
-  avatarEmail: { fontSize: 13, fontFamily: Font.regular },
+  avatarEmail: { fontSize: 13, fontFamily: Font.regular, marginBottom: 6 },
 
   sectionWrap:  { marginHorizontal: 16, marginTop: 24, marginBottom: 16 },
   sectionLabel: {

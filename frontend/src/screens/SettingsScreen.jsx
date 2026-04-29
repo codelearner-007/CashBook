@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { Font } from '../constants/fonts';
 import { getCurrency } from '../constants/currencies';
+import AdminPillBadge from '../components/ui/AdminPillBadge';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -208,6 +209,7 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
   const hPad      = width > 600 ? Math.floor((width - 540) / 2) : 16;
 
   const { data: profile } = useProfile();
+  const isSuperAdmin = profile?.role === 'superadmin';
 
   const initials = (profile?.full_name ?? '?')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -284,6 +286,7 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
           <Text style={[s.avatarEmail, { color: C.textMuted, fontFamily: Font.regular }]}>
             {profile?.email ?? '—'}
           </Text>
+          {isSuperAdmin && <AdminPillBadge />}
           <TouchableOpacity
             style={[s.editBtn, { backgroundColor: C.primaryLight, borderColor: C.primary }]}
             onPress={() => router.push(profileRoute)}
@@ -385,7 +388,7 @@ const makeStyles = (C, hPad, showBottomNav) => StyleSheet.create({
   },
   avatarInitials: { fontSize: 28, fontFamily: Font.extraBold, color: '#fff' },
   avatarName:  { fontSize: 18, marginBottom: 3 },
-  avatarEmail: { fontSize: 13, marginBottom: 16 },
+  avatarEmail: { fontSize: 13, marginBottom: 10 },
 
   editBtn: {
     paddingHorizontal: 22, paddingVertical: 9, borderRadius: 20, borderWidth: 1,

@@ -270,10 +270,6 @@ export default function AdminUsersScreen() {
             </TouchableOpacity>
             <View style={s.brandBlock}>
               <Text style={s.headerTitle}>Dashboard</Text>
-              <View style={s.adminBadge}>
-                <Text style={s.adminBadgeStar}>✦ </Text>
-                <Text style={s.adminBadgeText}>SUPER ADMIN</Text>
-              </View>
             </View>
           </View>
 
@@ -409,7 +405,7 @@ export default function AdminUsersScreen() {
                   }]}>
                     <LockIcon
                       color={selectedUser.is_active ? C.cashIn : C.cashOut}
-                      size={16}
+                      size={14}
                     />
                   </View>
                   <View>
@@ -460,8 +456,8 @@ export default function AdminUsersScreen() {
                     : `${C.cashOut}22`,
                 }]}>
                   {confirmState.isActive
-                    ? <CheckIcon color={C.cashIn} size={26} />
-                    : <LockIcon  color={C.cashOut} size={22} />
+                    ? <CheckIcon color={C.cashIn} size={18} />
+                    : <LockIcon  color={C.cashOut} size={16} />
                   }
                 </View>
               </View>
@@ -542,15 +538,6 @@ const makeStyles = (C, Font) => StyleSheet.create({
   brandLabel:  { fontSize: 9, fontFamily: Font.bold, color: C.onPrimaryMuted, letterSpacing: 1.8, marginBottom: 1 },
   headerTitle: { fontSize: 20, fontFamily: Font.extraBold, color: C.onPrimary, lineHeight: 26 },
 
-  // SUPER ADMIN badge (gold/amber)
-  adminBadge: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
-    backgroundColor: 'rgba(251,191,36,0.18)',
-    borderWidth: 1, borderColor: 'rgba(251,191,36,0.42)',
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginTop: 5,
-  },
-  adminBadgeStar: { fontSize: 7, color: '#FCD34D', marginRight: 3, lineHeight: 12 },
-  adminBadgeText: { fontSize: 9, fontFamily: Font.bold, color: '#FCD34D', letterSpacing: 1 },
 
   // Action buttons
   iconBtn: {
@@ -603,130 +590,130 @@ const makeStyles = (C, Font) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
   modalBox: {
     backgroundColor: C.card,
-    borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 22,
   },
   modalHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: C.border, alignSelf: 'center', marginBottom: 8,
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: C.border, alignSelf: 'center', marginBottom: 6,
   },
   modalCloseBtn: {
-    position: 'absolute', top: 16, right: 20,
-    width: 30, height: 30, borderRadius: 15,
+    position: 'absolute', top: 14, right: 16,
+    width: 26, height: 26, borderRadius: 13,
     backgroundColor: C.cardAlt, alignItems: 'center', justifyContent: 'center',
   },
 
   // Avatar section
-  modalAvatarSection: { alignItems: 'center', paddingTop: 8, paddingBottom: 20 },
+  modalAvatarSection: { alignItems: 'center', paddingTop: 4, paddingBottom: 12 },
   modalAvatarRing: {
-    width: 76, height: 76, borderRadius: 38,
-    borderWidth: 2.5,
+    width: 62, height: 62, borderRadius: 31,
+    borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   modalAvatarCircle: {
-    width: 66, height: 66, borderRadius: 33,
+    width: 54, height: 54, borderRadius: 27,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  modalAvatarInitials: { fontSize: 22, fontFamily: Font.extraBold },
+  modalAvatarInitials: { fontSize: 18, fontFamily: Font.extraBold },
   modalAvatarDot: {
-    position: 'absolute', bottom: 3, right: 3,
-    width: 16, height: 16, borderRadius: 8,
-    borderWidth: 2.5, borderColor: C.card,
+    position: 'absolute', bottom: 2, right: 2,
+    width: 13, height: 13, borderRadius: 7,
+    borderWidth: 2, borderColor: C.card,
   },
   modalUserName: {
-    fontSize: 18, fontFamily: Font.extraBold, color: C.text,
-    lineHeight: 26, marginBottom: 4,
+    fontSize: 16, fontFamily: Font.bold, color: C.text,
+    lineHeight: 22, marginBottom: 2,
   },
   modalUserEmail: {
     fontSize: 12, fontFamily: Font.regular, color: C.textMuted,
-    lineHeight: 18, marginBottom: 12,
+    lineHeight: 17, marginBottom: 8,
   },
   modalStatusPill: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 50, borderWidth: 1,
-    paddingHorizontal: 12, paddingVertical: 5, gap: 6,
+    paddingHorizontal: 10, paddingVertical: 4, gap: 5,
   },
-  modalStatusDot: { width: 6, height: 6, borderRadius: 3 },
-  modalStatusPillText: { fontSize: 12, fontFamily: Font.semiBold, lineHeight: 16 },
+  modalStatusDot: { width: 5, height: 5, borderRadius: 3 },
+  modalStatusPillText: { fontSize: 11, fontFamily: Font.semiBold, lineHeight: 15 },
 
   // Stats row
   modalStatsRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.cardAlt, borderRadius: 16,
-    marginBottom: 14, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.cardAlt, borderRadius: 12,
+    marginBottom: 10, borderWidth: 1, borderColor: C.border,
   },
-  modalStatItem: { flex: 1, alignItems: 'center', paddingVertical: 14 },
-  modalStatDivider: { width: 1, height: 32, backgroundColor: C.border },
+  modalStatItem: { flex: 1, alignItems: 'center', paddingVertical: 10 },
+  modalStatDivider: { width: 1, height: 26, backgroundColor: C.border },
   modalStatValue: {
-    fontSize: 15, fontFamily: Font.bold, color: C.text,
-    lineHeight: 22, marginBottom: 2,
+    fontSize: 14, fontFamily: Font.bold, color: C.text,
+    lineHeight: 20, marginBottom: 1,
   },
-  modalStatLabel: { fontSize: 11, fontFamily: Font.medium, color: C.textMuted, lineHeight: 16 },
+  modalStatLabel: { fontSize: 10, fontFamily: Font.medium, color: C.textMuted, lineHeight: 14 },
 
   // Status toggle card
   modalToggleCard: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 16, padding: 14, borderWidth: 1,
+    borderRadius: 12, padding: 11, borderWidth: 1,
   },
-  modalToggleLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12, gap: 12 },
-  modalToggleIconBox: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  modalToggleTitle: { fontSize: 14, fontFamily: Font.semiBold, lineHeight: 20 },
-  modalToggleSub: { fontSize: 12, fontFamily: Font.regular, color: C.textMuted, lineHeight: 18, marginTop: 2 },
+  modalToggleLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10, gap: 10 },
+  modalToggleIconBox: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  modalToggleTitle: { fontSize: 13, fontFamily: Font.semiBold, lineHeight: 18 },
+  modalToggleSub: { fontSize: 11, fontFamily: Font.regular, color: C.textMuted, lineHeight: 16, marginTop: 1 },
 
   // ── Confirm Modal ────────────────────────────────────────────────────────────
   confirmOverlay: {
     flex: 1, backgroundColor: C.overlay,
     alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 36,
   },
   confirmBox: {
     width: '100%', backgroundColor: C.card,
-    borderRadius: 28, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 28,
+    borderRadius: 20, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20,
     alignItems: 'center',
   },
   confirmIconCircle: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 58, height: 58, borderRadius: 29,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   confirmIconInner: {
-    width: 60, height: 60, borderRadius: 30,
+    width: 42, height: 42, borderRadius: 21,
     alignItems: 'center', justifyContent: 'center',
   },
   confirmTitle: {
-    fontSize: 20, fontFamily: Font.extraBold, color: C.text,
-    lineHeight: 28, marginBottom: 10, textAlign: 'center',
+    fontSize: 16, fontFamily: Font.bold, color: C.text,
+    lineHeight: 23, marginBottom: 7, textAlign: 'center',
   },
   confirmNamePill: {
-    borderRadius: 50, paddingHorizontal: 14, paddingVertical: 5,
-    marginBottom: 12, maxWidth: '80%',
+    borderRadius: 50, paddingHorizontal: 12, paddingVertical: 4,
+    marginBottom: 8, maxWidth: '80%',
   },
   confirmNameText: {
-    fontSize: 13, fontFamily: Font.semiBold, lineHeight: 18, textAlign: 'center',
+    fontSize: 12, fontFamily: Font.semiBold, lineHeight: 17, textAlign: 'center',
   },
   confirmBody: {
-    fontSize: 13, fontFamily: Font.regular, color: C.textMuted,
-    lineHeight: 20, textAlign: 'center', marginBottom: 28,
+    fontSize: 12, fontFamily: Font.regular, color: C.textMuted,
+    lineHeight: 18, textAlign: 'center', marginBottom: 18,
   },
   confirmBtns: {
-    flexDirection: 'row', gap: 10, width: '100%',
+    flexDirection: 'row', gap: 8, width: '100%',
   },
   confirmCancelBtn: {
-    flex: 1, height: 48, borderRadius: 14,
+    flex: 1, height: 42, borderRadius: 12,
     borderWidth: 1.5, borderColor: C.border,
     alignItems: 'center', justifyContent: 'center',
   },
   confirmCancelText: {
-    fontSize: 14, fontFamily: Font.semiBold, color: C.textMuted,
+    fontSize: 13, fontFamily: Font.semiBold, color: C.textMuted,
   },
   confirmActionBtn: {
-    flex: 1, height: 48, borderRadius: 14,
+    flex: 1, height: 42, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
   confirmActionText: {
-    fontSize: 14, fontFamily: Font.semiBold, color: '#FFFFFF',
+    fontSize: 13, fontFamily: Font.semiBold, color: '#FFFFFF',
   },
 
 });
