@@ -107,6 +107,11 @@ export const apiDeleteEntry = async (bookId, entryId) => {
   await api.delete(`/api/v1/books/${bookId}/entries/${entryId}`);
 };
 
+/** DELETE /api/v1/books/:bookId/entries — deletes ALL entries in a book */
+export const apiDeleteAllEntries = async (bookId) => {
+  await api.delete(`/api/v1/books/${bookId}/entries`);
+};
+
 
 // ── Admin (superadmin only) ────────────────────────────────────────────────────
 

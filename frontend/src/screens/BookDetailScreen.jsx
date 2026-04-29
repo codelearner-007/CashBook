@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback, memo } from 'react';
+import React, { useState, useMemo, useCallback, memo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, Alert, ActivityIndicator,
-  Modal, Pressable, ScrollView,
+  Modal, Pressable, ScrollView, Animated,
 } from 'react-native';
 import SearchBar from '../components/ui/SearchBar';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
@@ -11,9 +11,11 @@ import { useBookBasePath } from '../hooks/useBookBasePath';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { apiGetEntries, apiGetSummary, apiDeleteEntry } from '../lib/api';
+import { apiGetEntries, apiGetSummary, apiDeleteEntry, apiDeleteAllEntries } from '../lib/api';
 import { useBooks } from '../hooks/useBooks';
 import { PAYMENT_MODES, CATEGORIES } from '../constants/categories';
+import SuccessDialog from '../components/ui/SuccessDialog';
+import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -191,6 +193,72 @@ const LoadingSkeleton = ({ C, s }) => (
   </View>
 );
 
+// ── Empty State ───────────────────────────────────────────────────────────────
+
+const ARROW_COUNT = 3;
+
+function EmptyState({ C, Font, s }) {
+  const arrowAnims = useRef(
+    Array.from({ length: ARROW_COUNT }, () => new Animated.Value(0))
+  ).current;
+  const nudgeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Cascade fade: each chevron fades in 200 ms after the previous
+    const cascade = Animated.loop(
+      Animated.sequence([
+        Animated.stagger(180,
+          arrowAnims.map(a =>
+            Animated.sequence([
+              Animated.timing(a, { toValue: 1,   duration: 280, useNativeDriver: true }),
+              Animated.timing(a, { toValue: 0.1, duration: 280, useNativeDriver: true }),
+            ])
+          )
+        ),
+        Animated.delay(300),
+      ])
+    );
+
+    // Gentle nudge of the whole arrow group downward
+    const nudge = Animated.loop(
+      Animated.sequence([
+        Animated.timing(nudgeAnim, { toValue: 8,  duration: 500, useNativeDriver: true }),
+        Animated.timing(nudgeAnim, { toValue: 0,  duration: 500, useNativeDriver: true }),
+      ])
+    );
+
+    cascade.start();
+    nudge.start();
+    return () => { cascade.stop(); nudge.stop(); };
+  }, []);
+
+  return (
+    <View style={s.empty}>
+      <View style={s.emptyIconBox}>
+        <InboxIcon color={C.primary} size={36} />
+      </View>
+      <Text style={s.emptyTitle}>No entries yet</Text>
+      <Text style={s.emptySub}>Tap Cash In or Cash Out below{'\n'}to record your first entry</Text>
+
+      {/* Animated downward arrow */}
+      <Animated.View style={[es.arrowWrap, { transform: [{ translateY: nudgeAnim }] }]}>
+        <Text style={[es.hint, { color: C.textSubtle, fontFamily: Font.regular }]}>start here</Text>
+        {arrowAnims.map((anim, i) => (
+          <Animated.View key={i} style={{ opacity: anim }}>
+            <Feather name="chevron-down" size={24} color={C.primary} />
+          </Animated.View>
+        ))}
+      </Animated.View>
+    </View>
+  );
+}
+
+const es = StyleSheet.create({
+  arrowWrap: { alignItems: 'center', marginTop: 28, gap: -6 },
+  hint:      { fontSize: 11, letterSpacing: 0.4, marginBottom: 6, textTransform: 'uppercase' },
+});
+
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function BookDetailScreen() {
@@ -212,6 +280,9 @@ export default function BookDetailScreen() {
   const [activePicker, setActivePicker] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const [menuVisible, setMenuVisible] = useState(false);
+  const [showDeleteAllSheet, setShowDeleteAllSheet] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const deleteSheetCloseRef = useRef(null);
 
   const clearFilter = useCallback((key) => {
     if (key === 'date') setFilterDate(null);
@@ -275,6 +346,23 @@ export default function BookDetailScreen() {
       qc.invalidateQueries({ queryKey: ['entries', id] });
       qc.invalidateQueries({ queryKey: ['summary', id] });
       qc.invalidateQueries({ queryKey: ['books'] });
+    },
+  });
+
+  const deleteAllEntries = useMutation({
+    mutationFn: () => apiDeleteAllEntries(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['entries', id] });
+      qc.invalidateQueries({ queryKey: ['summary', id] });
+      qc.invalidateQueries({ queryKey: ['books'] });
+      // Drive the close animation; show success only after it finishes
+      deleteSheetCloseRef.current?.(() => {
+        setShowDeleteAllSheet(false);
+        setShowDeleteSuccess(true);
+      });
+    },
+    onError: () => {
+      Alert.alert('Error', 'Could not delete entries. Please try again.');
     },
   });
 
@@ -369,15 +457,7 @@ export default function BookDetailScreen() {
     );
   }, [s, C, Font, isDark, id, router, handleDelete, collapsed, toggleDate]);
 
-  const ListEmpty = useMemo(() => (
-    <View style={s.empty}>
-      <View style={s.emptyIconBox}>
-        <InboxIcon color={C.primary} size={36} />
-      </View>
-      <Text style={s.emptyTitle}>No entries yet</Text>
-      <Text style={s.emptySub}>Add your first Cash In or Cash Out entry</Text>
-    </View>
-  ), [s, C]);
+  const ListEmpty = useCallback(() => <EmptyState C={C} Font={Font} s={s} />, [C, Font, s]);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -717,7 +797,10 @@ export default function BookDetailScreen() {
           <View style={[s.menuCard, { backgroundColor: C.card, borderColor: C.border }]}>
             {[
               { label: 'Book Settings', icon: 'settings', onPress: goToBookSettings },
-              { label: 'Test-ABC', icon: 'zap', onPress: () => setMenuVisible(false) },
+              {
+                label: 'Delete All Entries', icon: 'trash-2', danger: true,
+                onPress: () => { setMenuVisible(false); setTimeout(() => setShowDeleteAllSheet(true), 200); },
+              },
             ].map((item, idx, arr) => (
               <View key={item.label}>
                 <TouchableOpacity
@@ -725,8 +808,8 @@ export default function BookDetailScreen() {
                   onPress={item.onPress}
                   activeOpacity={0.7}
                 >
-                  <Feather name={item.icon} size={16} color={C.textMuted} />
-                  <Text style={[s.menuItemText, { color: C.text, fontFamily: Font.medium }]}>
+                  <Feather name={item.icon} size={16} color={item.danger ? '#B91C1C' : C.textMuted} />
+                  <Text style={[s.menuItemText, { color: item.danger ? '#B91C1C' : C.text, fontFamily: Font.medium }]}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
@@ -736,6 +819,27 @@ export default function BookDetailScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Delete All Entries Sheet */}
+      <DeleteAllEntriesSheet
+        visible={showDeleteAllSheet}
+        onDismiss={() => setShowDeleteAllSheet(false)}
+        onConfirm={() => deleteAllEntries.mutate()}
+        bookName={name}
+        entryCount={entries.length}
+        isLoading={deleteAllEntries.isPending}
+        C={C}
+        Font={Font}
+        closeRef={deleteSheetCloseRef}
+      />
+
+      {/* Delete All Success */}
+      <SuccessDialog
+        visible={showDeleteSuccess}
+        onDismiss={() => setShowDeleteSuccess(false)}
+        title="All Entries Deleted"
+        subtitle={`"${name}" has been cleared successfully`}
+      />
 
       {/* Action Buttons */}
       <View style={s.actionRow}>
@@ -795,13 +899,13 @@ const makeStyles = (C, Font) => StyleSheet.create({
   headerIconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
   // Search
-  searchWrapper: { marginTop: 8, marginBottom: -12 },
+  searchWrapper: { marginTop: 6 },
 
   // ── Filter chips bar ──
   filterBar: {
     flexDirection: 'row', alignItems: 'center',
-    marginTop: 4, paddingLeft: 16, paddingRight: 0,
-    paddingVertical: 6, height: 48,
+    paddingLeft: 16, paddingRight: 0,
+    paddingVertical: 4, height: 44,
   },
   filterDivider: {
     width: 1, height: 20, backgroundColor: C.border, marginHorizontal: 8,
@@ -871,7 +975,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   // Balance Card
   balanceCard: {
-    backgroundColor: C.card, marginHorizontal: 16, marginTop: 6,
+    backgroundColor: C.card, marginHorizontal: 16, marginTop: 4,
     borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12,
     borderWidth: 1, borderColor: C.border,
     alignItems: 'center',

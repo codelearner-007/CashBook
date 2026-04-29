@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   StatusBar, ScrollView, Modal, TextInput, Alert,
@@ -9,7 +9,10 @@ import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useRenameBook } from '../hooks/useBooks';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { apiDeleteAllEntries, apiGetEntries } from '../lib/api';
 import SuccessDialog from '../components/ui/SuccessDialog';
+import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -24,8 +27,35 @@ export default function BookSettingsScreen() {
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameInput, setRenameInput] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const deleteSheetCloseRef = useRef(null);
 
+  const qc = useQueryClient();
   const renameBook = useRenameBook();
+
+  const { data: entries = [] } = useQuery({
+    queryKey: ['entries', id],
+    queryFn: () => apiGetEntries(id),
+    staleTime: 1000 * 60 * 2,
+    enabled: !!id,
+  });
+
+  const deleteAllEntries = useMutation({
+    mutationFn: () => apiDeleteAllEntries(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['entries', id] });
+      qc.invalidateQueries({ queryKey: ['summary', id] });
+      qc.invalidateQueries({ queryKey: ['books'] });
+      deleteSheetCloseRef.current?.(() => {
+        setShowDeleteSheet(false);
+        setShowDeleteSuccess(true);
+      });
+    },
+    onError: () => {
+      Alert.alert('Error', 'Could not delete entries. Please try again.');
+    },
+  });
 
   const openRename = () => {
     setRenameInput(bookName);
@@ -108,6 +138,25 @@ export default function BookSettingsScreen() {
           </View>
         </View>
 
+        {/* Danger Zone */}
+        <Text style={[s.sectionLabel, { marginTop: 24 }]}>DANGER ZONE</Text>
+        <View style={[s.card, { backgroundColor: C.card, borderColor: '#FCA5A5' }]}>
+          <TouchableOpacity
+            style={s.row}
+            onPress={() => setShowDeleteSheet(true)}
+            activeOpacity={0.75}
+          >
+            <View style={[s.iconBox, { backgroundColor: '#FEE2E2' }]}>
+              <Feather name="trash-2" size={18} color="#B91C1C" />
+            </View>
+            <View style={s.rowBody}>
+              <Text style={[s.rowLabel, { color: '#B91C1C' }]}>Delete All Entries</Text>
+              <Text style={s.rowSub}>Permanently removes all entries from this book</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="#B91C1C" />
+          </TouchableOpacity>
+        </View>
+
         {/* Entry Field Settings */}
         <Text style={[s.sectionLabel, { marginTop: 24 }]}>ENTRY FIELD SETTINGS</Text>
         <View style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -181,6 +230,25 @@ export default function BookSettingsScreen() {
         onDismiss={() => setShowSuccess(false)}
         title="Book Renamed!"
         subtitle={`"${bookName}" has been saved successfully`}
+      />
+
+      <DeleteAllEntriesSheet
+        visible={showDeleteSheet}
+        onDismiss={() => setShowDeleteSheet(false)}
+        onConfirm={() => deleteAllEntries.mutate()}
+        bookName={bookName}
+        entryCount={entries.length}
+        isLoading={deleteAllEntries.isPending}
+        C={C}
+        Font={Font}
+        closeRef={deleteSheetCloseRef}
+      />
+
+      <SuccessDialog
+        visible={showDeleteSuccess}
+        onDismiss={() => setShowDeleteSuccess(false)}
+        title="All Entries Deleted"
+        subtitle={`"${bookName}" has been cleared successfully`}
       />
     </SafeAreaView>
   );

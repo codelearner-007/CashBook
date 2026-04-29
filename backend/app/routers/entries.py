@@ -106,6 +106,16 @@ async def update_entry(
     return result.data[0]
 
 
+@router.delete("/{book_id}/entries", status_code=204)
+async def delete_all_entries(
+    book_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    sb = get_supabase()
+    _verify_book(sb, book_id, user_id)
+    sb.table("entries").delete().eq("book_id", book_id).eq("user_id", user_id).execute()
+
+
 @router.delete("/{book_id}/entries/{entry_id}", status_code=204)
 async def delete_entry(
     book_id: str,
