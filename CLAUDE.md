@@ -199,10 +199,12 @@ SUPABASE_JWT_SECRET=    # Project Settings → API → JWT Secret
 
 ## 7. Database (Supabase PostgreSQL)
 
-Three tables: `profiles`, `books`, `entries`.
+Five tables: `profiles`, `books`, `entries`, `customers`/`suppliers`, `categories`.
 
 Key invariants:
 - `books.net_balance` is **auto-maintained** by the `trg_update_book_balance` trigger on `entries` — never compute it in application code
+- `categories.total_in/out/net_balance` are **auto-maintained** by the `trg_update_category_balance` trigger on `entries` — never compute in application code
+- `categories` are per-book; UNIQUE(book_id, name) prevents duplicates; `entries.category_id` FK → ON DELETE SET NULL (keeps `entries.category` text snapshot)
 - `profiles.role` is either `'superadmin'` or `'user'`; set once by the `on_auth_user_created` trigger
 - Backend uses service role key → bypasses RLS → must manually add `user_id` filter on every query
 - RLS policies on `books` and `entries` use `auth.uid() = user_id` (last-resort safety net for direct client calls)
@@ -250,6 +252,7 @@ Key invariants:
 | `AddEntryScreen.jsx` | `/(app)/books/[id]/add-entry` | both | ✅ Complete |
 | `EditEntryScreen.jsx` | `/(app)/books/[id]/edit-entry` | both | ✅ Complete |
 | `EntryDetailScreen.jsx` | `/(app)/books/[id]/entry-detail` | both | ✅ Complete |
+| `CategoryDetailScreen.jsx` | `/(app)/books/[id]/category-detail` | both | ✅ Complete |
 | `ReportsScreen.jsx` | `/(app)/books/[id]/reports` | both | ✅ Skeleton |
 | `BookSettingsScreen.jsx` | `/(app)/books/[id]/book-settings` | both | ✅ Complete |
 | `SettingsScreen.jsx` | `/(app)/settings` | both | ✅ Complete |

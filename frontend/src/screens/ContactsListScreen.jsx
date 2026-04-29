@@ -10,7 +10,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { useContacts, useCreateContact } from '../hooks/useContacts';
+import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '../hooks/useContacts';
+import ContactMenuSheet from '../components/books/ContactMenuSheet';
+import DeleteContactSheet from '../components/ui/DeleteContactSheet';
 
 const TYPE_CONFIG = {
   customer: { label: 'Customers', icon: 'user-check', emptyIcon: 'user-plus' },
@@ -68,8 +70,20 @@ export default function ContactsListScreen() {
     );
     return () => { show.remove(); hide.remove(); };
   }, [addVisible]);
+  const [menuContactId,   setMenuContactId]   = useState(null);
+  const [deletingContact, setDeletingContact] = useState(null);
+  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+
   const { data: contacts = [], isLoading } = useContacts(bookId, type);
-  const createContact = useCreateContact(bookId, type);
+  const createContact  = useCreateContact(bookId, type);
+  const deleteContact  = useDeleteContact(bookId, type);
+  const updateContact  = useUpdateContact(bookId, menuContactId, type);
+
+  // Derive live contact from query data — never a stale snapshot
+  const menuContact = useMemo(
+    () => menuContactId ? (contacts.find(c => c.id === menuContactId) ?? null) : null,
+    [menuContactId, contacts],
+  );
 
   const filtered = useMemo(() => {
     if (!search.trim()) return contacts;
@@ -155,6 +169,32 @@ export default function ContactsListScreen() {
     );
   };
 
+  const handleLongPress = (item) => {
+    setMenuContactId(item.id);
+  };
+
+  const handleSaveEdit = (payload) => {
+    updateContact.mutate(payload, {
+      onSuccess: () => setMenuContactId(null),
+      onError:   () => Alert.alert('Error', 'Failed to save changes.'),
+    });
+  };
+
+  const handleDeletePress = () => {
+    const contact = menuContact;
+    setMenuContactId(null);
+    setDeletingContact(contact);
+    setTimeout(() => setShowDeleteSheet(true), 280);
+  };
+
+  const confirmDelete = () => {
+    if (!deletingContact) return;
+    deleteContact.mutate(deletingContact.id, {
+      onSuccess: () => { setShowDeleteSheet(false); setDeletingContact(null); },
+      onError:   () => Alert.alert('Error', 'Failed to delete contact.'),
+    });
+  };
+
   const renderContact = ({ item }) => {
     const avatarBg = C.primaryLight;
     const balance  = item.balance ?? 0;
@@ -162,6 +202,8 @@ export default function ContactsListScreen() {
       <TouchableOpacity
         style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
         onPress={() => openDetail(item)}
+        onLongPress={() => handleLongPress(item)}
+        delayLongPress={350}
         activeOpacity={0.8}
       >
         <View style={[s.avatar, { backgroundColor: avatarBg }]}>
@@ -276,6 +318,38 @@ export default function ContactsListScreen() {
           <Feather name="plus" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* Contact Menu Sheet — long-press */}
+      <ContactMenuSheet
+        visible={!!menuContactId}
+        contact={menuContact}
+        contactType={type}
+        onClose={() => setMenuContactId(null)}
+        onViewEntries={() => {
+          setMenuContactId(null);
+          router.push({
+            pathname: `${basePath}/[id]/contact-balance`,
+            params: { id: bookId, name: bookName, contactId: menuContact?.id, contactName: menuContact?.name, contactType: type },
+          });
+        }}
+        onSaveEdit={handleSaveEdit}
+        onDelete={handleDeletePress}
+        saving={updateContact.isPending}
+        C={C}
+        Font={Font}
+      />
+
+      {/* Delete Contact Sheet */}
+      <DeleteContactSheet
+        visible={showDeleteSheet}
+        onDismiss={() => { setShowDeleteSheet(false); setDeletingContact(null); }}
+        onConfirm={confirmDelete}
+        contactName={deletingContact?.name}
+        contactType={type}
+        isLoading={deleteContact.isPending}
+        C={C}
+        Font={Font}
+      />
 
       {/* Add Modal */}
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>

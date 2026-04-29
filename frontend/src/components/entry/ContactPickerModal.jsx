@@ -27,6 +27,7 @@ export default function ContactPickerModal({
   visible,
   bookId,
   selectedContactId,
+  selectedContactType,   // 'customer' | 'supplier' | null — drives initial tab
   onSelect,
   onDeselect,
   onClose,
@@ -145,6 +146,13 @@ export default function ContactPickerModal({
   const headerTitle = { list: 'Select Contact', create: 'New Contact', phone: 'Phone Contacts' }[view];
   const handleBack  = view === 'list' ? null : () => setView('list');
   const isPending   = createCustomer.isPending || createSupplier.isPending;
+
+  // ── open on the correct tab when a contact is already selected ──────────────
+  useEffect(() => {
+    if (visible && selectedContactId && selectedContactType) {
+      setActiveTab(selectedContactType);
+    }
+  }, [visible]);
 
   // ── keyboard avoidance: float sheet above keyboard with marginBottom ──────────
   const [kbHeight, setKbHeight] = useState(0);

@@ -18,6 +18,7 @@ backend/
 │   │   ├── books.py          # GET/POST/PUT/DELETE /api/v1/books
 │   │   ├── entries.py        # GET/POST/PUT/DELETE /api/v1/books/{id}/entries + summary
 │   │   ├── contacts.py       # GET/POST/PUT/DELETE /api/v1/books/{id}/customers + /suppliers
+│   │   ├── categories.py     # GET/POST/PUT/DELETE /api/v1/books/{id}/categories + /{id}/entries
 │   │   ├── admin.py          # GET/PATCH /api/v1/admin/* (superadmin only)
 │   │   ├── reports.py        # GET /api/v1/books/{id}/report/pdf + /excel
 │   │   └── upload.py         # POST /api/v1/upload/attachment
@@ -25,7 +26,8 @@ backend/
 │   │   ├── profile.py        # ProfileResponse, ProfileUpdate, UserWithStats, StatusUpdate
 │   │   ├── book.py           # BookCreate, BookUpdate, BookResponse
 │   │   ├── entry.py          # EntryCreate, EntryUpdate, EntryResponse, BookSummary
-│   │   └── contact.py        # ContactCreate, ContactUpdate, ContactResponse, ContactWithBalance
+│   │   ├── contact.py        # ContactCreate, ContactUpdate, ContactResponse, ContactWithBalance
+│   │   └── category.py       # CategoryCreate, CategoryUpdate, CategoryResponse
 │   ├── db/
 │   │   └── supabase.py       # Supabase service client singleton
 │   └── utils/
@@ -235,6 +237,28 @@ class ContactResponse:    id, book_id, user_id, name, phone?, email?, address?, 
 class ContactWithBalance: ContactResponse + balance (mirrors net_balance — kept for API backwards compat)
 ```
 
+### `models/category.py`
+```python
+class CategoryCreate:   name (str, required)
+class CategoryUpdate:   name? (str, optional)
+class CategoryResponse: id, book_id, user_id, name, total_in, total_out, net_balance, created_at
+```
+
+### Categories (`routers/categories.py`) — prefix `/api/v1/books`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/{book_id}/categories` | List all categories for a book (ordered by created_at) | ✅ |
+| POST | `/{book_id}/categories` | Create category (name required, unique per book) | ✅ |
+| PUT | `/{book_id}/categories/{id}` | Rename category | ✅ |
+| DELETE | `/{book_id}/categories/{id}` | Delete category (entries.category_id → NULL via FK) | ✅ |
+| GET | `/{book_id}/categories/{id}/entries` | Entries assigned to this category | ✅ |
+
+**Balance rule:** `total_in`, `total_out`, `net_balance` are maintained by `trg_update_category_balance` (DB trigger on `entries`). Read directly from the row — never recompute in Python.
+**Uniqueness:** category names are case-insensitive unique per book (DB UNIQUE constraint + `ilike` pre-check in the router for a friendly 409 error).
+
+---
+
 ### Contacts endpoints (`routers/contacts.py`) — prefix `/api/v1/books`
 
 | Method | Path | Description | Auth |
@@ -298,7 +322,8 @@ app.include_router(entries.router, prefix="/api/v1/books",    tags=["entries"])
 app.include_router(reports.router, prefix="/api/v1/books",    tags=["reports"])
 app.include_router(upload.router,  prefix="/api/v1/upload",   tags=["upload"])
 app.include_router(admin.router,    prefix="/api/v1/admin",    tags=["admin"])
-app.include_router(contacts.router, prefix="/api/v1/books",    tags=["contacts"])
+app.include_router(contacts.router,    prefix="/api/v1/books",    tags=["contacts"])
+app.include_router(categories.router,  prefix="/api/v1/books",    tags=["categories"])
 ```
 
 ---

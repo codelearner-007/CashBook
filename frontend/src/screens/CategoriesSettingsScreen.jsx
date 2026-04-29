@@ -1,195 +1,428 @@
-import React, { useState } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, FlatList, Switch, Modal, TextInput,
+  View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar,
+  FlatList, Modal, Alert, ActivityIndicator, Animated,
+  Keyboard, Platform, TextInput,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
+import SearchBar from '../components/ui/SearchBar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { useBookFieldsStore } from '../store/bookFieldsStore';
-import { CATEGORIES } from '../constants/categories';
+import {
+  useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory,
+} from '../hooks/useCategories';
+import CategoryMenuSheet from '../components/books/CategoryMenuSheet';
+import DeleteCategorySheet from '../components/ui/DeleteCategorySheet';
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState({ C, Font }) {
+  return (
+    <View style={es.wrap}>
+      <View style={[es.iconBox, { backgroundColor: C.primaryLight }]}>
+        <Feather name="tag" size={36} color={C.primary} />
+      </View>
+      <Text style={[es.title, { color: C.text, fontFamily: Font.bold }]}>
+        No categories yet
+      </Text>
+      <Text style={[es.sub, { color: C.textMuted, fontFamily: Font.regular }]}>
+        Tap the + button below{'\n'}to add your first category
+      </Text>
+    </View>
+  );
+}
+
+const es = StyleSheet.create({
+  wrap:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
+  iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+  title:   { fontSize: 16, lineHeight: 24, marginBottom: 8 },
+  sub:     { fontSize: 13, lineHeight: 20, textAlign: 'center' },
+});
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function CategoriesSettingsScreen() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const router   = useRouter();
+  const basePath = useBookBasePath();
+  const { id: bookId, name: bookName } = useLocalSearchParams();
   const { C, Font } = useTheme();
-  const s = makeStyles(C, Font);
+  const s = useMemo(() => makeStyles(), []);
 
-  const { getFields, setField } = useBookFieldsStore();
-  const showField = getFields(id).showCategory;
-  const setShowField = (val) => setField(id, 'showCategory', val);
-
-  const [categories, setCategories] = useState(CATEGORIES.map((c, i) => ({ id: String(i), label: c, enabled: true })));
+  const [search,     setSearch]     = useState('');
   const [addVisible, setAddVisible] = useState(false);
-  const [newCat, setNewCat]         = useState('');
+  const [newName,    setNewName]    = useState('');
+  const [kbHeight,   setKbHeight]   = useState(0);
 
-  const toggle = (id) => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c));
+  useEffect(() => {
+    if (!addVisible) { setKbHeight(0); return; }
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKbHeight(e.endCoordinates.height)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKbHeight(0)
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, [addVisible]);
+
+  const [menuCategoryId,    setMenuCategoryId]    = useState(null);
+  const [deletingCategory,  setDeletingCategory]  = useState(null); // snapshot for delete sheet
+  const [showDeleteSheet,   setShowDeleteSheet]   = useState(false);
+
+  const { data: categories = [], isLoading } = useCategories(bookId);
+  const { mutate: createCategory, isPending: creating } = useCreateCategory(bookId);
+  const { mutate: deleteCategory, isPending: deleting } = useDeleteCategory(bookId);
+  const { mutate: updateCategory, isPending: renaming } = useUpdateCategory(bookId, menuCategoryId);
+
+  // Always derive from live query data — never use a frozen snapshot
+  const menuCategory = useMemo(
+    () => categories.find(c => c.id === menuCategoryId) ?? null,
+    [categories, menuCategoryId],
+  );
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return categories;
+    const q = search.toLowerCase();
+    return categories.filter(c => c.name.toLowerCase().includes(q));
+  }, [categories, search]);
+
+  const isEmpty = !isLoading && filtered.length === 0 && !search.trim();
+
+  // ── FAB glow + arrow animations (only when empty in list tab) ─────────────
+  const glowScale   = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0)).current;
+  const arrow1 = useRef(new Animated.Value(0)).current;
+  const arrow2 = useRef(new Animated.Value(0)).current;
+  const arrow3 = useRef(new Animated.Value(0)).current;
+  const arrowAnims = useMemo(() => [arrow1, arrow2, arrow3], []);
+
+  const showFabAnim = isEmpty;
+
+  useEffect(() => {
+    if (!showFabAnim) {
+      glowScale.setValue(1);
+      glowOpacity.setValue(0);
+      arrowAnims.forEach(a => a.setValue(0));
+      return;
+    }
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(glowScale,   { toValue: 2,    duration: 950, useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0,    duration: 950, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(glowScale,   { toValue: 1,    duration: 0,   useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0.55, duration: 0,   useNativeDriver: true }),
+        ]),
+      ])
+    );
+    const cascade = Animated.loop(
+      Animated.sequence([
+        Animated.stagger(200, arrowAnims.map(a =>
+          Animated.sequence([
+            Animated.timing(a, { toValue: 1,    duration: 300, useNativeDriver: true }),
+            Animated.timing(a, { toValue: 0.12, duration: 300, useNativeDriver: true }),
+          ])
+        )),
+        Animated.delay(400),
+      ])
+    );
+    glow.start();
+    cascade.start();
+    return () => { glow.stop(); cascade.stop(); };
+  }, [showFabAnim]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const openDetail = (cat) => {
+    setMenuCategoryId(null);
+    router.push({
+      pathname: `${basePath}/[id]/category-detail`,
+      params: { id: bookId, categoryId: cat.id, categoryName: cat.name },
+    });
   };
 
-  const remove = (id) => {
-    setCategories(prev => prev.filter(c => c.id !== id));
+  const handleRename = (newName) => {
+    updateCategory({ name: newName }, {
+      onSuccess: () => setMenuCategoryId(null),
+      onError: (err) => {
+        const detail = err?.response?.data?.detail ?? '';
+        Alert.alert('Error', detail.includes('already exists') ? 'That name already exists.' : 'Failed to rename.');
+      },
+    });
   };
 
-  const addCategory = () => {
-    const label = newCat.trim();
-    if (!label) return;
-    setCategories(prev => [...prev, { id: Date.now().toString(), label, enabled: true }]);
-    setNewCat('');
-    setAddVisible(false);
+  const handleDelete = (cat) => {
+    setMenuCategoryId(null);             // close menu sheet
+    setDeletingCategory(cat);            // capture snapshot for the delete sheet
+    setTimeout(() => setShowDeleteSheet(true), 280); // wait for menu to slide out
+  };
+
+  const confirmDelete = () => {
+    if (!deletingCategory) return;
+    deleteCategory(deletingCategory.id, {
+      onSuccess: () => {
+        setShowDeleteSheet(false);
+        setDeletingCategory(null);
+      },
+      onError: () => Alert.alert('Error', 'Failed to delete category.'),
+    });
+  };
+
+  const handleCreate = () => {
+    const name = newName.trim();
+    if (!name) { Alert.alert('Name required', 'Please enter a category name.'); return; }
+    createCategory({ name }, {
+      onSuccess: () => {
+        setAddVisible(false);
+        setNewName('');
+      },
+      onError: (err) => {
+        const detail = err?.response?.data?.detail ?? '';
+        if (detail.includes('already exists')) {
+          Alert.alert('Duplicate', 'A category with that name already exists in this book.');
+        } else {
+          Alert.alert('Error', 'Failed to create category.');
+        }
+      },
+    });
+  };
+
+  // ── Render card ───────────────────────────────────────────────────────────
+
+  const renderCategory = ({ item }) => {
+    const balance = item.net_balance ?? 0;
+    return (
+      <TouchableOpacity
+        style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
+        onPress={() => setMenuCategoryId(item.id)}
+        activeOpacity={0.8}
+      >
+        <View style={[s.avatar, { backgroundColor: C.primaryLight }]}>
+          <Feather name="tag" size={20} color={C.primary} />
+        </View>
+
+        <View style={s.cardBody}>
+          <Text style={[s.cardName, { color: C.text, fontFamily: Font.semiBold }]} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={[s.cardSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+            {item.total_in > 0 || item.total_out > 0
+              ? `In: ${item.total_in.toLocaleString()}  ·  Out: ${item.total_out.toLocaleString()}`
+              : 'No entries yet'}
+          </Text>
+        </View>
+
+        <View style={[s.balancePill, { backgroundColor: balance >= 0 ? C.cashInLight : C.dangerLight }]}>
+          <Text style={[s.balanceText, { color: balance >= 0 ? C.cashIn : C.danger, fontFamily: Font.bold }]}>
+            {Math.abs(balance).toLocaleString()}
+          </Text>
+          <Feather name="chevron-right" size={11} color={balance >= 0 ? C.cashIn : C.danger} />
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={[s.safe, { backgroundColor: C.background }]}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
-      <View style={s.header}>
+      {/* Header */}
+      <View style={[s.header, { backgroundColor: C.primary }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Feather name="chevron-left" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Categories</Text>
-        <TouchableOpacity style={s.addHeaderBtn} onPress={() => setAddVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Feather name="plus" size={22} color="#fff" />
+        <View style={s.headerCenter}>
+          <Text style={[s.headerTitle, { fontFamily: Font.bold }]}>Categories</Text>
+          {bookName ? <Text style={[s.headerSub, { fontFamily: Font.regular }]}>{bookName}</Text> : null}
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <View style={[s.searchWrap, { borderBottomColor: C.border }]}>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search categories…"
+          onClear={() => setSearch('')}
+        />
+      </View>
+
+      {isLoading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} color={C.primary} />
+      ) : filtered.length === 0 ? (
+        search ? (
+          <View style={s.empty}>
+            <Feather name="search" size={40} color={C.border} />
+            <Text style={[s.emptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>No results</Text>
+            <Text style={[s.emptySub, { color: C.textMuted, fontFamily: Font.regular }]}>Try a different search.</Text>
+          </View>
+        ) : (
+          <EmptyState C={C} Font={Font} />
+        )
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id}
+          renderItem={renderCategory}
+          contentContainerStyle={s.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* Cascading arrows → FAB (only when empty) */}
+      {showFabAnim && (
+        <View style={s.fabArrow}>
+          {arrowAnims.map((anim, i) => (
+            <Animated.View key={i} style={{ opacity: anim }}>
+              <Feather name="chevron-right" size={28} color={C.primary} />
+            </Animated.View>
+          ))}
+        </View>
+      )}
+
+      {/* FAB */}
+      <View style={s.fabWrap}>
+        {showFabAnim && (
+          <Animated.View
+            style={[s.fabGlow, { backgroundColor: C.primary, opacity: glowOpacity, transform: [{ scale: glowScale }] }]}
+          />
+        )}
+        <TouchableOpacity
+          style={[s.fab, { backgroundColor: C.primary }]}
+          onPress={() => setAddVisible(true)}
+          activeOpacity={0.85}
+        >
+          <Feather name="plus" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={categories}
-        keyExtractor={item => item.id}
-        contentContainerStyle={s.content}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <>
-            <View style={[s.toggleCard, { backgroundColor: C.card, borderColor: C.border }]}>
-              <View style={s.toggleLeft}>
-                <View style={[s.iconBox, { backgroundColor: C.primaryLight }]}>
-                  <Feather name="eye" size={18} color={C.primary} />
-                </View>
-                <View>
-                  <Text style={s.toggleLabel}>Show Category Field</Text>
-                  <Text style={s.toggleSub}>Display on entry form</Text>
-                </View>
-              </View>
-              <Switch
-                value={showField}
-                onValueChange={setShowField}
-                trackColor={{ false: C.border, true: C.primary }}
-                thumbColor="#fff"
-              />
-            </View>
-            <Text style={s.sectionLabel}>CATEGORIES ({categories.length})</Text>
-          </>
-        }
-        renderItem={({ item }) => (
-          <View style={[s.row, { backgroundColor: C.card, borderColor: C.border, opacity: item.enabled ? 1 : 0.5 }]}>
-            <View style={[s.iconBox, { backgroundColor: C.primaryLight }]}>
-              <Feather name="tag" size={16} color={C.primary} />
-            </View>
-            <Text style={s.rowLabel}>{item.label}</Text>
-            <View style={s.rowActions}>
-              <Switch
-                value={item.enabled}
-                onValueChange={() => toggle(item.id)}
-                trackColor={{ false: C.border, true: C.primary }}
-                thumbColor="#fff"
-                style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
-              />
-              <TouchableOpacity onPress={() => remove(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x" size={16} color={C.textSubtle} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+      {/* Category Menu Sheet */}
+      <CategoryMenuSheet
+        visible={!!menuCategoryId}
+        category={menuCategory}
+        onClose={() => setMenuCategoryId(null)}
+        onViewEntries={() => openDetail(menuCategory)}
+        onRename={handleRename}
+        onDelete={() => handleDelete(menuCategory)}
+        renaming={renaming}
+        C={C}
+        Font={Font}
       />
 
-      <Modal visible={addVisible} transparent animationType="fade" onRequestClose={() => setAddVisible(false)}>
-        <View style={s.modalOverlay}>
-          <View style={[s.modalCard, { backgroundColor: C.card, borderColor: C.border }]}>
-            <Text style={s.modalTitle}>Add Category</Text>
-            <TextInput
-              style={[s.modalInput, { borderColor: C.border, color: C.text, backgroundColor: C.background }]}
-              value={newCat}
-              onChangeText={setNewCat}
-              placeholder="Category name"
-              placeholderTextColor={C.textSubtle}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={addCategory}
-            />
-            <View style={s.modalActions}>
-              <TouchableOpacity style={[s.modalBtn, { borderColor: C.border }]} onPress={() => setAddVisible(false)}>
-                <Text style={[s.modalBtnText, { color: C.textMuted }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.modalBtn, { backgroundColor: C.primary, borderColor: C.primary }]} onPress={addCategory}>
-                <Text style={[s.modalBtnText, { color: '#fff' }]}>Add</Text>
+      {/* Delete Category Sheet — matches DeleteContactSheet pattern */}
+      <DeleteCategorySheet
+        visible={showDeleteSheet}
+        onDismiss={() => { setShowDeleteSheet(false); setDeletingCategory(null); }}
+        onConfirm={confirmDelete}
+        categoryName={deletingCategory?.name}
+        isLoading={deleting}
+        C={C}
+        Font={Font}
+      />
+
+      {/* Add Modal — bottom sheet */}
+      <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => { setAddVisible(false); setNewName(''); }}>
+        <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => { setAddVisible(false); setNewName(''); }}>
+          <Pressable style={[s.modalSheet, { backgroundColor: C.card, marginBottom: kbHeight }]} onPress={() => {}}>
+            <View style={[s.modalHandle, { backgroundColor: C.border }]} />
+            <View style={s.modalHeader}>
+              <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Add Category</Text>
+              <TouchableOpacity onPress={() => { setAddVisible(false); setNewName(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Feather name="x" size={20} color={C.textMuted} />
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+
+            <TextInput
+              style={[s.modalInput, { borderColor: C.border, color: C.text, backgroundColor: C.background, fontFamily: Font.regular }]}
+              placeholder="Category name *"
+              placeholderTextColor={C.textMuted}
+              value={newName}
+              onChangeText={setNewName}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleCreate}
+            />
+
+            <View style={s.modalActions}>
+              <TouchableOpacity
+                style={[s.modalBtn, { borderColor: C.border }]}
+                onPress={() => { setAddVisible(false); setNewName(''); }}
+              >
+                <Text style={[s.modalBtnText, { color: C.textMuted, fontFamily: Font.semiBold }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalBtn, { backgroundColor: C.primary, borderColor: C.primary }]}
+                onPress={handleCreate}
+                disabled={creating}
+              >
+                {creating
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={[s.modalBtnText, { color: '#fff', fontFamily: Font.semiBold }]}>Add</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const makeStyles = (C, Font) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.background },
-  header: {
-    backgroundColor: C.primary,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingVertical: 14,
-  },
+const makeStyles = () => StyleSheet.create({
+  safe: { flex: 1 },
+
+  header:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14 },
   backBtn:      { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  addHeaderBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle:  { fontSize: 17, fontFamily: Font.bold, color: '#fff' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle:  { fontSize: 17, color: '#fff', lineHeight: 24 },
+  headerSub:    { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
 
-  content: { padding: 16, paddingBottom: 40 },
-  toggleCard: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 16, borderWidth: 1,
-    padding: 14, gap: 12, marginBottom: 20,
-  },
-  toggleLeft:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  toggleLabel: { fontSize: 15, fontFamily: Font.semiBold, color: C.text },
-  toggleSub:   { fontSize: 12, fontFamily: Font.regular, color: C.textMuted },
-  sectionLabel: {
-    fontSize: 11, fontFamily: Font.semiBold, color: C.textMuted,
-    letterSpacing: 1, textTransform: 'uppercase',
-    marginBottom: 10, marginLeft: 2,
-  },
-  iconBox: {
-    width: 36, height: 36, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 14, borderWidth: 1,
-    paddingHorizontal: 14, paddingVertical: 12, gap: 12,
-  },
-  rowLabel:   { flex: 1, fontSize: 14, fontFamily: Font.medium, color: C.text },
-  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchWrap: { paddingVertical: 10, borderBottomWidth: 1 },
 
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24,
+  listContent: { paddingTop: 12, paddingBottom: 120 },
+
+  card: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginBottom: 10,
+    borderRadius: 50, paddingVertical: 6, paddingLeft: 6, paddingRight: 10,
+    borderWidth: 1.5,
   },
-  modalCard: {
-    width: '100%', borderRadius: 20, borderWidth: 1,
-    padding: 24,
-    shadowColor: '#000', shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 8 }, shadowRadius: 24, elevation: 12,
+  avatar:   { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  cardBody: { flex: 1 },
+  cardName: { fontSize: 14, lineHeight: 20, marginBottom: 2 },
+  cardSub:  { fontSize: 12, lineHeight: 18 },
+
+  balancePill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
+  balanceText: { fontSize: 13, lineHeight: 18 },
+
+  empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 60 },
+  emptyTitle: { fontSize: 17, lineHeight: 26 },
+  emptySub:   { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 240 },
+
+  fabWrap: {
+    position: 'absolute', bottom: 24, right: 24,
+    width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000', shadowOpacity: 0.18, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10,
   },
-  modalTitle:   { fontSize: 17, fontFamily: Font.bold, color: C.text, marginBottom: 16 },
-  modalInput: {
-    borderWidth: 1.5, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, fontFamily: Font.regular, marginBottom: 20,
-  },
-  modalActions: { flexDirection: 'row', gap: 10 },
-  modalBtn: {
-    flex: 1, paddingVertical: 13, borderRadius: 12,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  modalBtnText: { fontSize: 15, fontFamily: Font.semiBold },
+  fabGlow: { position: 'absolute', width: 56, height: 56, borderRadius: 28 },
+  fab:     { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  fabArrow: { position: 'absolute', bottom: 38, right: 88, flexDirection: 'row', alignItems: 'center', gap: -6 },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalSheet:   { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
+  modalHandle:  { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  modalHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  modalTitle:   { fontSize: 17, lineHeight: 26 },
+
+  modalInput:   { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 22, marginBottom: 16 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalBtn:     { flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  modalBtnText: { fontSize: 15, lineHeight: 22 },
 });

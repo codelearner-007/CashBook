@@ -22,7 +22,7 @@ export function useCustomers(bookId) {
   return useQuery({
     queryKey: contactKeys.customers(bookId),
     queryFn:  () => apiGetCustomers(bookId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
     enabled:  !!bookId,
   });
 }
@@ -31,7 +31,7 @@ export function useCustomer(bookId, contactId) {
   return useQuery({
     queryKey: contactKeys.customer(bookId, contactId),
     queryFn:  () => apiGetCustomer(bookId, contactId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
     enabled:  !!bookId && !!contactId,
   });
 }
@@ -40,7 +40,7 @@ export function useCustomerEntries(bookId, contactId) {
   return useQuery({
     queryKey: contactKeys.customerEntries(bookId, contactId),
     queryFn:  () => apiGetCustomerEntries(bookId, contactId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
     enabled:  !!bookId && !!contactId,
   });
 }
@@ -83,7 +83,7 @@ export function useSuppliers(bookId) {
   return useQuery({
     queryKey: contactKeys.suppliers(bookId),
     queryFn:  () => apiGetSuppliers(bookId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
     enabled:  !!bookId,
   });
 }
@@ -92,7 +92,7 @@ export function useSupplier(bookId, contactId) {
   return useQuery({
     queryKey: contactKeys.supplier(bookId, contactId),
     queryFn:  () => apiGetSupplier(bookId, contactId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
     enabled:  !!bookId && !!contactId,
   });
 }
@@ -101,7 +101,7 @@ export function useSupplierEntries(bookId, contactId) {
   return useQuery({
     queryKey: contactKeys.supplierEntries(bookId, contactId),
     queryFn:  () => apiGetSupplierEntries(bookId, contactId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
     enabled:  !!bookId && !!contactId,
   });
 }

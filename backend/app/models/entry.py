@@ -9,6 +9,7 @@ class EntryCreate(BaseModel):
     amount: Decimal
     remark: Optional[str] = None
     category: Optional[str] = None
+    category_id: Optional[str] = None
     payment_mode: str = "cash"
     contact_name: Optional[str] = None
     customer_id: Optional[str] = None
@@ -23,6 +24,7 @@ class EntryUpdate(BaseModel):
     amount: Optional[Decimal] = None
     remark: Optional[str] = None
     category: Optional[str] = None
+    category_id: Optional[str] = None
     payment_mode: Optional[str] = None
     contact_name: Optional[str] = None
     customer_id: Optional[str] = None
@@ -40,6 +42,7 @@ class EntryResponse(BaseModel):
     amount: float
     remark: Optional[str] = None
     category: Optional[str] = None
+    category_id: Optional[str] = None
     payment_mode: str
     contact_name: Optional[str] = None
     customer_id: Optional[str] = None

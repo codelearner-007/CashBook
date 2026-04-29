@@ -23,6 +23,7 @@ Supabase provides three things for CashBook:
 6. `supabase/migrations/007_add_dark_mode_to_profiles.sql` — add `is_dark_mode` boolean to profiles
 7. `supabase/migrations/008_contacts.sql` — `customers` and `suppliers` tables (with stored `total_in`/`total_out`/`net_balance`) + `customer_id`/`supplier_id` FK columns on entries; RLS; `trg_update_contact_balance` trigger keeps balances in sync automatically
 8. `supabase/migrations/009_clear_contact_name_on_delete.sql` — `BEFORE DELETE` triggers on `customers` and `suppliers` that null out `entries.contact_name` for all linked entries when a contact is deleted (FK `ON DELETE SET NULL` handles `customer_id`/`supplier_id`; this covers the snapshot name field)
+9. `supabase/migrations/010_categories.sql` — `categories` table per book (with stored `total_in`/`total_out`/`net_balance`) + `category_id` FK column on entries (ON DELETE SET NULL); UNIQUE(book_id, name); RLS; `trg_update_category_balance` trigger keeps balances in sync automatically
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -90,6 +91,24 @@ Identical columns to `customers`, including `total_in`, `total_out`, `net_balanc
 
 ---
 
+### `public.categories` (one per book)
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | uuid | PK, default `gen_random_uuid()` |
+| `book_id` | uuid | FK → `public.books(id)` ON DELETE CASCADE, NOT NULL |
+| `user_id` | uuid | FK → `auth.users(id)` ON DELETE CASCADE, NOT NULL |
+| `name` | text | NOT NULL |
+| `total_in` | numeric(14,2) | NOT NULL, default 0 — maintained by trigger |
+| `total_out` | numeric(14,2) | NOT NULL, default 0 — maintained by trigger |
+| `net_balance` | numeric(14,2) | NOT NULL, default 0 — maintained by trigger |
+| `created_at` | timestamptz | default `now()` |
+| UNIQUE | `(book_id, name)` | No duplicate category names within a book |
+
+**`total_in`, `total_out`, `net_balance` are maintained automatically** by the `trg_update_category_balance` trigger on the `entries` table. Never compute them in application code.
+
+---
+
 ### `public.entries`
 
 | Column | Type | Constraints |
@@ -100,7 +119,8 @@ Identical columns to `customers`, including `total_in`, `total_out`, `net_balanc
 | `type` | text | CHECK `type IN ('in', 'out')`, NOT NULL |
 | `amount` | numeric(12,2) | NOT NULL |
 | `remark` | text | nullable |
-| `category` | text | nullable |
+| `category` | text | nullable — name snapshot, preserved if category is deleted |
+| `category_id` | uuid | FK → `public.categories(id)` ON DELETE SET NULL, nullable |
 | `payment_mode` | text | default `'cash'` |
 | `contact_name` | text | nullable — cleared to NULL when the linked customer/supplier is deleted (migration 009) |
 | `customer_id` | uuid | FK → `public.customers(id)` ON DELETE SET NULL, nullable |
@@ -174,6 +194,7 @@ create policy "Users own their entries" on public.entries
 | `trg_update_contact_balance` | `entries` | AFTER INSERT/UPDATE/DELETE | Maintain `customers.total_in/out/net_balance` and `suppliers.total_in/out/net_balance` |
 | `customers_clear_contact_name` | `customers` | BEFORE DELETE | Set `entries.contact_name = NULL` for all entries linked to the deleted customer |
 | `suppliers_clear_contact_name` | `suppliers` | BEFORE DELETE | Set `entries.contact_name = NULL` for all entries linked to the deleted supplier |
+| `trg_update_category_balance` | `entries` | AFTER INSERT/UPDATE/DELETE | Maintain `categories.total_in/out/net_balance` |
 
 ### Balance trigger logic (`update_book_balance`)
 - **INSERT:** `net_balance += amount` if `type='in'`, `-= amount` if `type='out'`

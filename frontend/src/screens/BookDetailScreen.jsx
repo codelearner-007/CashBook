@@ -359,6 +359,8 @@ export default function BookDetailScreen() {
       qc.invalidateQueries({ queryKey: ['entries', id] });
       qc.invalidateQueries({ queryKey: ['summary', id] });
       qc.invalidateQueries({ queryKey: ['books'] });
+      qc.invalidateQueries({ queryKey: ['categories', id] });
+      qc.invalidateQueries({ queryKey: ['category-entries', id] });
     },
   });
 
@@ -368,6 +370,8 @@ export default function BookDetailScreen() {
       qc.invalidateQueries({ queryKey: ['entries', id] });
       qc.invalidateQueries({ queryKey: ['summary', id] });
       qc.invalidateQueries({ queryKey: ['books'] });
+      qc.invalidateQueries({ queryKey: ['categories', id] });
+      qc.invalidateQueries({ queryKey: ['category-entries', id] });
       // Drive the close animation; show success only after it finishes
       deleteSheetCloseRef.current?.(() => {
         setShowDeleteAllSheet(false);

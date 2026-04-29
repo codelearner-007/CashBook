@@ -1,16 +1,17 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Pressable,
-  ScrollView, Modal, FlatList,
+  View, Text, StyleSheet, TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import AppInput from '../ui/Input';
 import DatePickerModal from '../ui/DatePickerModal';
 import TimePickerModal from '../ui/TimePickerModal';
 import ContactPickerModal from './ContactPickerModal';
-import { ChevronDownIcon, CheckIcon, CloseIcon } from '../ui/Icons';
+import CategoryPickerModal from './CategoryPickerModal';
+import { ChevronDownIcon, CloseIcon } from '../ui/Icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useBookFieldsStore } from '../../store/bookFieldsStore';
-import { CATEGORIES, PAYMENT_MODES } from '../../constants/categories';
+import { PAYMENT_MODES } from '../../constants/categories';
 
 // Exposes { getValues(), validate() } via ref.
 const EntryForm = forwardRef(function EntryForm(
@@ -26,6 +27,7 @@ const EntryForm = forwardRef(function EntryForm(
   const [amount,       setAmount]       = useState(initialValues?.amount?.toString() ?? '');
   const [remark,       setRemark]       = useState(initialValues?.remark ?? '');
   const [category,     setCategory]     = useState(initialValues?.category ?? '');
+  const [categoryId,   setCategoryId]   = useState(initialValues?.category_id ?? null);
   const [paymentMode,  setPaymentMode]  = useState(initialValues?.payment_mode ?? 'cash');
   const [contactName,  setContactName]  = useState(initialValues?.contact_name ?? '');
   const [customerId,   setCustomerId]   = useState(initialValues?.customer_id ?? null);
@@ -52,6 +54,7 @@ const EntryForm = forwardRef(function EntryForm(
     setAmount(initialValues.amount?.toString() ?? '');
     setRemark(initialValues.remark ?? '');
     setCategory(initialValues.category ?? '');
+    setCategoryId(initialValues.category_id ?? null);
     setPaymentMode(initialValues.payment_mode ?? 'cash');
     setContactName(initialValues.contact_name ?? '');
     setCustomerId(initialValues.customer_id ?? null);
@@ -64,10 +67,11 @@ const EntryForm = forwardRef(function EntryForm(
       amount:       parseFloat(amount),
       remark:       remark.trim() || undefined,
       category:     category || undefined,
+      category_id:  categoryId || undefined,
       payment_mode: paymentMode,
-      contact_name: contactDeleted ? undefined : (contactName.trim() || undefined),
-      customer_id:  contactDeleted ? undefined : (customerId || undefined),
-      supplier_id:  contactDeleted ? undefined : (supplierId || undefined),
+      contact_name: contactDeleted ? null : (contactName.trim() || null),
+      customer_id:  contactDeleted ? null : (customerId  || null),
+      supplier_id:  contactDeleted ? null : (supplierId  || null),
       entry_date:   date.toISOString().split('T')[0],
       entry_time:   date.toTimeString().slice(0, 5),
     }),
@@ -190,7 +194,13 @@ const EntryForm = forwardRef(function EntryForm(
               value={category}
               placeholder="Select category"
               editable={false}
-              rightElement={<ChevronDownIcon color={C.textMuted} size={12} />}
+              rightElement={
+                category
+                  ? <TouchableOpacity onPress={(e) => { e.stopPropagation(); setCategory(''); setCategoryId(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <CloseIcon color={C.textMuted} size={14} />
+                    </TouchableOpacity>
+                  : <ChevronDownIcon color={C.textMuted} size={12} />
+              }
               isLast
               labelColor={C.primary}
             />
@@ -225,46 +235,29 @@ const EntryForm = forwardRef(function EntryForm(
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Category Modal */}
-      <Modal visible={showCategoryModal} transparent animationType="slide" onRequestClose={() => setShowCategoryModal(false)}>
-        <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => setShowCategoryModal(false)}>
-          <Pressable style={[s.modalBox, { backgroundColor: C.card }]} onPress={() => {}}>
-            <View style={[s.modalHandle, { backgroundColor: C.border }]} />
-            <View style={s.modalHeader}>
-              <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Select Category</Text>
-              <TouchableOpacity onPress={() => setShowCategoryModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <CloseIcon color={C.textMuted} size={18} />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={CATEGORIES}
-              keyExtractor={(i) => i}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[s.modalItem, { borderBottomColor: C.border }]}
-                  onPress={() => { setCategory(item); setShowCategoryModal(false); }}
-                >
-                  <Text style={[
-                    s.modalItemText,
-                    { color: C.text, fontFamily: Font.regular },
-                    category === item && { color: C.primary, fontFamily: Font.semiBold },
-                  ]}>
-                    {item}
-                  </Text>
-                  {category === item && <CheckIcon color={C.primary} size={16} />}
-                </TouchableOpacity>
-              )}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* Category Picker */}
+      <CategoryPickerModal
+        visible={showCategoryModal}
+        bookId={bookId}
+        selectedCategoryId={categoryId}
+        onSelect={({ id, name }) => {
+          setCategory(name);
+          setCategoryId(id);
+          setShowCategoryModal(false);
+        }}
+        onDeselect={() => {
+          setCategory('');
+          setCategoryId(null);
+        }}
+        onClose={() => setShowCategoryModal(false)}
+      />
 
       {/* Contact Picker — self-contained modal */}
       <ContactPickerModal
         visible={showContactModal}
         bookId={bookId}
         selectedContactId={customerId || supplierId}
+        selectedContactType={customerId ? 'customer' : supplierId ? 'supplier' : null}
         onSelect={({ id, name, customer_id, supplier_id }) => {
           setContactName(name);
           setCustomerId(customer_id || null);
@@ -337,14 +330,4 @@ const makeStyles = (C, Font) => StyleSheet.create({
   paymentChipText: { fontSize: 13, fontFamily: Font.semiBold, color: C.text, lineHeight: 18 },
   showMoreText:    { fontSize: 13, fontFamily: Font.semiBold, lineHeight: 18 },
 
-  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalBox:     { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12, maxHeight: '72%' },
-  modalHandle:  { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  modalTitle:   { fontSize: 17, lineHeight: 26 },
-  modalItem:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 1, minHeight: 52 },
-  modalItemText: { fontSize: 15, lineHeight: 22 },
-  modalInput:   { borderWidth: 1.5, borderRadius: 14, padding: 14, fontSize: 15, marginBottom: 16, minHeight: 48 },
-  modalConfirmBtn:  { borderRadius: 14, paddingVertical: 15, alignItems: 'center', minHeight: 52 },
-  modalConfirmText: { color: '#fff', fontSize: 15, lineHeight: 22 },
 });

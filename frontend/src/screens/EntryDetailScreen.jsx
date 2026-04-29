@@ -65,6 +65,8 @@ export default function EntryDetailScreen() {
       qc.invalidateQueries({ queryKey: ['entries', id] });
       qc.invalidateQueries({ queryKey: ['summary', id] });
       qc.invalidateQueries({ queryKey: ['books'] });
+      qc.invalidateQueries({ queryKey: ['categories', id] });
+      qc.invalidateQueries({ queryKey: ['category-entries', id] });
       router.replace({ pathname: `${basePath}/[id]`, params: { id } });
     },
   });

@@ -167,6 +167,29 @@ export const apiGetSupplierEntries = async (bookId, contactId) =>
   (await api.get(`/api/v1/books/${bookId}/suppliers/${contactId}/entries`)).data;
 
 
+// ── Categories ────────────────────────────────────────────────────────────────
+
+/** GET /api/v1/books/:bookId/categories */
+export const apiGetCategories = async (bookId) =>
+  (await api.get(`/api/v1/books/${bookId}/categories`)).data;
+
+/** POST /api/v1/books/:bookId/categories */
+export const apiCreateCategory = async (bookId, payload) =>
+  (await api.post(`/api/v1/books/${bookId}/categories`, payload)).data;
+
+/** PUT /api/v1/books/:bookId/categories/:categoryId */
+export const apiUpdateCategory = async (bookId, categoryId, payload) =>
+  (await api.put(`/api/v1/books/${bookId}/categories/${categoryId}`, payload)).data;
+
+/** DELETE /api/v1/books/:bookId/categories/:categoryId */
+export const apiDeleteCategory = async (bookId, categoryId) =>
+  api.delete(`/api/v1/books/${bookId}/categories/${categoryId}`);
+
+/** GET /api/v1/books/:bookId/categories/:categoryId/entries */
+export const apiGetCategoryEntries = async (bookId, categoryId) =>
+  (await api.get(`/api/v1/books/${bookId}/categories/${categoryId}/entries`)).data;
+
+
 // ── Admin (superadmin only) ────────────────────────────────────────────────────
 
 /** GET /api/v1/admin/users */

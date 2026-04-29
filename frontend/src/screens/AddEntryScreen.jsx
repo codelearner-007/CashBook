@@ -23,6 +23,8 @@ export default function AddEntryScreen() {
       qc.invalidateQueries({ queryKey: ['entries', id] });
       qc.invalidateQueries({ queryKey: ['summary', id] });
       qc.invalidateQueries({ queryKey: ['books'] });
+      qc.invalidateQueries({ queryKey: ['categories', id] });
+      qc.invalidateQueries({ queryKey: ['category-entries', id] });
       router.back();
     },
     onError: () => Toast.show({ type: 'error', text1: 'Failed to save entry', text2: 'Please try again.' }),

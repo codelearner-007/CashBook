@@ -26,6 +26,7 @@ frontend/
 │       │       ├── reports.jsx                   # → ReportsScreen
 │       │       ├── book-settings.jsx             # → BookSettingsScreen
 │       │       ├── categories-settings.jsx       # → CategoriesSettingsScreen
+│       │       ├── category-detail.jsx           # → CategoryDetailScreen
 │       │       ├── contact-settings.jsx          # → ContactSettingsScreen
 │       │       ├── payment-mode-settings.jsx     # → PaymentModeSettingsScreen
 │       │       ├── customers.jsx                 # → ContactsListScreen (type=customer)
@@ -64,6 +65,7 @@ frontend/
 │   ├── hooks/
 │   │   ├── useBooks.js           # useBooks, useCreateBook, useDeleteBook (React Query)
 │   │   ├── useBookSort.js        # Sort state + sorted list derivation
+│   │   ├── useCategories.js      # useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, useCategoryEntries
 │   │   ├── useContacts.js        # useCustomers/Suppliers, useCreateContact, useDeleteContact, etc.
 │   │   ├── useProfile.js         # useProfile, useUpdateProfile
 │   │   └── useTheme.js           # Returns { C, Font, isDark, toggleTheme }
@@ -265,6 +267,11 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `apiCreateEntry(bookId, payload)` | POST | `/api/v1/books/:id/entries` |
 | `apiUpdateEntry(bookId, entryId, payload)` | PUT | `/api/v1/books/:id/entries/:eid` |
 | `apiDeleteEntry(bookId, entryId)` | DELETE | `/api/v1/books/:id/entries/:eid` |
+| `apiGetCategories(bookId)` | GET | `/api/v1/books/:id/categories` |
+| `apiCreateCategory(bookId, payload)` | POST | `/api/v1/books/:id/categories` |
+| `apiUpdateCategory(bookId, categoryId, payload)` | PUT | `/api/v1/books/:id/categories/:id` |
+| `apiDeleteCategory(bookId, categoryId)` | DELETE | `/api/v1/books/:id/categories/:id` |
+| `apiGetCategoryEntries(bookId, categoryId)` | GET | `/api/v1/books/:id/categories/:id/entries` |
 | `apiGetCustomers(bookId)` | GET | `/api/v1/books/:id/customers` |
 | `apiCreateCustomer(bookId, payload)` | POST | `/api/v1/books/:id/customers` |
 | `apiGetCustomer(bookId, id)` | GET | `/api/v1/books/:id/customers/:id` |
@@ -370,6 +377,8 @@ useEffect(() => {
 | `['summary', bookId]` | 2 min | — | Book balance summary |
 | `['profile']` | 5 min | — | User profile |
 | `['user-books', userId]` | 0 | — | Specific user's books (admin modal) |
+| `['categories', bookId]` | 2 min | — | All categories for a book |
+| `['category-entries', bookId, id]` | 2 min | — | Entries assigned to a category |
 | `['customers', bookId]` | 2 min | — | All customers for a book |
 | `['customer', bookId, id]` | 2 min | — | Single customer with balance |
 | `['customer-entries', bookId, id]` | 2 min | — | Entries linked to a customer |

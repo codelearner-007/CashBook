@@ -51,6 +51,10 @@ async def create_entry(
     sb = get_supabase()
     _verify_book(sb, book_id, user_id)
 
+    # Mutual exclusivity: a single entry can link to a customer OR a supplier, not both
+    customer_id = payload.customer_id if not payload.supplier_id else None
+    supplier_id = payload.supplier_id if not payload.customer_id else None
+
     result = sb.table("entries").insert({
         "book_id": book_id,
         "user_id": user_id,
@@ -58,10 +62,11 @@ async def create_entry(
         "amount": float(payload.amount),
         "remark": payload.remark,
         "category": payload.category,
+        "category_id": payload.category_id,
         "payment_mode": payload.payment_mode,
         "contact_name": payload.contact_name,
-        "customer_id": payload.customer_id,
-        "supplier_id": payload.supplier_id,
+        "customer_id": customer_id,
+        "supplier_id": supplier_id,
         "attachment_url": payload.attachment_url,
         "entry_date": payload.entry_date,
         "entry_time": payload.entry_time,
@@ -82,6 +87,12 @@ async def update_entry(
     update_data = {k: v for k, v in payload.model_dump(exclude_unset=True).items()}
     if "amount" in update_data and update_data["amount"] is not None:
         update_data["amount"] = float(update_data["amount"])
+
+    # Mutual exclusivity: setting one contact must clear the other
+    if update_data.get("customer_id"):
+        update_data["supplier_id"] = None
+    elif update_data.get("supplier_id"):
+        update_data["customer_id"] = None
 
     check = (
         sb.table("entries")
