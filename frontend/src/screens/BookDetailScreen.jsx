@@ -121,7 +121,7 @@ const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark }) => {
         numberOfLines={1}
         allowFontScaling={false}
       >
-        {item.type === 'in' ? '+' : '-'}{item.amount.toLocaleString()}
+        {item.amount.toLocaleString()}
       </Text>
     </TouchableOpacity>
   );
@@ -133,24 +133,27 @@ const BalanceCard = memo(({ summary, onViewReports, C, Font, s }) => {
   const netColor = summary.net_balance >= 0 ? C.cashIn : C.cashOut;
   return (
     <View style={s.balanceCard}>
-      <View style={s.balanceRow}>
-        <Text style={s.netLabel}>Net Balance</Text>
-        <Text style={[s.netAmount, { color: netColor }]}>
-          {summary.net_balance.toLocaleString()}
-        </Text>
-      </View>
+      <Text style={s.netLabel}>Net Balance</Text>
+      <Text
+        style={[s.netAmount, { color: netColor }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
+        {summary.net_balance.toLocaleString()}
+      </Text>
       <View style={s.balanceDivider} />
       <View style={s.balanceSubRow}>
         <View style={s.balanceSub}>
           <Text style={s.subLabel}>Total In (+)</Text>
-          <Text style={[s.subAmount, { color: C.cashIn }]}>
+          <Text style={[s.subAmount, { color: C.cashIn }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {summary.total_in.toLocaleString()}
           </Text>
         </View>
         <View style={s.balanceSubDivider} />
         <View style={s.balanceSub}>
           <Text style={s.subLabel}>Total Out (-)</Text>
-          <Text style={[s.subAmount, { color: C.cashOut }]}>
+          <Text style={[s.subAmount, { color: C.cashOut }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {summary.total_out.toLocaleString()}
           </Text>
         </View>
@@ -693,15 +696,15 @@ export default function BookDetailScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={ListEmpty}
+            ListFooterComponent={
+              <View style={s.onlyYou}>
+                <LockIcon color={C.textSubtle} size={13} />
+                <Text style={s.onlyYouText}>Only you can see these entries</Text>
+              </View>
+            }
           />
         </>
       )}
-
-      {/* Only you */}
-      <View style={s.onlyYou}>
-        <LockIcon color={C.textSubtle} size={13} />
-        <Text style={s.onlyYouText}>Only you can see these entries</Text>
-      </View>
 
       {/* Dots Dropdown Menu */}
       <Modal
@@ -869,34 +872,36 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // Balance Card
   balanceCard: {
     backgroundColor: C.card, marginHorizontal: 16, marginTop: 6,
-    borderRadius: 16, padding: 16,
+    borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12,
     borderWidth: 1, borderColor: C.border,
-  },
-  balanceRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 12,
+    alignItems: 'center',
   },
   netLabel: {
-    fontSize: 14, fontFamily: Font.semiBold, color: C.text, lineHeight: 20,
+    fontSize: 11, fontFamily: Font.medium, color: C.textMuted,
+    lineHeight: 16, marginBottom: 2, letterSpacing: 0.2,
   },
-  netAmount: { fontSize: 24, fontFamily: Font.extraBold, lineHeight: 30 },
-  balanceDivider: { height: 1, backgroundColor: C.border, marginBottom: 12 },
+  netAmount: {
+    fontSize: 26, fontFamily: Font.extraBold,
+    lineHeight: 34, marginBottom: 10, width: '100%', textAlign: 'center',
+  },
+  balanceDivider: { height: 1, backgroundColor: C.border, marginBottom: 8, width: '100%' },
   balanceSubRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8, width: '100%',
   },
   balanceSub: { flex: 1, alignItems: 'center' },
   subLabel: {
-    fontSize: 11, fontFamily: Font.regular, color: C.textMuted,
-    lineHeight: 16, marginBottom: 3,
+    fontSize: 10, fontFamily: Font.regular, color: C.textMuted,
+    lineHeight: 15, marginBottom: 2,
   },
-  subAmount: { fontSize: 15, fontFamily: Font.bold, lineHeight: 22 },
+  subAmount: { fontSize: 13, fontFamily: Font.bold, lineHeight: 19, width: '90%', textAlign: 'center' },
   balanceSubDivider: {
-    width: 1, height: 36, backgroundColor: C.border, marginHorizontal: 20,
+    width: 1, height: 28, backgroundColor: C.border, marginHorizontal: 12,
   },
-  viewReportsBtn: { alignItems: 'center', paddingVertical: 4, minHeight: 32, justifyContent: 'center' },
+  viewReportsBtn: { alignItems: 'center', paddingVertical: 2, justifyContent: 'center' },
   viewReportsText: {
-    color: C.primary, fontFamily: Font.bold, fontSize: 13,
-    letterSpacing: 0.3, lineHeight: 20,
+    color: C.primary, fontFamily: Font.bold, fontSize: 12,
+    letterSpacing: 0.3, lineHeight: 18,
   },
 
   // Entry count row
@@ -916,41 +921,40 @@ const makeStyles = (C, Font) => StyleSheet.create({
   },
 
   // List
-  listContent: { padding: 16, paddingBottom: 100 },
+  listContent: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 90 },
   dateLabelRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 4, marginBottom: 6, paddingVertical: 2,
+    marginTop: 2, marginBottom: 4, paddingVertical: 2,
   },
   dateLabel: {
-    fontSize: 11, fontFamily: Font.semiBold, color: C.textMuted,
-    textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 18,
+    fontSize: 10, fontFamily: Font.semiBold, color: C.textMuted,
+    textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 16,
   },
 
   // Entry Card
   entryCard: {
-    backgroundColor: C.card, borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 12,
-    marginBottom: 8, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.card, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 9,
+    marginBottom: 6, flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderColor: C.border,
-    minHeight: 68,
   },
   entryBadge: {
-    borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5,
-    marginRight: 12, minWidth: 54, alignItems: 'center',
-    minHeight: 28, justifyContent: 'center',
+    borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4,
+    marginRight: 10, minWidth: 50, alignItems: 'center',
+    justifyContent: 'center',
   },
-  entryBadgeText: { fontSize: 11, fontFamily: Font.bold, lineHeight: 16 },
-  entryMid: { flex: 1, marginRight: 8 },
+  entryBadgeText: { fontSize: 10, fontFamily: Font.bold, lineHeight: 15 },
+  entryMid: { flex: 1, marginRight: 6 },
   entryRemark: {
-    fontSize: 14, fontFamily: Font.semiBold, color: C.text,
-    lineHeight: 20, marginBottom: 2,
+    fontSize: 13, fontFamily: Font.semiBold, color: C.text,
+    lineHeight: 19, marginBottom: 1,
   },
   entryCategory: {
-    fontSize: 11, fontFamily: Font.regular, color: C.textMuted,
-    lineHeight: 16, marginBottom: 2,
+    fontSize: 10, fontFamily: Font.regular, color: C.textMuted,
+    lineHeight: 15, marginBottom: 1,
   },
-  entryMeta: { fontSize: 11, fontFamily: Font.regular, color: C.textMuted, lineHeight: 16 },
-  entryAmount: { fontSize: 15, fontFamily: Font.medium, lineHeight: 22, minWidth: 72, textAlign: 'right' },
+  entryMeta: { fontSize: 10, fontFamily: Font.regular, color: C.textMuted, lineHeight: 15 },
+  entryAmount: { fontSize: 13, fontFamily: Font.medium, lineHeight: 19, minWidth: 66, textAlign: 'right' },
 
   // Only You
   onlyYou: {
@@ -1008,17 +1012,17 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   // Action Buttons
   actionRow: {
-    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12,
-    gap: 12, backgroundColor: C.card,
+    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10,
+    gap: 10, backgroundColor: C.card,
     borderTopWidth: 1, borderTopColor: C.border,
   },
   actionBtn: {
-    flex: 1, borderRadius: 14, paddingVertical: 15,
+    flex: 1, borderRadius: 12, paddingVertical: 12,
     flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 8, minHeight: 52,
+    justifyContent: 'center', gap: 7,
   },
   actionBtnText: {
     color: '#fff', fontFamily: Font.extraBold,
-    fontSize: 13, letterSpacing: 0.8, lineHeight: 18,
+    fontSize: 12, letterSpacing: 0.7, lineHeight: 17,
   },
 });

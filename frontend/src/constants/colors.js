@@ -14,9 +14,9 @@ export const LightColors = {
   onPrimaryIconBg:  'rgba(255,255,255,0.20)',
 
   // Semantic
-  cashIn:           '#16A34A',          // green-600
+  cashIn:           '#15803D',          // green-700
   cashInLight:      '#DCFCE7',          // green-100
-  cashOut:          '#DC2626',          // red-600
+  cashOut:          '#B91C1C',          // red-700
   cashOutLight:     '#FEE2E2',          // red-100
 
   // Surface
@@ -54,9 +54,9 @@ export const DarkColors = {
   onPrimaryIconBg:  'rgba(255,255,255,0.15)',
 
   // Semantic
-  cashIn:           '#4ADE80',          // green-400
+  cashIn:           '#16A34A',          // green-600
   cashInLight:      '#052E16',          // green-950
-  cashOut:          '#F87171',          // red-400
+  cashOut:          '#DC2626',          // red-600
   cashOutLight:     '#3B0000',          // near-black red tint
 
   // Surface — true blacks
