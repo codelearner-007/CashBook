@@ -1,8 +1,9 @@
 import React, { useMemo, useCallback, memo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Switch, Modal, Pressable, Image, TextInput,
+  StatusBar, Switch, Modal, Pressable, Image,
 } from 'react-native';
+import SearchBar from '../components/ui/SearchBar';
 import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -226,29 +227,11 @@ export default function AdminUsersScreen() {
           <Text style={s.sectionBadgeText}>{allUsers.length} registered</Text>
         </View>
       </View>
-      <View style={s.searchBar}>
-        <TextInput
-          style={s.searchInput}
-          placeholder="Search by name or email…"
-          placeholderTextColor={C.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        <View style={s.searchBtn}>
-          {/* magnifier circle */}
-          <View style={{ width: 13, height: 13, borderRadius: 6.5, borderWidth: 2.5, borderColor: '#fff' }} />
-          {/* handle */}
-          <View style={{
-            position: 'absolute', bottom: 5, right: 5,
-            width: 6, height: 2.5, borderRadius: 1.5,
-            backgroundColor: '#fff',
-            transform: [{ rotate: '45deg' }],
-          }} />
-        </View>
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search by name or email…"
+      />
     </View>
   );
 
@@ -598,26 +581,6 @@ const makeStyles = (C, Font) => StyleSheet.create({
   sectionTitle:     { fontSize: 15, fontFamily: Font.bold, color: C.text, lineHeight: 22 },
   sectionBadge:     { backgroundColor: C.primaryLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   sectionBadgeText: { fontSize: 11, fontFamily: Font.semiBold, color: C.primary, lineHeight: 16 },
-
-  // Search bar
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card,
-    marginHorizontal: 16, marginBottom: 12,
-    borderRadius: 50,
-    paddingLeft: 18, paddingRight: 4, paddingVertical: 4,
-    borderWidth: 1.5, borderColor: C.border,
-  },
-  searchInput: {
-    flex: 1, fontSize: 14, fontFamily: Font.regular,
-    color: C.text, padding: 0, margin: 0, height: 40,
-    outlineWidth: 0,
-  },
-  searchBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: C.primary,
-    alignItems: 'center', justifyContent: 'center',
-  },
 
   // User card
   userCard: {

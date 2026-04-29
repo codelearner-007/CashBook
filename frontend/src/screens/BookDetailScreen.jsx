@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, Alert, ActivityIndicator,
+  StatusBar, Alert, ActivityIndicator,
   Modal, Pressable, ScrollView,
 } from 'react-native';
+import SearchBar from '../components/ui/SearchBar';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
@@ -19,7 +20,7 @@ const fmt12h = (time) => {
   if (!time) return '';
   const [h, m] = time.split(':').map(Number);
   const period = h >= 12 ? 'PM' : 'AM';
-  const hour   = h % 12 || 12;
+  const hour = h % 12 || 12;
   return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
 };
 
@@ -36,12 +37,12 @@ function groupByDate(entries) {
 }
 
 function matchesDatePeriod(entryDate, period) {
-  const d     = new Date(entryDate + 'T00:00:00');
+  const d = new Date(entryDate + 'T00:00:00');
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  if (period === 'today')     return d.toDateString() === today.toDateString();
+  if (period === 'today') return d.toDateString() === today.toDateString();
   if (period === 'yesterday') { const y = new Date(today); y.setDate(today.getDate() - 1); return d.toDateString() === y.toDateString(); }
-  if (period === 'week')      { const w = new Date(today); w.setDate(today.getDate() - 6); return d >= w; }
-  if (period === 'month')     return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+  if (period === 'week') { const w = new Date(today); w.setDate(today.getDate() - 6); return d >= w; }
+  if (period === 'month') return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
   return true;
 }
 
@@ -61,37 +62,36 @@ function formatDate(dateStr) {
 // ── Icons (Feather via @expo/vector-icons) ────────────────────────────────────
 
 const ChevronLeftIcon = ({ color, size = 20 }) => <Feather name="chevron-left" size={size} color={color} />;
-const FileTextIcon    = ({ color, size = 18 }) => <Feather name="file-text"    size={size} color={color} />;
-const DotsIcon        = ({ color, size = 18 }) => <Feather name="more-vertical" size={size} color={color} />;
-const SearchIcon      = ({ color, size = 16 }) => <Feather name="search"       size={size} color={color} />;
-const LockIcon        = ({ color, size = 14 }) => <Feather name="lock"         size={size} color={color} />;
-const InboxIcon       = ({ color, size = 40 }) => <Feather name="inbox"        size={size} color={color} />;
-const PlusIcon        = ({ color, size = 14 }) => <Feather name="plus"         size={size} color={color} />;
-const MinusIcon       = ({ color, size = 14 }) => <Feather name="minus"        size={size} color={color} />;
+const FileTextIcon = ({ color, size = 18 }) => <Feather name="file-text" size={size} color={color} />;
+const DotsIcon = ({ color, size = 18 }) => <Feather name="more-vertical" size={size} color={color} />;
+const LockIcon = ({ color, size = 14 }) => <Feather name="lock" size={size} color={color} />;
+const InboxIcon = ({ color, size = 40 }) => <Feather name="inbox" size={size} color={color} />;
+const PlusIcon = ({ color, size = 14 }) => <Feather name="plus" size={size} color={color} />;
+const MinusIcon = ({ color, size = 14 }) => <Feather name="minus" size={size} color={color} />;
 const ChevronDownIcon = ({ color, size = 14 }) => <Feather name="chevron-down" size={size} color={color} />;
-const UserPlusIcon    = ({ color, size = 20 }) => <Feather name="user-plus"    size={size} color={color} />;
+const UserPlusIcon = ({ color, size = 20 }) => <Feather name="user-plus" size={size} color={color} />;
 
 // ── Payment mode badge colors (index by mode) ─────────────────────────────────
 
 const PAYMENT_META = {
-  cash:   { bg: null, text: null },   // uses primary tint — resolved in component
+  cash: { bg: null, text: null },   // uses primary tint — resolved in component
   online: { bg: '#E8F5E9', text: '#1B5E20' },
   cheque: { bg: '#FFF8E1', text: '#F57F17' },
-  other:  { bg: '#F3E5F5', text: '#7B1FA2' },
+  other: { bg: '#F3E5F5', text: '#7B1FA2' },
 };
 
 const PAYMENT_META_DARK = {
-  cash:   { bg: null, text: null },
+  cash: { bg: null, text: null },
   online: { bg: '#052E16', text: '#4ADE80' },
   cheque: { bg: '#2D1F00', text: '#FCD34D' },
-  other:  { bg: '#2D0A45', text: '#C084FC' },
+  other: { bg: '#2D0A45', text: '#C084FC' },
 };
 
 // ── EntryCard ─────────────────────────────────────────────────────────────────
 
 const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark }) => {
   const meta = isDark ? PAYMENT_META_DARK[item.payment_mode] : PAYMENT_META[item.payment_mode];
-  const badgeBg   = meta.bg   ?? (isDark ? C.primaryLight : C.primaryLight);
+  const badgeBg = meta.bg ?? (isDark ? C.primaryLight : C.primaryLight);
   const badgeText = meta.text ?? C.primary;
 
   return (
@@ -197,22 +197,22 @@ export default function BookDetailScreen() {
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();
 
-  const [search, setSearch]               = useState('');
-  const [filterDate, setFilterDate]       = useState(null);
-  const [filterType, setFilterType]       = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterDate, setFilterDate] = useState(null);
+  const [filterType, setFilterType] = useState(null);
   const [filterContact, setFilterContact] = useState(null);
   const [filterCategory, setFilterCategory] = useState(null);
   const [filterPayment, setFilterPayment] = useState(null);
-  const [activePicker, setActivePicker]   = useState(null);
-  const [collapsed, setCollapsed]         = useState({});
-  const [menuVisible, setMenuVisible]     = useState(false);
+  const [activePicker, setActivePicker] = useState(null);
+  const [collapsed, setCollapsed] = useState({});
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const clearFilter = useCallback((key) => {
-    if (key === 'date')     setFilterDate(null);
-    if (key === 'type')     setFilterType(null);
-    if (key === 'contact')  setFilterContact(null);
+    if (key === 'date') setFilterDate(null);
+    if (key === 'type') setFilterType(null);
+    if (key === 'contact') setFilterContact(null);
     if (key === 'category') setFilterCategory(null);
-    if (key === 'payment')  setFilterPayment(null);
+    if (key === 'payment') setFilterPayment(null);
   }, []);
 
   const clearAllFilters = useCallback(() => {
@@ -222,11 +222,11 @@ export default function BookDetailScreen() {
 
   const applyFilter = useCallback((key, val) => {
     clearFilter(key);
-    if (key === 'date')     setFilterDate(val);
-    if (key === 'type')     setFilterType(val);
-    if (key === 'contact')  setFilterContact(val);
+    if (key === 'date') setFilterDate(val);
+    if (key === 'type') setFilterType(val);
+    if (key === 'contact') setFilterContact(val);
     if (key === 'category') setFilterCategory(val);
-    if (key === 'payment')  setFilterPayment(val);
+    if (key === 'payment') setFilterPayment(val);
     setActivePicker(null);
   }, [clearFilter]);
 
@@ -244,7 +244,7 @@ export default function BookDetailScreen() {
     refetch,
   } = useQuery({
     queryKey: ['entries', id],
-    queryFn:  () => apiGetEntries(id),
+    queryFn: () => apiGetEntries(id),
     staleTime: 1000 * 60 * 2,
     enabled: !!id,
     retry: 1,
@@ -257,7 +257,7 @@ export default function BookDetailScreen() {
     refetch: refetchSummary,
   } = useQuery({
     queryKey: ['summary', id],
-    queryFn:  () => apiGetSummary(id),
+    queryFn: () => apiGetSummary(id),
     staleTime: 1000 * 60 * 2,
     enabled: !!id,
     retry: 1,
@@ -273,13 +273,13 @@ export default function BookDetailScreen() {
   });
 
   const isLoading = entriesLoading || summaryLoading;
-  const isError   = entriesError   || summaryError;
+  const isError = entriesError || summaryError;
 
   const filtered = useMemo(() => entries.filter((e) => {
-    if (filterType    && e.type         !== filterType)    return false;
+    if (filterType && e.type !== filterType) return false;
     if (filterPayment && e.payment_mode !== filterPayment) return false;
-    if (filterCategory && e.category    !== filterCategory) return false;
-    if (filterContact  && e.contact_name !== filterContact) return false;
+    if (filterCategory && e.category !== filterCategory) return false;
+    if (filterContact && e.contact_name !== filterContact) return false;
     if (filterDate && !matchesDatePeriod(e.entry_date, filterDate)) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -294,11 +294,11 @@ export default function BookDetailScreen() {
 
   const bookContacts = useMemo(() =>
     [...new Set(entries.map(e => e.contact_name).filter(Boolean))],
-  [entries]);
+    [entries]);
 
   const bookCategories = useMemo(() =>
     [...new Set(entries.map(e => e.category).filter(Boolean))],
-  [entries]);
+    [entries]);
 
   const grouped = useMemo(() => groupByDate(filtered), [filtered]);
 
@@ -306,7 +306,7 @@ export default function BookDetailScreen() {
 
   const displaySummary = useMemo(() => {
     if (!isFiltered) return summary;
-    const total_in  = filtered.filter(e => e.type === 'in').reduce((s, e) => s + e.amount, 0);
+    const total_in = filtered.filter(e => e.type === 'in').reduce((s, e) => s + e.amount, 0);
     const total_out = filtered.filter(e => e.type === 'out').reduce((s, e) => s + e.amount, 0);
     return { total_in, total_out, net_balance: total_in - total_out };
   }, [isFiltered, filtered, summary]);
@@ -411,16 +411,11 @@ export default function BookDetailScreen() {
       </View>
 
       {/* Search */}
-      <View style={s.searchRow}>
-        <SearchIcon color={C.textMuted} size={16} />
-        <TextInput
-          style={s.searchInput}
-          placeholder="Search by remark or amount"
-          placeholderTextColor={C.textSubtle}
+      <View style={s.searchWrapper}>
+        <SearchBar
           value={search}
           onChangeText={setSearch}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
+          placeholder="Search by remark or amount…"
         />
       </View>
 
@@ -444,12 +439,12 @@ export default function BookDetailScreen() {
           contentContainerStyle={s.filterScroll}
         >
           {[
-            { key: 'date',     label: 'Date',       icon: 'calendar',    display: filterDate     ? DATE_LABELS[filterDate] : null },
-            { key: 'type',     label: 'Entry Type', icon: 'repeat',      display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
-            { key: 'members',  label: 'Members',    icon: 'users',       display: null },
-            { key: 'contact',  label: 'Contact',    icon: 'user',        display: filterContact },
-            { key: 'category', label: 'Category',   icon: 'tag',         display: filterCategory },
-            { key: 'payment',  label: 'Payment',    icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
+            { key: 'date', label: 'Date', icon: 'calendar', display: filterDate ? DATE_LABELS[filterDate] : null },
+            { key: 'type', label: 'Entry Type', icon: 'repeat', display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
+            { key: 'members', label: 'Members', icon: 'users', display: null },
+            { key: 'contact', label: 'Contact', icon: 'user', display: filterContact },
+            { key: 'category', label: 'Category', icon: 'tag', display: filterCategory },
+            { key: 'payment', label: 'Payment', icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
           ].map(({ key, label, icon, display }) => {
             const active = !!display;
             return (
@@ -488,17 +483,17 @@ export default function BookDetailScreen() {
         onRequestClose={() => setActivePicker(null)}
       >
         <Pressable style={s.pickerOverlay} onPress={() => setActivePicker(null)}>
-          <Pressable style={[s.pickerSheet, { backgroundColor: C.card }]} onPress={() => {}}>
+          <Pressable style={[s.pickerSheet, { backgroundColor: C.card }]} onPress={() => { }}>
             <View style={[s.pickerHandle, { backgroundColor: C.border }]} />
             <View style={s.pickerHeader}>
               <Text style={[s.pickerTitle, { color: C.text, fontFamily: Font.bold }]}>
-                {activePicker === 'date'     ? 'Filter by Date'
-                : activePicker === 'type'    ? 'Entry Type'
-                : activePicker === 'members' ? 'Members'
-                : activePicker === 'contact' ? 'Filter by Contact'
-                : activePicker === 'category'? 'Filter by Category'
-                : activePicker === 'payment' ? 'Payment Method'
-                : ''}
+                {activePicker === 'date' ? 'Filter by Date'
+                  : activePicker === 'type' ? 'Entry Type'
+                    : activePicker === 'members' ? 'Members'
+                      : activePicker === 'contact' ? 'Filter by Contact'
+                        : activePicker === 'category' ? 'Filter by Category'
+                          : activePicker === 'payment' ? 'Payment Method'
+                            : ''}
               </Text>
               <TouchableOpacity onPress={() => setActivePicker(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Feather name="x" size={20} color={C.textMuted} />
@@ -509,10 +504,10 @@ export default function BookDetailScreen() {
             {activePicker === 'date' && (
               <View style={s.pickerGrid}>
                 {[
-                  { key: 'today',     label: 'Today',     icon: 'sun'       },
-                  { key: 'yesterday', label: 'Yesterday', icon: 'moon'      },
-                  { key: 'week',      label: 'This Week',  icon: 'calendar'  },
-                  { key: 'month',     label: 'This Month', icon: 'clock'     },
+                  { key: 'today', label: 'Today', icon: 'sun' },
+                  { key: 'yesterday', label: 'Yesterday', icon: 'moon' },
+                  { key: 'week', label: 'This Week', icon: 'calendar' },
+                  { key: 'month', label: 'This Month', icon: 'clock' },
                 ].map(({ key, label, icon }) => (
                   <TouchableOpacity
                     key={key}
@@ -614,10 +609,10 @@ export default function BookDetailScreen() {
             {activePicker === 'payment' && (
               <View style={s.pickerGrid}>
                 {[
-                  { value: 'cash',   label: 'Cash',   icon: 'dollar-sign'    },
-                  { value: 'online', label: 'Online', icon: 'wifi'           },
-                  { value: 'cheque', label: 'Cheque', icon: 'file-text'      },
-                  { value: 'other',  label: 'Other',  icon: 'more-horizontal'},
+                  { value: 'cash', label: 'Cash', icon: 'dollar-sign' },
+                  { value: 'online', label: 'Online', icon: 'wifi' },
+                  { value: 'cheque', label: 'Cheque', icon: 'file-text' },
+                  { value: 'other', label: 'Other', icon: 'more-horizontal' },
                 ].map(({ value, label, icon }) => (
                   <TouchableOpacity
                     key={value}
@@ -716,7 +711,7 @@ export default function BookDetailScreen() {
           <View style={[s.menuCard, { backgroundColor: C.card, borderColor: C.border }]}>
             {[
               { label: 'Book Settings', icon: 'settings', onPress: goToBookSettings },
-              { label: 'Test-ABC',      icon: 'zap',      onPress: () => setMenuVisible(false) },
+              { label: 'Test-ABC', icon: 'zap', onPress: () => setMenuVisible(false) },
             ].map((item, idx, arr) => (
               <View key={item.label}>
                 <TouchableOpacity
@@ -790,22 +785,11 @@ const makeStyles = (C, Font) => StyleSheet.create({
     fontSize: 11, fontFamily: Font.regular, color: 'rgba(255,255,255,0.7)',
     lineHeight: 16, marginTop: 1,
   },
-  headerRight:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerIconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
   // Search
-  searchRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card,
-    marginHorizontal: 16, marginTop: 8,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: C.border, gap: 10,
-    minHeight: 44,
-  },
-  searchInput: {
-    flex: 1, fontSize: 14, fontFamily: Font.regular,
-    color: C.text, lineHeight: 20,
-  },
+  searchWrapper: { marginTop: 8, marginBottom: -12 },
 
   // ── Filter chips bar ──
   filterBar: {
@@ -844,7 +828,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   },
   pickerHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
   pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  pickerTitle:  { fontSize: 17, lineHeight: 24 },
+  pickerTitle: { fontSize: 17, lineHeight: 24 },
 
   // Grid picker (date, payment)
   pickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
@@ -861,7 +845,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
     paddingVertical: 20, alignItems: 'center', gap: 6,
   },
   typePickerLabel: { fontSize: 15, lineHeight: 22 },
-  typePickerSub:   { fontSize: 11, fontFamily: Font.regular, lineHeight: 16 },
+  typePickerSub: { fontSize: 11, fontFamily: Font.regular, lineHeight: 16 },
 
   // List picker (contact, category)
   pickerList: { maxHeight: 300 },

@@ -16,6 +16,7 @@ import { CARD_ACCENTS } from '../../constants/colors';
 import SortSheet from './SortSheet';
 import DraggableList from './DraggableList';
 import BookMenu from './BookMenu';
+import SearchBar from '../ui/SearchBar';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,7 @@ export default function BooksView({
   } = useBookSort(books);
 
   const [hasArranged, setHasArranged] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleSortSelectFull = useCallback((key) => {
     setHasArranged(false);
@@ -211,6 +213,12 @@ export default function BooksView({
     total:    books.reduce((acc, b) => acc + (b.net_balance ?? 0), 0),
     personal: books.length,
   }), [books]);
+
+  const filteredBooks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sortedBooks;
+    return sortedBooks.filter(b => b.name?.toLowerCase().includes(q));
+  }, [sortedBooks, searchQuery]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -327,10 +335,19 @@ export default function BooksView({
       <View style={s.emptyIconBox}>
         <BookIcon color={C.primary} size={36} />
       </View>
-      <Text style={s.emptyTitle}>No books yet</Text>
-      <Text style={s.emptySub}>Tap "Add New Book" to start{'\n'}tracking your cash flow</Text>
+      {searchQuery.trim() ? (
+        <>
+          <Text style={s.emptyTitle}>No results found</Text>
+          <Text style={s.emptySub}>No books match "{searchQuery.trim()}"</Text>
+        </>
+      ) : (
+        <>
+          <Text style={s.emptyTitle}>No books yet</Text>
+          <Text style={s.emptySub}>Tap "Add New Book" to start{'\n'}tracking your cash flow</Text>
+        </>
+      )}
     </View>
-  ), [s, C]);
+  ), [s, C, searchQuery]);
 
   return (
     <SafeAreaView applyTop={applyTopSafeArea} style={s.safe}>
@@ -387,6 +404,13 @@ export default function BooksView({
       {/* ── Section header ──────────────────────────────────────────────── */}
       {ListHeader}
 
+      {/* ── Search bar ──────────────────────────────────────────────────── */}
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search books…"
+      />
+
       {/* ── Book list ───────────────────────────────────────────────────── */}
       {isLoading ? (
         <View style={s.loadingBox}>
@@ -400,9 +424,9 @@ export default function BooksView({
             <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : sortMode === 'custom' && !hasArranged ? (
+      ) : sortMode === 'custom' && !hasArranged && filteredBooks.length > 0 ? (
         <DraggableList
-          books={sortedBooks}
+          books={filteredBooks}
           onReorder={setCustomBooks}
           onBookPress={handleBookPress}
           onBookMenu={(book, anchor) => setMenuState({ book, anchor })}
@@ -412,7 +436,7 @@ export default function BooksView({
         />
       ) : (
         <FlatList
-          data={sortedBooks}
+          data={filteredBooks}
           keyExtractor={item => item.id}
           renderItem={renderBook}
           showsVerticalScrollIndicator={false}

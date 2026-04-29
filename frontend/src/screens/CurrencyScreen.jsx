@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, StatusBar, ActivityIndicator,
+  StatusBar, ActivityIndicator,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useProfile, useUpdateProfile } from '../hooks/useProfile';
 import { CURRENCIES } from '../constants/currencies';
 import { Font } from '../constants/fonts';
+import SearchBar from '../components/ui/SearchBar';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -26,13 +27,6 @@ const CheckIcon = ({ color, size = 18 }) => (
       borderColor: color,
       transform: [{ rotate: '-45deg' }, { translateY: -size * 0.06 }],
     }} />
-  </View>
-);
-
-const SearchIcon = ({ color, size = 16 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size * 0.65, height: size * 0.65, borderRadius: size * 0.325, borderWidth: 1.5, borderColor: color }} />
-    <View style={{ position: 'absolute', bottom: 0, right: size * 0.04, width: 2, height: size * 0.28, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '45deg' }] }} />
   </View>
 );
 
@@ -143,23 +137,12 @@ export default function CurrencyScreen() {
       </View>
 
       {/* Search bar */}
-      <View style={[s.searchWrap, { backgroundColor: C.card, borderColor: C.border }]}>
-        <SearchIcon color={C.textMuted} size={16} />
-        <TextInput
-          style={[s.searchInput, { color: C.text, fontFamily: Font.regular }]}
-          placeholder="Search by name, code or symbol…"
-          placeholderTextColor={C.textSubtle}
+      <View style={s.searchWrapper}>
+        <SearchBar
           value={search}
           onChangeText={setSearch}
-          autoCorrect={false}
-          autoCapitalize="characters"
-          returnKeyType="search"
+          placeholder="Search by name, code or symbol…"
         />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={[s.clearText, { color: C.textMuted, fontFamily: Font.medium }]}>✕</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Count hint */}
@@ -211,14 +194,7 @@ const makeStyles = (C) => StyleSheet.create({
   backBtn:     { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontFamily: Font.bold, color: '#fff' },
 
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginHorizontal: 16, marginTop: 16, marginBottom: 4,
-    borderRadius: 12, borderWidth: 1,
-    paddingHorizontal: 14, paddingVertical: 10,
-  },
-  searchInput: { flex: 1, fontSize: 14, lineHeight: 20, padding: 0 },
-  clearText:   { fontSize: 14, lineHeight: 20 },
+  searchWrapper: { marginTop: 16, marginBottom: -8 },
 
   countHint: { fontSize: 11, marginHorizontal: 20, marginBottom: 8 },
 
