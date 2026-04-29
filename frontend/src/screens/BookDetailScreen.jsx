@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { apiGetEntries, apiGetSummary, apiDeleteEntry } from '../lib/api';
+import { useBooks } from '../hooks/useBooks';
 import { PAYMENT_MODES, CATEGORIES } from '../constants/categories';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -192,7 +193,9 @@ const LoadingSkeleton = ({ C, s }) => (
 export default function BookDetailScreen() {
   const router = useRouter();
   const basePath = useBookBasePath();
-  const { id, name } = useLocalSearchParams();
+  const { id, name: nameParam } = useLocalSearchParams();
+  const { data: books } = useBooks();
+  const name = books?.find(b => b.id === id)?.name ?? nameParam;
   const { C, Font, isDark } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();

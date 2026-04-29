@@ -8,17 +8,24 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
+import { useRenameBook } from '../hooks/useBooks';
+import SuccessDialog from '../components/ui/SuccessDialog';
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function BookSettingsScreen() {
   const router = useRouter();
   const basePath = useBookBasePath();
   const { id, name } = useLocalSearchParams();
-  const { C, Font, isDark } = useTheme();
+  const { C, Font } = useTheme();
   const s = makeStyles(C, Font);
 
   const [bookName, setBookName] = useState(name || 'Unnamed Book');
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameInput, setRenameInput] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const renameBook = useRenameBook();
 
   const openRename = () => {
     setRenameInput(bookName);
@@ -28,9 +35,19 @@ export default function BookSettingsScreen() {
   const confirmRename = () => {
     const trimmed = renameInput.trim();
     if (!trimmed) return;
-    setBookName(trimmed);
+    const previous = bookName;
     setRenameVisible(false);
-    // TODO: call API to persist rename
+    setBookName(trimmed);
+    renameBook.mutate(
+      { bookId: id, name: trimmed },
+      {
+        onSuccess: () => setShowSuccess(true),
+        onError: () => {
+          setBookName(previous);
+          Alert.alert('Rename Failed', 'Could not rename the book. Please try again.');
+        },
+      },
+    );
   };
 
   const ENTRY_FIELDS = [
@@ -158,6 +175,13 @@ export default function BookSettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      <SuccessDialog
+        visible={showSuccess}
+        onDismiss={() => setShowSuccess(false)}
+        title="Book Renamed!"
+        subtitle={`"${bookName}" has been saved successfully`}
+      />
     </SafeAreaView>
   );
 }
