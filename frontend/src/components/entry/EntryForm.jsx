@@ -14,7 +14,7 @@ import { CATEGORIES, PAYMENT_MODES } from '../../constants/categories';
 
 // Exposes { getValues(), validate() } via ref.
 const EntryForm = forwardRef(function EntryForm(
-  { bookId, initialValues, initialType = 'in', showTypeToggle = false, autoFocusAmount = false },
+  { bookId, initialValues, initialType = 'in', showTypeToggle = false, autoFocusAmount = false, onContactDeletedChange },
   ref
 ) {
   const { C, Font } = useTheme();
@@ -30,6 +30,12 @@ const EntryForm = forwardRef(function EntryForm(
   const [contactName,  setContactName]  = useState(initialValues?.contact_name ?? '');
   const [customerId,   setCustomerId]   = useState(initialValues?.customer_id ?? null);
   const [supplierId,   setSupplierId]   = useState(initialValues?.supplier_id ?? null);
+
+  // true when an entry still has a name snapshot but the linked contact was deleted
+  const contactDeleted = contactName !== '' && !customerId && !supplierId;
+
+  useEffect(() => { onContactDeletedChange?.(contactDeleted); }, [contactDeleted]);
+
   const [showAllPayments,   setShowAllPayments]   = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showContactModal,  setShowContactModal]  = useState(false);
@@ -59,9 +65,9 @@ const EntryForm = forwardRef(function EntryForm(
       remark:       remark.trim() || undefined,
       category:     category || undefined,
       payment_mode: paymentMode,
-      contact_name: contactName.trim() || undefined,
-      customer_id:  customerId || undefined,
-      supplier_id:  supplierId || undefined,
+      contact_name: contactDeleted ? undefined : (contactName.trim() || undefined),
+      customer_id:  contactDeleted ? undefined : (customerId || undefined),
+      supplier_id:  contactDeleted ? undefined : (supplierId || undefined),
       entry_date:   date.toISOString().split('T')[0],
       entry_time:   date.toTimeString().slice(0, 5),
     }),
@@ -136,21 +142,26 @@ const EntryForm = forwardRef(function EntryForm(
         />
 
         {showContact && (
-          <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85} style={s.fieldGap}>
-            <AppInput
-              label={customerId ? 'Customer' : supplierId ? 'Supplier' : 'Contact (Customer/Supplier)'}
-              value={contactName}
-              placeholder="Select contact"
-              editable={false}
-              rightElement={
-                contactName
-                  ? <TouchableOpacity onPress={(e) => { e.stopPropagation(); setContactName(''); setCustomerId(null); setSupplierId(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><CloseIcon color={C.textMuted} size={14} /></TouchableOpacity>
-                  : <ChevronDownIcon color={C.textMuted} size={12} />
-              }
-              isLast
-              labelColor={C.primary}
-            />
-          </TouchableOpacity>
+          <View style={s.fieldGap}>
+            <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85}>
+              <AppInput
+                label={customerId ? 'Customer' : supplierId ? 'Supplier' : 'Contact (Customer/Supplier)'}
+                value={contactName}
+                placeholder="Select contact"
+                editable={false}
+                rightElement={
+                  contactName
+                    ? <TouchableOpacity onPress={(e) => { e.stopPropagation(); setContactName(''); setCustomerId(null); setSupplierId(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><CloseIcon color={contactDeleted ? '#F59E0B' : C.textMuted} size={14} /></TouchableOpacity>
+                    : <ChevronDownIcon color={C.textMuted} size={12} />
+                }
+                isLast
+                labelColor={contactDeleted ? '#F59E0B' : C.primary}
+              />
+            </TouchableOpacity>
+            {contactDeleted && (
+              <Text style={s.contactDeletedHint}>Contact no longer exists — tap × to remove</Text>
+            )}
+          </View>
         )}
 
         <AppInput
@@ -307,6 +318,10 @@ const makeStyles = (C, Font) => StyleSheet.create({
   dateTimeText: { flex: 1, fontSize: 13, fontFamily: Font.medium, color: C.text, lineHeight: 18 },
 
   fieldGap: { marginBottom: 12 },
+  contactDeletedHint: {
+    fontSize: 12, fontFamily: Font.medium, color: '#F59E0B',
+    marginTop: 5, paddingHorizontal: 2,
+  },
 
   attachBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

@@ -88,7 +88,7 @@ const EntryCard = memo(({ item, C, Font, s, isDark }) => {
         <Text style={[s.entryMeta, { color: C.textMuted }]}>Entry by You  ·  {fmt12h(item.entry_time)}</Text>
       </View>
       <Text style={[s.entryAmount, { color: typeColor }]} numberOfLines={1} allowFontScaling={false}>
-        {item.type === 'in' ? '+' : '-'}{item.amount?.toLocaleString()}
+        {item.amount?.toLocaleString()}
       </Text>
     </View>
   );

@@ -70,7 +70,10 @@ export function useDeleteCustomer(bookId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (contactId) => apiDeleteCustomer(bookId, contactId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.customers(bookId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: contactKeys.customers(bookId) });
+      qc.invalidateQueries({ queryKey: ['entries', bookId] });
+    },
   });
 }
 
@@ -128,7 +131,10 @@ export function useDeleteSupplier(bookId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (contactId) => apiDeleteSupplier(bookId, contactId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.suppliers(bookId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: contactKeys.suppliers(bookId) });
+      qc.invalidateQueries({ queryKey: ['entries', bookId] });
+    },
   });
 }
 

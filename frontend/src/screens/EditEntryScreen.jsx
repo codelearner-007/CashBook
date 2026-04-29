@@ -23,7 +23,8 @@ export default function EditEntryScreen() {
   const qc = useQueryClient();
   const formRef = useRef();
 
-  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+  const [showDeleteSheet,   setShowDeleteSheet]   = useState(false);
+  const [isContactDeleted, setIsContactDeleted] = useState(false);
   const slideY    = useRef(new Animated.Value(500)).current;
   const bgOpacity = useRef(new Animated.Value(0)).current;
 
@@ -126,13 +127,13 @@ export default function EditEntryScreen() {
         </TouchableOpacity>
       </View>
 
-      <EntryForm ref={formRef} bookId={id} initialValues={entry} showTypeToggle />
+      <EntryForm ref={formRef} bookId={id} initialValues={entry} showTypeToggle onContactDeletedChange={setIsContactDeleted} />
 
       <View style={s.saveContainer}>
         <TouchableOpacity
-          style={[s.saveBtn, (updateEntry.isPending || deleteEntry.isPending) && { opacity: 0.6 }]}
+          style={[s.saveBtn, (updateEntry.isPending || deleteEntry.isPending || isContactDeleted) && { opacity: 0.45 }]}
           onPress={handleUpdate}
-          disabled={updateEntry.isPending || deleteEntry.isPending}
+          disabled={updateEntry.isPending || deleteEntry.isPending || isContactDeleted}
           activeOpacity={0.85}
         >
           <Text style={s.saveBtnText}>{updateEntry.isPending ? 'SAVING…' : 'UPDATE'}</Text>

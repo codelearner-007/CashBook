@@ -14,7 +14,7 @@ import AppInput from '../components/ui/Input';
 import SuccessDialog from '../components/ui/SuccessDialog';
 
 const TYPE_CONFIG = {
-  customer: { label: 'Customer', icon: 'user' },
+  customer: { label: 'Customer', icon: 'user-check' },
   supplier: { label: 'Supplier', icon: 'truck' },
 };
 
@@ -113,7 +113,7 @@ export default function ContactDetailScreen() {
             <View style={s.avatarShadow}>
               <View style={[s.avatarCard, { backgroundColor: C.card, borderColor: C.border }]}>
                 <View style={[s.avatarCircle, { backgroundColor: C.primaryLight }]}>
-                  <Feather name="user" size={20} color={C.primary} />
+                  <Feather name={cfg.icon} size={20} color={C.primary} />
                 </View>
                 <Text style={[s.avatarName, { color: C.text }]} numberOfLines={1}>{name || '—'}</Text>
                 <View style={[s.typeBadge, { backgroundColor: C.primaryLight }]}>
@@ -288,7 +288,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 14, gap: 12,
   },
   avatarCircle: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
   avatarName: { flex: 1, fontSize: 15, fontFamily: Font.bold, lineHeight: 22 },

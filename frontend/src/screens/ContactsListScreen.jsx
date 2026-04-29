@@ -13,8 +13,8 @@ import { useTheme } from '../hooks/useTheme';
 import { useContacts, useCreateContact } from '../hooks/useContacts';
 
 const TYPE_CONFIG = {
-  customer: { label: 'Customers', icon: 'user',  emptyIcon: 'user-plus' },
-  supplier: { label: 'Suppliers', icon: 'truck', emptyIcon: 'truck' },
+  customer: { label: 'Customers', icon: 'user-check', emptyIcon: 'user-plus' },
+  supplier: { label: 'Suppliers', icon: 'truck',      emptyIcon: 'truck' },
 };
 
 
@@ -165,7 +165,7 @@ export default function ContactsListScreen() {
         activeOpacity={0.8}
       >
         <View style={[s.avatar, { backgroundColor: avatarBg }]}>
-          <Feather name="user" size={20} color={C.primary} />
+          <Feather name={cfg.icon} size={20} color={C.primary} />
         </View>
 
         <View style={s.cardBody}>
@@ -351,7 +351,7 @@ const makeStyles = () => StyleSheet.create({
   listContent: { paddingTop: 12, paddingBottom: 120 },
 
   card:        { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 10, borderRadius: 50, paddingVertical: 6, paddingLeft: 6, paddingRight: 14, borderWidth: 1.5 },
-  avatar:      { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  avatar:      { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   avatarText:  { fontSize: 15, lineHeight: 22 },
   cardBody:    { flex: 1 },
   cardName:    { fontSize: 14, lineHeight: 20 },

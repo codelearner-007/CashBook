@@ -22,6 +22,7 @@ Supabase provides three things for CashBook:
 5. `supabase/migrations/006_add_currency_to_profiles.sql` — add `currency` column to profiles (default `'PKR'`)
 6. `supabase/migrations/007_add_dark_mode_to_profiles.sql` — add `is_dark_mode` boolean to profiles
 7. `supabase/migrations/008_contacts.sql` — `customers` and `suppliers` tables (with stored `total_in`/`total_out`/`net_balance`) + `customer_id`/`supplier_id` FK columns on entries; RLS; `trg_update_contact_balance` trigger keeps balances in sync automatically
+8. `supabase/migrations/009_clear_contact_name_on_delete.sql` — `BEFORE DELETE` triggers on `customers` and `suppliers` that null out `entries.contact_name` for all linked entries when a contact is deleted (FK `ON DELETE SET NULL` handles `customer_id`/`supplier_id`; this covers the snapshot name field)
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -101,7 +102,7 @@ Identical columns to `customers`, including `total_in`, `total_out`, `net_balanc
 | `remark` | text | nullable |
 | `category` | text | nullable |
 | `payment_mode` | text | default `'cash'` |
-| `contact_name` | text | nullable (snapshot of name for display even if contact deleted) |
+| `contact_name` | text | nullable — cleared to NULL when the linked customer/supplier is deleted (migration 009) |
 | `customer_id` | uuid | FK → `public.customers(id)` ON DELETE SET NULL, nullable |
 | `supplier_id` | uuid | FK → `public.suppliers(id)` ON DELETE SET NULL, nullable |
 | `attachment_url` | text | nullable |
@@ -171,6 +172,8 @@ create policy "Users own their entries" on public.entries
 | `customers_updated_at` | `customers` | BEFORE UPDATE | Maintain `updated_at` |
 | `suppliers_updated_at` | `suppliers` | BEFORE UPDATE | Maintain `updated_at` |
 | `trg_update_contact_balance` | `entries` | AFTER INSERT/UPDATE/DELETE | Maintain `customers.total_in/out/net_balance` and `suppliers.total_in/out/net_balance` |
+| `customers_clear_contact_name` | `customers` | BEFORE DELETE | Set `entries.contact_name = NULL` for all entries linked to the deleted customer |
+| `suppliers_clear_contact_name` | `suppliers` | BEFORE DELETE | Set `entries.contact_name = NULL` for all entries linked to the deleted supplier |
 
 ### Balance trigger logic (`update_book_balance`)
 - **INSERT:** `net_balance += amount` if `type='in'`, `-= amount` if `type='out'`

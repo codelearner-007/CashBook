@@ -9,6 +9,7 @@ import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useRenameBook } from '../hooks/useBooks';
+import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiDeleteAllEntries, apiGetEntries } from '../lib/api';
 import SuccessDialog from '../components/ui/SuccessDialog';
@@ -40,6 +41,9 @@ export default function BookSettingsScreen() {
     staleTime: 1000 * 60 * 2,
     enabled: !!id,
   });
+
+  const { data: customers = [] } = useCustomers(id);
+  const { data: suppliers = [] } = useSuppliers(id);
 
   const deleteAllEntries = useMutation({
     mutationFn: () => apiDeleteAllEntries(id),
@@ -85,6 +89,7 @@ export default function BookSettingsScreen() {
       icon: 'user-check',
       label: 'Customers',
       sub: 'Manage customers for this book',
+      count: customers.length,
       route: `${basePath}/[id]/customers`,
       params: { type: 'customer' },
     },
@@ -92,6 +97,7 @@ export default function BookSettingsScreen() {
       icon: 'truck',
       label: 'Suppliers',
       sub: 'Manage suppliers for this book',
+      count: suppliers.length,
       route: `${basePath}/[id]/suppliers`,
       params: { type: 'supplier' },
     },
@@ -148,25 +154,6 @@ export default function BookSettingsScreen() {
           </View>
         </View>
 
-        {/* Danger Zone */}
-        <Text style={[s.sectionLabel, { marginTop: 24 }]}>DANGER ZONE</Text>
-        <View style={[s.card, { backgroundColor: C.card, borderColor: C.danger }]}>
-          <TouchableOpacity
-            style={s.row}
-            onPress={() => setShowDeleteSheet(true)}
-            activeOpacity={0.75}
-          >
-            <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
-              <Feather name="trash-2" size={18} color={C.danger} />
-            </View>
-            <View style={s.rowBody}>
-              <Text style={[s.rowLabel, { color: C.danger }]}>Delete All Entries</Text>
-              <Text style={s.rowSub}>Permanently removes all entries from this book</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color={C.danger} />
-          </TouchableOpacity>
-        </View>
-
         {/* Entry Field Settings */}
         <Text style={[s.sectionLabel, { marginTop: 24 }]}>ENTRY FIELD SETTINGS</Text>
         <View style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -184,6 +171,11 @@ export default function BookSettingsScreen() {
                   <Text style={s.rowLabel}>{item.label}</Text>
                   <Text style={s.rowSub}>{item.sub}</Text>
                 </View>
+                {item.count != null && (
+                  <View style={[s.countBadge, { backgroundColor: C.primaryLight }]}>
+                    <Text style={[s.countBadgeText, { color: C.primary }]}>{item.count}</Text>
+                  </View>
+                )}
                 <Feather name="chevron-right" size={18} color={C.textSubtle} />
               </TouchableOpacity>
               {idx < ENTRY_FIELDS.length - 1 && (
@@ -191,6 +183,25 @@ export default function BookSettingsScreen() {
               )}
             </View>
           ))}
+        </View>
+
+        {/* Danger Zone */}
+        <Text style={[s.sectionLabel, { marginTop: 24 }]}>DANGER ZONE</Text>
+        <View style={[s.card, { backgroundColor: C.card, borderColor: C.danger }]}>
+          <TouchableOpacity
+            style={s.row}
+            onPress={() => setShowDeleteSheet(true)}
+            activeOpacity={0.75}
+          >
+            <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
+              <Feather name="trash-2" size={18} color={C.danger} />
+            </View>
+            <View style={s.rowBody}>
+              <Text style={[s.rowLabel, { color: C.danger }]}>Delete All Entries</Text>
+              <Text style={s.rowSub}>Permanently removes all entries from this book</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={C.danger} />
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -309,6 +320,12 @@ const makeStyles = (C, Font) => StyleSheet.create({
   rowBody:  { flex: 1 },
   rowLabel: { fontSize: 15, fontFamily: Font.semiBold, color: C.text, lineHeight: 22, marginBottom: 2 },
   rowSub:   { fontSize: 12, fontFamily: Font.regular, color: C.textMuted, lineHeight: 18 },
+  countBadge: {
+    minWidth: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 8, marginRight: 8,
+  },
+  countBadgeText: { fontSize: 13, fontFamily: Font.bold },
 
   // Rename modal
   modalOverlay: {
