@@ -76,6 +76,7 @@ export default function ContactPickerModal({
       Alert.alert('Package required', 'Run:\n  npx expo install expo-contacts\nin the frontend directory, then restart.');
       return;
     }
+    setNewType(activeTab);   // carry active tab into the create form
     setView('phone');
     setLoadingPhone(true);
     try {
@@ -309,7 +310,7 @@ export default function ContactPickerModal({
               <View style={[s.actionRow, { borderTopColor: C.border }]}>
                 <TouchableOpacity
                   style={[s.actionBtn, { backgroundColor: C.primaryLight, borderColor: C.primary }]}
-                  onPress={() => setView('create')}
+                  onPress={() => { setNewType(activeTab); setView('create'); }}
                   activeOpacity={0.8}
                 >
                   <Feather name="user-plus" size={14} color={C.primary} />
