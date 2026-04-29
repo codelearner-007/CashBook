@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar,
+  View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar,
   FlatList, TextInput, Modal, Alert, ActivityIndicator, Animated,
-  KeyboardAvoidingView, Platform,
+  Keyboard, Platform,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -56,6 +56,20 @@ export default function ContactsListScreen() {
   const [addVisible,   setAddVisible]   = useState(false);
   const [newName,      setNewName]      = useState('');
   const [newPhone,     setNewPhone]     = useState('');
+  const [kbHeight,     setKbHeight]     = useState(0);
+
+  useEffect(() => {
+    if (!addVisible) { setKbHeight(0); return; }
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKbHeight(e.endCoordinates.height)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKbHeight(0)
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, [addVisible]);
   const { data: contacts = [], isLoading } = useContacts(bookId, type);
   const createContact = useCreateContact(bookId, type);
 
@@ -278,8 +292,8 @@ export default function ContactsListScreen() {
 
       {/* Add Modal */}
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>
-        <KeyboardAvoidingView style={[s.modalOverlay, { backgroundColor: C.overlay }]} behavior="padding">
-          <View style={[s.modalSheet, { backgroundColor: C.card }]}>
+        <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => { setAddVisible(false); setNewName(''); setNewPhone(''); }}>
+          <Pressable style={[s.modalSheet, { backgroundColor: C.card, marginBottom: kbHeight }]} onPress={() => {}}>
             <View style={[s.modalHandle, { backgroundColor: C.border }]} />
             <View style={s.modalHeader}>
               <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>
@@ -327,8 +341,8 @@ export default function ContactsListScreen() {
                 }
               </TouchableOpacity>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );

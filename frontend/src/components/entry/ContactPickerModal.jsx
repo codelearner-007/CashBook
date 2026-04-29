@@ -1,22 +1,22 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Pressable,
-  FlatList, TextInput, ActivityIndicator, Alert, Modal,
-  KeyboardAvoidingView, Platform,
+  FlatList, ActivityIndicator, Alert, Modal,
+  Keyboard, Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useCustomers, useSuppliers, useCreateCustomer, useCreateSupplier } from '../../hooks/useContacts';
+import SearchBar from '../ui/SearchBar';
+import AppInput from '../ui/Input';
 
 // expo-contacts is optional — install with: npx expo install expo-contacts
 let Contacts = null;
 try { Contacts = require('expo-contacts'); } catch (_) {}
 
-// ── views: 'list' | 'create' | 'phone' ────────────────────────────────────────
-
 const TYPE_CONFIG = {
-  customer: { label: 'Customer', icon: 'user',  bg: '#DCFCE7', color: '#16A34A' },
-  supplier: { label: 'Supplier', icon: 'truck', bg: '#FEF3C7', color: '#D97706' },
+  customer: { label: 'Customer', labelPlural: 'Customers', icon: 'user',  bg: '#DCFCE7', color: '#16A34A' },
+  supplier: { label: 'Supplier', labelPlural: 'Suppliers', icon: 'truck', bg: '#FEF3C7', color: '#D97706' },
 };
 
 function initials(name = '') {
@@ -34,15 +34,16 @@ export default function ContactPickerModal({
   const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
 
-  // ── view state ───────────────────────────────────────────────────────────────
-  const [view,       setView]       = useState('list');   // 'list' | 'create' | 'phone'
-  const [search,     setSearch]     = useState('');
-  const [phoneSearch,setPhoneSearch]= useState('');
-  const [newName,    setNewName]    = useState('');
-  const [newPhone,   setNewPhone]   = useState('');
-  const [newType,    setNewType]    = useState('customer');
-  const [phoneList,  setPhoneList]  = useState([]);
+  const [view,         setView]         = useState('list');
+  const [activeTab,    setActiveTab]    = useState('customer');
+  const [search,       setSearch]       = useState('');
+  const [phoneSearch,  setPhoneSearch]  = useState('');
+  const [newName,      setNewName]      = useState('');
+  const [newPhone,     setNewPhone]     = useState('');
+  const [newType,      setNewType]      = useState('customer');
+  const [phoneList,    setPhoneList]    = useState([]);
   const [loadingPhone, setLoadingPhone] = useState(false);
+  const [nameError,    setNameError]    = useState('');
 
   const { data: customers = [], isLoading: loadingC } = useCustomers(bookId);
   const { data: suppliers  = [], isLoading: loadingS } = useSuppliers(bookId);
@@ -50,36 +51,22 @@ export default function ContactPickerModal({
   const createSupplier = useCreateSupplier(bookId);
   const isLoading = loadingC || loadingS;
 
-  // ── derived contact list ─────────────────────────────────────────────────────
-  const allContacts = useMemo(() => [
-    ...customers.map(c => ({ ...c, _type: 'customer' })),
-    ...suppliers.map(s => ({ ...s, _type: 'supplier' })),
-  ], [customers, suppliers]);
-
-  const filtered = useMemo(() => {
+  // ── filtered list for active tab ─────────────────────────────────────────────
+  const filteredList = useMemo(() => {
+    const source = activeTab === 'customer' ? customers : suppliers;
     const q = search.toLowerCase().trim();
-    if (!q) return allContacts;
-    return allContacts.filter(c =>
+    if (!q) return source;
+    return source.filter(c =>
       c.name.toLowerCase().includes(q) || (c.phone || '').includes(q)
     );
-  }, [allContacts, search]);
-
-  const grouped = useMemo(() => {
-    const cust = filtered.filter(c => c._type === 'customer');
-    const supp = filtered.filter(c => c._type === 'supplier');
-    const items = [];
-    if (cust.length) { items.push({ _key: 'h-c', _header: true, title: 'Customers' }); items.push(...cust); }
-    if (supp.length) { items.push({ _key: 'h-s', _header: true, title: 'Suppliers' });  items.push(...supp); }
-    return items;
-  }, [filtered]);
+  }, [activeTab, customers, suppliers, search]);
 
   // ── phone contacts ───────────────────────────────────────────────────────────
   const filteredPhone = useMemo(() => {
     const q = phoneSearch.toLowerCase().trim();
     if (!q) return phoneList;
     return phoneList.filter(c =>
-      (c.name || '').toLowerCase().includes(q) ||
-      (c.phone || '').includes(q)
+      (c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q)
     );
   }, [phoneList, phoneSearch]);
 
@@ -123,7 +110,7 @@ export default function ContactPickerModal({
   // ── create ───────────────────────────────────────────────────────────────────
   const handleCreate = () => {
     const name = newName.trim();
-    if (!name) { Alert.alert('Name required', 'Please enter a contact name.'); return; }
+    if (!name) { setNameError('Name is required'); return; }
     const fn = newType === 'customer' ? createCustomer : createSupplier;
     fn.mutate(
       { name, phone: newPhone.trim() || undefined },
@@ -143,31 +130,44 @@ export default function ContactPickerModal({
 
   const resetAll = () => {
     setView('list');
+    setActiveTab('customer');
     setSearch('');
     setPhoneSearch('');
     setNewName('');
     setNewPhone('');
     setNewType('customer');
     setPhoneList([]);
+    setNameError('');
   };
 
   const handleClose = () => { resetAll(); onClose(); };
 
-  // ── header config per view ───────────────────────────────────────────────────
   const headerTitle = { list: 'Select Contact', create: 'New Contact', phone: 'Phone Contacts' }[view];
-  const handleBack  = view === 'list' ? null : () => setView(view === 'phone' ? 'list' : 'list');
+  const handleBack  = view === 'list' ? null : () => setView('list');
+  const isPending   = createCustomer.isPending || createSupplier.isPending;
 
-  const isPending = createCustomer.isPending || createSupplier.isPending;
+  // ── keyboard avoidance: float sheet above keyboard with marginBottom ──────────
+  const [kbHeight, setKbHeight] = useState(0);
+  useEffect(() => {
+    if (!visible) { setKbHeight(0); return; }
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKbHeight(e.endCoordinates.height)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKbHeight(0)
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose} statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={[s.overlay, { backgroundColor: C.overlay }]}
-        behavior="padding"
-        keyboardVerticalOffset={0}
-      >
-        <Pressable style={[s.sheet, { backgroundColor: C.card }]} onPress={() => {}}>
-
+      <Pressable style={[s.overlay, { backgroundColor: C.overlay }]} onPress={handleClose}>
+        <Pressable
+          style={[s.sheet, { backgroundColor: C.card, marginBottom: kbHeight }]}
+          onPress={() => {}}
+        >
           {/* ── Handle ── */}
           <View style={[s.handle, { backgroundColor: C.border }]} />
 
@@ -189,90 +189,91 @@ export default function ContactPickerModal({
           {/* ── LIST VIEW ── */}
           {view === 'list' && (
             <>
-              {/* Search bar */}
-              <View style={[s.searchBar, { backgroundColor: C.background, borderColor: C.border }]}>
-                <Feather name="search" size={15} color={C.textMuted} />
-                <TextInput
-                  style={[s.searchInput, { color: C.text, fontFamily: Font.regular }]}
-                  placeholder="Search contacts…"
-                  placeholderTextColor={C.textMuted}
-                  value={search}
-                  onChangeText={setSearch}
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Feather name="x" size={14} color={C.textMuted} />
-                  </TouchableOpacity>
-                )}
+              {/* Search */}
+              <SearchBar
+                value={search}
+                onChangeText={setSearch}
+                onClear={() => setSearch('')}
+                placeholder="Search contacts…"
+                style={s.searchOverride}
+              />
+
+              {/* Tabs: Customers | Suppliers */}
+              <View style={[s.tabRow, { borderBottomColor: C.border }]}>
+                {(['customer', 'supplier']).map((t) => {
+                  const cfg = TYPE_CONFIG[t];
+                  const active = activeTab === t;
+                  const count = t === 'customer' ? customers.length : suppliers.length;
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      style={[s.tabBtn, { borderBottomColor: active ? cfg.color : 'transparent' }]}
+                      onPress={() => setActiveTab(t)}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name={cfg.icon} size={13} color={active ? cfg.color : C.textMuted} />
+                      <Text style={[s.tabLabel, { color: active ? cfg.color : C.textMuted, fontFamily: active ? Font.bold : Font.regular }]}>
+                        {cfg.labelPlural}
+                      </Text>
+                      <View style={[s.tabBadge, { backgroundColor: active ? cfg.bg : C.background }]}>
+                        <Text style={[s.tabBadgeText, { color: active ? cfg.color : C.textMuted, fontFamily: Font.bold }]}>
+                          {count}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* Quick actions */}
-              <View style={s.quickRow}>
-                <TouchableOpacity
-                  style={[s.quickBtn, { backgroundColor: C.primaryLight, borderColor: C.primary }]}
-                  onPress={() => setView('create')}
-                  activeOpacity={0.8}
-                >
-                  <View style={[s.quickIcon, { backgroundColor: C.primary }]}>
-                    <Feather name="user-plus" size={14} color="#fff" />
-                  </View>
-                  <Text style={[s.quickLabel, { color: C.primary, fontFamily: Font.semiBold }]}>New Contact</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[s.quickBtn, { backgroundColor: C.card, borderColor: C.border }]}
-                  onPress={openPhoneView}
-                  activeOpacity={0.8}
-                >
-                  <View style={[s.quickIcon, { backgroundColor: C.border }]}>
-                    <Feather name="smartphone" size={14} color={C.textMuted} />
-                  </View>
-                  <Text style={[s.quickLabel, { color: C.text, fontFamily: Font.semiBold }]}>From Phone</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Remove current */}
+              {/* Remove selected contact */}
               {selectedContactId && (
-                <TouchableOpacity style={[s.removeBtn, { borderColor: C.danger, backgroundColor: C.dangerLight }]} onPress={onDeselect} activeOpacity={0.8}>
+                <TouchableOpacity
+                  style={[s.removeBtn, { borderColor: C.danger, backgroundColor: C.dangerLight }]}
+                  onPress={onDeselect}
+                  activeOpacity={0.8}
+                >
                   <Feather name="x-circle" size={14} color={C.danger} />
-                  <Text style={[s.removeBtnText, { fontFamily: Font.semiBold }]}>Remove selected contact</Text>
+                  <Text style={[s.removeBtnText, { color: C.danger, fontFamily: Font.semiBold }]}>
+                    Remove selected contact
+                  </Text>
                 </TouchableOpacity>
               )}
 
               {/* Contact list */}
               {isLoading ? (
                 <ActivityIndicator style={s.loader} color={C.primary} />
-              ) : grouped.length === 0 ? (
+              ) : filteredList.length === 0 ? (
                 <View style={s.empty}>
-                  <Feather name="users" size={36} color={C.border} />
+                  <Feather name={TYPE_CONFIG[activeTab].icon} size={32} color={C.border} />
                   <Text style={[s.emptyText, { color: C.textMuted, fontFamily: Font.regular }]}>
-                    {search ? 'No contacts match your search.' : 'No contacts yet.\nTap "New Contact" to add one.'}
+                    {search
+                      ? `No ${TYPE_CONFIG[activeTab].labelPlural.toLowerCase()} match your search.`
+                      : `No ${TYPE_CONFIG[activeTab].labelPlural.toLowerCase()} yet.`}
                   </Text>
                 </View>
               ) : (
                 <FlatList
-                  data={grouped}
-                  keyExtractor={(item) => item._key || item.id}
+                  data={filteredList}
+                  keyExtractor={(item) => item.id}
                   showsVerticalScrollIndicator={false}
                   style={s.list}
                   keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => {
-                    if (item._header) {
-                      return (
-                        <Text style={[s.sectionLabel, { color: C.textMuted, fontFamily: Font.semiBold }]}>
-                          {item.title}
-                        </Text>
-                      );
-                    }
+                  renderItem={({ item, index }) => {
                     const isSelected = item.id === selectedContactId;
-                    const cfg = TYPE_CONFIG[item._type];
+                    const cfg = TYPE_CONFIG[activeTab];
+                    const isLast = index === filteredList.length - 1;
                     return (
                       <TouchableOpacity
-                        style={[s.contactRow, { borderBottomColor: C.border }, isSelected && { backgroundColor: C.primaryLight }]}
+                        style={[
+                          s.contactRow,
+                          { borderBottomColor: C.border },
+                          isLast && { borderBottomWidth: 0 },
+                          isSelected && { backgroundColor: C.primaryLight },
+                        ]}
                         onPress={() => onSelect({
-                          id: item.id, name: item.name, type: item._type,
-                          customer_id: item._type === 'customer' ? item.id : null,
-                          supplier_id: item._type === 'supplier' ? item.id : null,
+                          id: item.id, name: item.name, type: activeTab,
+                          customer_id: activeTab === 'customer' ? item.id : null,
+                          supplier_id: activeTab === 'supplier' ? item.id : null,
                         })}
                         activeOpacity={0.75}
                       >
@@ -282,11 +283,12 @@ export default function ContactPickerModal({
                           </Text>
                         </View>
                         <View style={s.contactBody}>
-                          <Text style={[s.contactName, { color: C.text, fontFamily: Font.semiBold }]}>{item.name}</Text>
-                          {item.phone ? <Text style={[s.contactPhone, { color: C.textMuted, fontFamily: Font.regular }]}>{item.phone}</Text> : null}
-                        </View>
-                        <View style={[s.typePill, { backgroundColor: cfg.bg }]}>
-                          <Feather name={cfg.icon} size={11} color={cfg.color} />
+                          <Text style={[s.contactName, { color: C.text, fontFamily: Font.semiBold }]}>
+                            {item.name}
+                          </Text>
+                          {item.phone
+                            ? <Text style={[s.contactPhone, { color: C.textMuted, fontFamily: Font.regular }]}>{item.phone}</Text>
+                            : null}
                         </View>
                         {isSelected && <Feather name="check-circle" size={18} color={C.primary} />}
                       </TouchableOpacity>
@@ -294,13 +296,32 @@ export default function ContactPickerModal({
                   }}
                 />
               )}
+
+              {/* Sticky action buttons */}
+              <View style={[s.actionRow, { borderTopColor: C.border }]}>
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: C.primaryLight, borderColor: C.primary }]}
+                  onPress={() => setView('create')}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="user-plus" size={14} color={C.primary} />
+                  <Text style={[s.actionBtnText, { color: C.primary, fontFamily: Font.semiBold }]}>New Contact</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: C.card, borderColor: C.border }]}
+                  onPress={openPhoneView}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="smartphone" size={14} color={C.textMuted} />
+                  <Text style={[s.actionBtnText, { color: C.text, fontFamily: Font.semiBold }]}>From Phone</Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
 
           {/* ── CREATE VIEW ── */}
           {view === 'create' && (
             <View style={s.createWrap}>
-              {/* Type selector */}
               <Text style={[s.fieldLabel, { color: C.textMuted, fontFamily: Font.semiBold }]}>Type</Text>
               <View style={s.typeRow}>
                 {(['customer', 'supplier']).map((t) => {
@@ -322,26 +343,22 @@ export default function ContactPickerModal({
                 })}
               </View>
 
-              <Text style={[s.fieldLabel, { color: C.textMuted, fontFamily: Font.semiBold }]}>Name *</Text>
-              <TextInput
-                style={[s.input, { borderColor: C.border, color: C.text, backgroundColor: C.background, fontFamily: Font.regular }]}
-                placeholder="Full name"
-                placeholderTextColor={C.textMuted}
+              <AppInput
+                label="Name *"
                 value={newName}
-                onChangeText={setNewName}
+                onChangeText={(t) => { setNewName(t); if (nameError) setNameError(''); }}
+                placeholder="Full name"
                 autoFocus={!newName}
-                returnKeyType="next"
+                error={nameError}
+                style={{ marginTop: 8 }}
               />
-
-              <Text style={[s.fieldLabel, { color: C.textMuted, fontFamily: Font.semiBold }]}>Phone</Text>
-              <TextInput
-                style={[s.input, { borderColor: C.border, color: C.text, backgroundColor: C.background, fontFamily: Font.regular }]}
-                placeholder="Phone number (optional)"
-                placeholderTextColor={C.textMuted}
+              <AppInput
+                label="Phone"
                 value={newPhone}
                 onChangeText={setNewPhone}
+                placeholder="Phone number (optional)"
                 keyboardType="phone-pad"
-                returnKeyType="done"
+                isLast
               />
 
               <TouchableOpacity
@@ -366,22 +383,14 @@ export default function ContactPickerModal({
           {/* ── PHONE CONTACTS VIEW ── */}
           {view === 'phone' && (
             <>
-              <View style={[s.searchBar, { backgroundColor: C.background, borderColor: C.border }]}>
-                <Feather name="search" size={15} color={C.textMuted} />
-                <TextInput
-                  style={[s.searchInput, { color: C.text, fontFamily: Font.regular }]}
-                  placeholder="Search phone contacts…"
-                  placeholderTextColor={C.textMuted}
-                  value={phoneSearch}
-                  onChangeText={setPhoneSearch}
-                  autoFocus
-                />
-                {phoneSearch.length > 0 && (
-                  <TouchableOpacity onPress={() => setPhoneSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Feather name="x" size={14} color={C.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
+              <SearchBar
+                value={phoneSearch}
+                onChangeText={setPhoneSearch}
+                onClear={() => setPhoneSearch('')}
+                placeholder="Search phone contacts…"
+                autoFocus
+                style={s.searchOverride}
+              />
 
               {loadingPhone ? (
                 <View style={s.empty}>
@@ -415,7 +424,9 @@ export default function ContactPickerModal({
                       </View>
                       <View style={s.contactBody}>
                         <Text style={[s.contactName, { color: C.text, fontFamily: Font.semiBold }]}>{item.name}</Text>
-                        {item.phone ? <Text style={[s.contactPhone, { color: C.textMuted, fontFamily: Font.regular }]}>{item.phone}</Text> : null}
+                        {item.phone
+                          ? <Text style={[s.contactPhone, { color: C.textMuted, fontFamily: Font.regular }]}>{item.phone}</Text>
+                          : null}
                       </View>
                       <Feather name="plus-circle" size={20} color={C.primary} />
                     </TouchableOpacity>
@@ -426,60 +437,69 @@ export default function ContactPickerModal({
           )}
 
         </Pressable>
-      </KeyboardAvoidingView>
+      </Pressable>
     </Modal>
   );
 }
 
 const makeStyles = (C, Font) => StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  sheet:   { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20, maxHeight: '65%', backgroundColor: C.card },
-  handle:  { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 10 },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 20,
+    maxHeight: '78%',
+  },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 10 },
 
   // Header
-  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   headerSideBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   headerTitle:   { fontSize: 15, lineHeight: 22 },
 
-  // Search
-  searchBar:   { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8 },
-  searchInput: { flex: 1, fontSize: 13, lineHeight: 18, padding: 0 },
+  // Override SearchBar default margins for use inside the modal
+  searchOverride: { marginHorizontal: 0, marginBottom: 0 },
 
-  // Quick action buttons
-  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  quickBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 },
-  quickIcon:{ width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  quickLabel:{ fontSize: 13, lineHeight: 18 },
+  // Tabs
+  tabRow: { flexDirection: 'row', borderBottomWidth: 1, marginTop: 10, marginBottom: 6 },
+  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderBottomWidth: 2, marginBottom: -1 },
+  tabLabel:      { fontSize: 13, lineHeight: 18 },
+  tabBadge:      { borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, minWidth: 20, alignItems: 'center' },
+  tabBadgeText:  { fontSize: 11, lineHeight: 16 },
 
   // Remove button
-  removeBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderRadius: 10, paddingVertical: 8, marginBottom: 6 },
-  removeBtnText: { fontSize: 12, color: C.danger, lineHeight: 18 },
+  removeBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderRadius: 10, paddingVertical: 8, marginBottom: 4 },
+  removeBtnText: { fontSize: 12, lineHeight: 18 },
 
-  // List
-  list:        { flexGrow: 0 },
-  sectionLabel:{ fontSize: 10, fontFamily: Font.semiBold, letterSpacing: 0.8, textTransform: 'uppercase', paddingTop: 8, paddingBottom: 2, paddingHorizontal: 2 },
-  loader:      { marginTop: 20 },
+  // List — flexShrink: 1 lets FlatList shrink when sheet hits maxHeight, enabling scroll
+  list:   { flexShrink: 1 },
+  loader: { marginVertical: 20 },
 
   // Contact row
   contactRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1 },
-  avatar:      { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  avatarText:  { fontSize: 12, lineHeight: 18 },
+  avatar:      { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatarText:  { fontSize: 13, lineHeight: 18 },
   contactBody: { flex: 1 },
   contactName: { fontSize: 14, lineHeight: 20 },
   contactPhone:{ fontSize: 11, lineHeight: 16, marginTop: 1 },
-  typePill:    { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
 
   // Empty
   empty:     { alignItems: 'center', paddingVertical: 20, gap: 8 },
   emptyText: { fontSize: 13, lineHeight: 20, textAlign: 'center', maxWidth: 220 },
 
+  // Sticky action row below list
+  actionRow:     { flexDirection: 'row', gap: 8, borderTopWidth: 1, paddingTop: 10, marginTop: 4 },
+  actionBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1.5, borderRadius: 12, paddingVertical: 9 },
+  actionBtnText: { fontSize: 13, lineHeight: 18 },
+
   // Create form
-  createWrap: { gap: 2 },
-  fieldLabel: { fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4, marginTop: 8 },
-  typeRow:    { flexDirection: 'row', gap: 8, marginBottom: 2 },
-  typeChip:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderRadius: 12, paddingVertical: 10 },
-  typeChipText:{ fontSize: 13, lineHeight: 18 },
-  input:      { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, lineHeight: 20, marginBottom: 2 },
-  saveBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 13, marginTop: 6 },
-  saveBtnText:{ color: '#fff', fontSize: 15, lineHeight: 22 },
+  createWrap:   {},
+  fieldLabel:   { fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4, marginTop: 8 },
+  typeRow:      { flexDirection: 'row', gap: 8, marginBottom: 2 },
+  typeChip:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderRadius: 12, paddingVertical: 10 },
+  typeChipText: { fontSize: 13, lineHeight: 18 },
+  saveBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 13, marginTop: 10 },
+  saveBtnText:  { color: '#fff', fontSize: 15, lineHeight: 22 },
 });

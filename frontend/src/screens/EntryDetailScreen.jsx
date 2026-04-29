@@ -118,7 +118,12 @@ export default function EntryDetailScreen() {
               <DetailRow label="Remark"       value={entry.remark}                       C={C} Font={Font} />
               <DetailRow label="Category"     value={entry.category}                     C={C} Font={Font} />
               <DetailRow label="Payment Mode" value={PAYMENT_LABELS[entry.payment_mode]} C={C} Font={Font} />
-              <DetailRow label="Contact"      value={entry.contact_name}                 C={C} Font={Font} />
+              {entry.customer_id && (
+                <DetailRow label="Customer" value={entry.contact_name} C={C} Font={Font} />
+              )}
+              {entry.supplier_id && (
+                <DetailRow label="Supplier" value={entry.contact_name} C={C} Font={Font} />
+              )}
               <DetailRow label="Date"         value={formatDate(entry.entry_date)}       C={C} Font={Font} />
               <DetailRow label="Time"         value={fmt12h(entry.entry_time)}                   C={C} Font={Font} />
               <View style={{ paddingVertical: 14, flexDirection: 'row', justifyContent: 'space-between' }}>

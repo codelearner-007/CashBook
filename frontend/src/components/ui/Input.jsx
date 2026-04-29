@@ -32,6 +32,7 @@ export default function AppInput({
   autoFocus = false,
   error,
   style,
+  labelColor,
 }) {
   const { C } = useTheme();
   const [focused, setFocused] = useState(false);
@@ -50,7 +51,7 @@ export default function AppInput({
         {focused && <View style={[styles.accentBar, { backgroundColor: C.primary }]} />}
 
         <View style={styles.inner}>
-          <Text style={[styles.label, { color: focused ? C.primary : C.textMuted, fontFamily: Font.medium }]}>
+          <Text style={[styles.label, { color: labelColor ?? (focused ? C.primary : C.textMuted), fontFamily: Font.medium }]}>
             {label}
           </Text>
 

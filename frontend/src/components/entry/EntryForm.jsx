@@ -132,6 +132,7 @@ const EntryForm = forwardRef(function EntryForm(
           autoFocus={autoFocusAmount}
           isLast
           style={s.fieldGap}
+          labelColor={C.primary}
         />
 
         {showContact && (
@@ -147,6 +148,7 @@ const EntryForm = forwardRef(function EntryForm(
                   : <ChevronDownIcon color={C.textMuted} size={12} />
               }
               isLast
+              labelColor={C.primary}
             />
           </TouchableOpacity>
         )}
@@ -160,6 +162,7 @@ const EntryForm = forwardRef(function EntryForm(
           rightElement={<Text style={{ fontSize: 20 }}>🎤</Text>}
           isLast
           style={s.fieldGap}
+          labelColor={C.primary}
         />
 
         <TouchableOpacity style={[s.attachBtn, { borderColor: C.border }]} activeOpacity={0.7}>
@@ -178,6 +181,7 @@ const EntryForm = forwardRef(function EntryForm(
               editable={false}
               rightElement={<ChevronDownIcon color={C.textMuted} size={12} />}
               isLast
+              labelColor={C.primary}
             />
           </TouchableOpacity>
         )}
@@ -206,12 +210,6 @@ const EntryForm = forwardRef(function EntryForm(
             </View>
           </>
         )}
-
-        <TouchableOpacity style={[s.moreFieldsBtn, { borderColor: C.border }]} activeOpacity={0.7}>
-          <Text style={[s.moreFieldsText, { color: C.primary, fontFamily: Font.semiBold }]}>
-            Add More Fields
-          </Text>
-        </TouchableOpacity>
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -266,7 +264,6 @@ const EntryForm = forwardRef(function EntryForm(
           setContactName('');
           setCustomerId(null);
           setSupplierId(null);
-          setShowContactModal(false);
         }}
         onClose={() => setShowContactModal(false)}
       />
@@ -324,9 +321,6 @@ const makeStyles = (C, Font) => StyleSheet.create({
   paymentChip:     { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 24, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
   paymentChipText: { fontSize: 13, fontFamily: Font.semiBold, color: C.text, lineHeight: 18 },
   showMoreText:    { fontSize: 13, fontFamily: Font.semiBold, lineHeight: 18 },
-
-  moreFieldsBtn:  { borderWidth: 1.5, borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginBottom: 14 },
-  moreFieldsText: { fontSize: 14, lineHeight: 20 },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalBox:     { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12, maxHeight: '72%' },

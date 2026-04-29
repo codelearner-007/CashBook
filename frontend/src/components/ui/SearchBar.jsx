@@ -1,13 +1,23 @@
 import React, { useMemo } from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function SearchBar({ value, onChangeText, placeholder = 'Search…' }) {
+export default function SearchBar({
+  value,
+  onChangeText,
+  placeholder = 'Search…',
+  style,
+  autoFocus = false,
+  onClear,
+}) {
   const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
 
+  const hasText = value && value.length > 0;
+
   return (
-    <View style={s.searchBar}>
+    <View style={[s.searchBar, style]}>
       <TextInput
         style={s.searchInput}
         placeholder={placeholder}
@@ -17,16 +27,27 @@ export default function SearchBar({ value, onChangeText, placeholder = 'Search�
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"
+        autoFocus={autoFocus}
       />
-      <View style={s.searchBtn}>
-        <View style={{ width: 13, height: 13, borderRadius: 6.5, borderWidth: 2.5, borderColor: '#fff' }} />
-        <View style={{
-          position: 'absolute', bottom: 5, right: 5,
-          width: 6, height: 2.5, borderRadius: 1.5,
-          backgroundColor: '#fff',
-          transform: [{ rotate: '45deg' }],
-        }} />
-      </View>
+      <TouchableOpacity
+        style={s.searchBtn}
+        onPress={hasText && onClear ? onClear : undefined}
+        activeOpacity={hasText && onClear ? 0.7 : 1}
+      >
+        {hasText && onClear ? (
+          <Feather name="x" size={16} color="#fff" />
+        ) : (
+          <>
+            <View style={{ width: 13, height: 13, borderRadius: 6.5, borderWidth: 2.5, borderColor: '#fff' }} />
+            <View style={{
+              position: 'absolute', bottom: 5, right: 5,
+              width: 6, height: 2.5, borderRadius: 1.5,
+              backgroundColor: '#fff',
+              transform: [{ rotate: '45deg' }],
+            }} />
+          </>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
