@@ -75,7 +75,7 @@ export default function ContactMenuSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={s.overlay} onPress={onClose}>
         <Pressable style={[s.sheet, { backgroundColor: C.card, marginBottom: kbHeight }]} onPress={() => {}}>
 

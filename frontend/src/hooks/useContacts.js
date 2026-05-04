@@ -5,6 +5,7 @@ import {
   apiGetSuppliers, apiCreateSupplier, apiGetSupplier,
   apiUpdateSupplier, apiDeleteSupplier, apiGetSupplierEntries,
 } from '../lib/api';
+import Toast from '../lib/toast';
 
 // ── Query key factories ────────────────────────────────────────────────────────
 export const contactKeys = {
@@ -74,6 +75,7 @@ export function useDeleteCustomer(bookId) {
       qc.invalidateQueries({ queryKey: contactKeys.customers(bookId) });
       qc.invalidateQueries({ queryKey: ['entries', bookId] });
     },
+    onError: () => Toast.show({ type: 'error', text1: 'Failed to delete customer', text2: 'Please try again.' }),
   });
 }
 
@@ -135,6 +137,7 @@ export function useDeleteSupplier(bookId) {
       qc.invalidateQueries({ queryKey: contactKeys.suppliers(bookId) });
       qc.invalidateQueries({ queryKey: ['entries', bookId] });
     },
+    onError: () => Toast.show({ type: 'error', text1: 'Failed to delete supplier', text2: 'Please try again.' }),
   });
 }
 

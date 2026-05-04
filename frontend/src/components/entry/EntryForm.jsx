@@ -15,7 +15,7 @@ import { PAYMENT_MODES } from '../../constants/categories';
 
 // Exposes { getValues(), validate() } via ref.
 const EntryForm = forwardRef(function EntryForm(
-  { bookId, initialValues, initialType = 'in', showTypeToggle = false, autoFocusAmount = false, onContactDeletedChange },
+  { bookId, initialValues, initialType = 'in', showTypeToggle = false, autoFocusAmount = false, onContactDeletedChange, onCategoryDeletedChange },
   ref
 ) {
   const { C, Font } = useTheme();
@@ -35,8 +35,11 @@ const EntryForm = forwardRef(function EntryForm(
 
   // true when an entry still has a name snapshot but the linked contact was deleted
   const contactDeleted = contactName !== '' && !customerId && !supplierId;
+  // true when an entry still has a category name snapshot but the linked category was deleted
+  const categoryDeleted = category !== '' && !categoryId;
 
   useEffect(() => { onContactDeletedChange?.(contactDeleted); }, [contactDeleted]);
+  useEffect(() => { onCategoryDeletedChange?.(categoryDeleted); }, [categoryDeleted]);
 
   const [showAllPayments,   setShowAllPayments]   = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -66,8 +69,8 @@ const EntryForm = forwardRef(function EntryForm(
       type:         entryType,
       amount:       parseFloat(amount),
       remark:       remark.trim() || undefined,
-      category:     category || undefined,
-      category_id:  categoryId || undefined,
+      category:     categoryDeleted ? null : (category || undefined),
+      category_id:  categoryDeleted ? null : (categoryId || undefined),
       payment_mode: paymentMode,
       contact_name: contactDeleted ? null : (contactName.trim() || null),
       customer_id:  contactDeleted ? null : (customerId  || null),
@@ -188,23 +191,28 @@ const EntryForm = forwardRef(function EntryForm(
         </TouchableOpacity>
 
         {showCategory && (
-          <TouchableOpacity onPress={() => setShowCategoryModal(true)} activeOpacity={0.85} style={s.fieldGap}>
-            <AppInput
-              label="Category"
-              value={category}
-              placeholder="Select category"
-              editable={false}
-              rightElement={
-                category
-                  ? <TouchableOpacity onPress={(e) => { e.stopPropagation(); setCategory(''); setCategoryId(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <CloseIcon color={C.textMuted} size={14} />
-                    </TouchableOpacity>
-                  : <ChevronDownIcon color={C.textMuted} size={12} />
-              }
-              isLast
-              labelColor={C.primary}
-            />
-          </TouchableOpacity>
+          <View style={s.fieldGap}>
+            <TouchableOpacity onPress={() => setShowCategoryModal(true)} activeOpacity={0.85}>
+              <AppInput
+                label="Category"
+                value={category}
+                placeholder="Select category"
+                editable={false}
+                rightElement={
+                  category
+                    ? <TouchableOpacity onPress={(e) => { e.stopPropagation(); setCategory(''); setCategoryId(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <CloseIcon color={categoryDeleted ? '#F59E0B' : C.textMuted} size={14} />
+                      </TouchableOpacity>
+                    : <ChevronDownIcon color={C.textMuted} size={12} />
+                }
+                isLast
+                labelColor={categoryDeleted ? '#F59E0B' : C.primary}
+              />
+            </TouchableOpacity>
+            {categoryDeleted && (
+              <Text style={s.contactDeletedHint}>Category no longer exists — tap × to remove</Text>
+            )}
+          </View>
         )}
 
         {showPaymentMode && (

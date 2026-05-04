@@ -184,7 +184,7 @@ export default function ContactsListScreen() {
     const contact = menuContact;
     setMenuContactId(null);
     setDeletingContact(contact);
-    setTimeout(() => setShowDeleteSheet(true), 280);
+    setShowDeleteSheet(true);
   };
 
   const confirmDelete = () => {

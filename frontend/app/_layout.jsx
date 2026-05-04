@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import Toast from '../src/lib/toast';
+import { toastConfig } from '../src/components/ui/AppToast';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
@@ -141,7 +142,7 @@ export default function RootLayout() {
       <SupabaseAuthListener />
       <AuthGuard />
       <Slot />
-      <Toast />
+      <Toast config={toastConfig} />
     </QueryClientProvider>
   );
 }

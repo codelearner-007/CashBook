@@ -3,6 +3,7 @@ import {
   apiGetCategories, apiCreateCategory,
   apiUpdateCategory, apiDeleteCategory, apiGetCategoryEntries,
 } from '../lib/api';
+import Toast from '../lib/toast';
 
 export const categoryKeys = {
   all:     (bookId)              => ['categories', bookId],
@@ -51,5 +52,6 @@ export function useDeleteCategory(bookId) {
       qc.invalidateQueries({ queryKey: categoryKeys.all(bookId) });
       qc.invalidateQueries({ queryKey: ['entries', bookId] });
     },
+    onError: () => Toast.show({ type: 'error', text1: 'Failed to delete category', text2: 'Please try again.' }),
   });
 }

@@ -222,6 +222,7 @@ export default function AdminUsersScreen() {
   const [searchQuery,    setSearchQuery]    = useState('');
   const [confirmState,   setConfirmState]   = useState(null);
   const [activeFilter,   setActiveFilter]   = useState('all'); // 'all' | 'active' | 'inactive'
+  const [isFocused,      setIsFocused]      = useState(false);
 
   const { data: allUsers = [], isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
@@ -229,7 +230,7 @@ export default function AdminUsersScreen() {
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
-    refetchInterval: 10000,
+    refetchInterval: isFocused ? 10000 : false,
   });
 
   const { data: books = [] } = useQuery({
@@ -242,8 +243,10 @@ export default function AdminUsersScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setIsFocused(true);
       qc.invalidateQueries({ queryKey: ['admin-users'] });
       qc.invalidateQueries({ queryKey: ['books'] });
+      return () => setIsFocused(false);
     }, [qc])
   );
 
