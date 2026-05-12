@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar,
   FlatList, Modal, Alert, ActivityIndicator, Animated,
-  Keyboard, Platform, TextInput,
+  Keyboard, Platform, TextInput, Switch,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import SearchBar from '../components/ui/SearchBar';
@@ -13,10 +13,11 @@ import { useTheme } from '../hooks/useTheme';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '../hooks/useContacts';
 import ContactMenuSheet from '../components/books/ContactMenuSheet';
 import DeleteContactSheet from '../components/ui/DeleteContactSheet';
+import { useBookFieldsStore } from '../store/bookFieldsStore';
 
 const TYPE_CONFIG = {
   customer: { label: 'Customers', icon: 'user-check', emptyIcon: 'user-plus' },
-  supplier: { label: 'Suppliers', icon: 'truck',      emptyIcon: 'truck' },
+  supplier: { label: 'Suppliers', icon: 'truck', emptyIcon: 'truck' },
 };
 
 
@@ -37,14 +38,14 @@ function EmptyState({ cfg, C, Font }) {
 }
 
 const es = StyleSheet.create({
-  wrap:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
   iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  title:   { fontSize: 16, lineHeight: 24, marginBottom: 8 },
-  sub:     { fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  title: { fontSize: 16, lineHeight: 24, marginBottom: 8 },
+  sub: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
 });
 
 export default function ContactsListScreen() {
-  const router   = useRouter();
+  const router = useRouter();
   const basePath = useBookBasePath();
   const { id: bookId, name: bookName, type } = useLocalSearchParams();
   const { C, Font } = useTheme();
@@ -52,11 +53,16 @@ export default function ContactsListScreen() {
 
   const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.customer;
 
-  const [search,       setSearch]       = useState('');
-  const [addVisible,   setAddVisible]   = useState(false);
-  const [newName,      setNewName]      = useState('');
-  const [newPhone,     setNewPhone]     = useState('');
-  const [kbHeight,     setKbHeight]     = useState(0);
+  const { getFields, setField } = useBookFieldsStore();
+  const fields = getFields(bookId);
+  const fieldKey = type === 'supplier' ? 'showSupplier' : 'showCustomer';
+  const showField = fields[fieldKey];
+
+  const [search, setSearch] = useState('');
+  const [addVisible, setAddVisible] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [kbHeight, setKbHeight] = useState(0);
 
   useEffect(() => {
     if (!addVisible) { setKbHeight(0); return; }
@@ -70,14 +76,14 @@ export default function ContactsListScreen() {
     );
     return () => { show.remove(); hide.remove(); };
   }, [addVisible]);
-  const [menuContactId,   setMenuContactId]   = useState(null);
+  const [menuContactId, setMenuContactId] = useState(null);
   const [deletingContact, setDeletingContact] = useState(null);
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
 
   const { data: contacts = [], isLoading } = useContacts(bookId, type);
-  const createContact  = useCreateContact(bookId, type);
-  const deleteContact  = useDeleteContact(bookId, type);
-  const updateContact  = useUpdateContact(bookId, menuContactId, type);
+  const createContact = useCreateContact(bookId, type);
+  const deleteContact = useDeleteContact(bookId, type);
+  const updateContact = useUpdateContact(bookId, menuContactId, type);
 
   // Derive live contact from query data — never a stale snapshot
   const menuContact = useMemo(
@@ -99,7 +105,7 @@ export default function ContactsListScreen() {
   const isEmpty = !isLoading && filtered.length === 0 && !search.trim();
 
   // Animation refs for FAB glow + bottom arrow
-  const glowScale   = useRef(new Animated.Value(1)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
   const arrow1 = useRef(new Animated.Value(0)).current;
   const arrow2 = useRef(new Animated.Value(0)).current;
@@ -118,12 +124,12 @@ export default function ContactsListScreen() {
     const glow = Animated.loop(
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(glowScale,   { toValue: 2,    duration: 950, useNativeDriver: true }),
-          Animated.timing(glowOpacity, { toValue: 0,    duration: 950, useNativeDriver: true }),
+          Animated.timing(glowScale, { toValue: 2, duration: 950, useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0, duration: 950, useNativeDriver: true }),
         ]),
         Animated.parallel([
-          Animated.timing(glowScale,   { toValue: 1,    duration: 0,   useNativeDriver: true }),
-          Animated.timing(glowOpacity, { toValue: 0.55, duration: 0,   useNativeDriver: true }),
+          Animated.timing(glowScale, { toValue: 1, duration: 0, useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0.55, duration: 0, useNativeDriver: true }),
         ]),
       ])
     );
@@ -133,7 +139,7 @@ export default function ContactsListScreen() {
       Animated.sequence([
         Animated.stagger(200, arrowAnims.map(a =>
           Animated.sequence([
-            Animated.timing(a, { toValue: 1,    duration: 300, useNativeDriver: true }),
+            Animated.timing(a, { toValue: 1, duration: 300, useNativeDriver: true }),
             Animated.timing(a, { toValue: 0.12, duration: 300, useNativeDriver: true }),
           ])
         )),
@@ -176,7 +182,7 @@ export default function ContactsListScreen() {
   const handleSaveEdit = (payload) => {
     updateContact.mutate(payload, {
       onSuccess: () => setMenuContactId(null),
-      onError:   () => Alert.alert('Error', 'Failed to save changes.'),
+      onError: () => Alert.alert('Error', 'Failed to save changes.'),
     });
   };
 
@@ -191,13 +197,13 @@ export default function ContactsListScreen() {
     if (!deletingContact) return;
     deleteContact.mutate(deletingContact.id, {
       onSuccess: () => { setShowDeleteSheet(false); setDeletingContact(null); },
-      onError:   () => Alert.alert('Error', 'Failed to delete contact.'),
+      onError: () => Alert.alert('Error', 'Failed to delete contact.'),
     });
   };
 
   const renderContact = ({ item }) => {
     const avatarBg = C.primaryLight;
-    const balance  = item.balance ?? 0;
+    const balance = item.balance ?? 0;
     return (
       <TouchableOpacity
         style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
@@ -250,6 +256,27 @@ export default function ContactsListScreen() {
           {bookName ? <Text style={[s.headerSub, { fontFamily: Font.regular }]}>{bookName}</Text> : null}
         </View>
         <View style={{ width: 40 }} />
+      </View>
+
+      {/* Field visibility toggle */}
+      <View style={[s.toggleRow, { backgroundColor: C.card, borderBottomColor: C.border }]}>
+        <View style={[s.toggleIconBox, { backgroundColor: C.primaryLight }]}>
+          <Feather name="edit-3" size={15} color={C.primary} />
+        </View>
+        <View style={s.toggleBody}>
+          <Text style={[s.toggleLabel, { color: C.text, fontFamily: Font.semiBold }]}>
+            Show {cfg.label.slice(0, -1)} Field
+          </Text>
+          <Text style={[s.toggleSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+            {cfg.label.slice(0, -1)} field in Cash In / Cash Out
+          </Text>
+        </View>
+        <Switch
+          value={showField}
+          onValueChange={(v) => setField(bookId, fieldKey, v)}
+          trackColor={{ false: C.border, true: C.primary }}
+          thumbColor="#fff"
+        />
       </View>
 
       {/* Search */}
@@ -354,7 +381,7 @@ export default function ContactsListScreen() {
       {/* Add Modal */}
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>
         <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => { setAddVisible(false); setNewName(''); setNewPhone(''); }}>
-          <Pressable style={[s.modalSheet, { backgroundColor: C.card, marginBottom: kbHeight }]} onPress={() => {}}>
+          <Pressable style={[s.modalSheet, { backgroundColor: C.card, marginBottom: kbHeight }]} onPress={() => { }}>
             <View style={[s.modalHandle, { backgroundColor: C.border }]} />
             <View style={s.modalHeader}>
               <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>
@@ -412,31 +439,37 @@ export default function ContactsListScreen() {
 const makeStyles = () => StyleSheet.create({
   safe: { flex: 1 },
 
-  header:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14 },
-  backBtn:      { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14 },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle:  { fontSize: 17, color: '#fff', lineHeight: 24 },
-  headerSub:    { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
+  headerTitle: { fontSize: 17, color: '#fff', lineHeight: 24 },
+  headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
 
-  searchWrap:  { paddingVertical: 10, borderBottomWidth: 1 },
-  searchBar:   { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 50, paddingHorizontal: 16, paddingVertical: 10 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1 },
+  toggleIconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  toggleBody: { flex: 1 },
+  toggleLabel: { fontSize: 14, lineHeight: 20 },
+  toggleSub: { fontSize: 11, lineHeight: 16, marginTop: 1 },
+
+  searchWrap: { paddingVertical: 10, borderBottomWidth: 1 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderRadius: 50, paddingHorizontal: 16, paddingVertical: 10 },
   searchInput: { flex: 1, fontSize: 14, lineHeight: 20, padding: 0 },
 
   listContent: { paddingTop: 12, paddingBottom: 120 },
 
-  card:        { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 10, borderRadius: 50, paddingVertical: 6, paddingLeft: 6, paddingRight: 14, borderWidth: 1.5 },
-  avatar:      { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  avatarText:  { fontSize: 15, lineHeight: 22 },
-  cardBody:    { flex: 1 },
-  cardName:    { fontSize: 14, lineHeight: 20 },
-  cardSub:     { fontSize: 12, lineHeight: 18, marginTop: 1 },
+  card: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 10, borderRadius: 50, paddingVertical: 6, paddingLeft: 6, paddingRight: 14, borderWidth: 1.5 },
+  avatar: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  avatarText: { fontSize: 15, lineHeight: 22 },
+  cardBody: { flex: 1 },
+  cardName: { fontSize: 14, lineHeight: 20 },
+  cardSub: { fontSize: 12, lineHeight: 18, marginTop: 1 },
 
   balancePill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
   balanceText: { fontSize: 13, lineHeight: 18 },
 
-  empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 60 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 60 },
   emptyTitle: { fontSize: 17, lineHeight: 26 },
-  emptySub:   { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 240 },
+  emptySub: { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 240 },
 
   // FAB: outer wrapper is absolutely positioned; glow ring sits inside it
   fabWrap: {
@@ -467,12 +500,12 @@ const makeStyles = () => StyleSheet.create({
   },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalSheet:   { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
-  modalHandle:  { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  modalTitle:   { fontSize: 17, lineHeight: 26 },
-  modalInput:   { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 22, marginBottom: 12 },
+  modalSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  modalTitle: { fontSize: 17, lineHeight: 26 },
+  modalInput: { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 22, marginBottom: 12 },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  modalBtn:     { flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  modalBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   modalBtnText: { fontSize: 15, lineHeight: 22 },
 });

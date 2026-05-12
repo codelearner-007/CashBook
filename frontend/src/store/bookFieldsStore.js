@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 
 const DEFAULT_FIELDS = {
-  showContact:     true,
-  showCategory:    true,
+  showCustomer:    false,
+  showSupplier:    false,
+  showCategory:    false,
   showPaymentMode: true,
 };
 
 export const useBookFieldsStore = create((set, get) => ({
-  // { [bookId]: { showContact, showCategory, showPaymentMode } }
+  // { [bookId]: { showCustomer, showSupplier, showCategory, showPaymentMode } }
   fields: {},
 
   getFields: (bookId) => get().fields[bookId] ?? DEFAULT_FIELDS,

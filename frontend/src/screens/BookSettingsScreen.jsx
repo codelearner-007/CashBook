@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useRenameBook } from '../hooks/useBooks';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
+import { useCategories } from '../hooks/useCategories';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiDeleteAllEntries, apiGetEntries } from '../lib/api';
 import SuccessDialog from '../components/ui/SuccessDialog';
@@ -44,6 +45,7 @@ export default function BookSettingsScreen() {
 
   const { data: customers = [] } = useCustomers(id);
   const { data: suppliers = [] } = useSuppliers(id);
+  const { data: categories = [] } = useCategories(id);
 
   const deleteAllEntries = useMutation({
     mutationFn: () => apiDeleteAllEntries(id),
@@ -105,6 +107,7 @@ export default function BookSettingsScreen() {
       icon: 'tag',
       label: 'Categories',
       sub: 'Add or remove categories',
+      count: categories.length,
       route: `${basePath}/[id]/categories-settings`,
       params: {},
     },

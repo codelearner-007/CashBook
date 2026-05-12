@@ -28,6 +28,7 @@ export default function ContactPickerModal({
   bookId,
   selectedContactId,
   selectedContactType,   // 'customer' | 'supplier' | null — drives initial tab
+  allowedTypes = ['customer', 'supplier'],  // which tabs/types are enabled
   onSelect,
   onDeselect,
   onClose,
@@ -36,7 +37,7 @@ export default function ContactPickerModal({
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
 
   const [view,         setView]         = useState('list');
-  const [activeTab,    setActiveTab]    = useState('customer');
+  const [activeTab,    setActiveTab]    = useState(allowedTypes[0] || 'customer');
   const [search,       setSearch]       = useState('');
   const [phoneSearch,  setPhoneSearch]  = useState('');
   const [newName,      setNewName]      = useState('');
@@ -132,7 +133,7 @@ export default function ContactPickerModal({
 
   const resetAll = () => {
     setView('list');
-    setActiveTab('customer');
+    setActiveTab(allowedTypes[0] || 'customer');
     setSearch('');
     setPhoneSearch('');
     setNewName('');
@@ -150,8 +151,11 @@ export default function ContactPickerModal({
 
   // ── open on the correct tab when a contact is already selected ──────────────
   useEffect(() => {
-    if (visible && selectedContactId && selectedContactType) {
+    if (!visible) return;
+    if (selectedContactId && selectedContactType && allowedTypes.includes(selectedContactType)) {
       setActiveTab(selectedContactType);
+    } else {
+      setActiveTab(allowedTypes[0] || 'customer');
     }
   }, [visible]);
 
@@ -207,32 +211,34 @@ export default function ContactPickerModal({
                 style={s.searchOverride}
               />
 
-              {/* Tabs: Customers | Suppliers */}
-              <View style={[s.tabRow, { borderBottomColor: C.border }]}>
-                {(['customer', 'supplier']).map((t) => {
-                  const cfg = TYPE_CONFIG[t];
-                  const active = activeTab === t;
-                  const count = t === 'customer' ? customers.length : suppliers.length;
-                  return (
-                    <TouchableOpacity
-                      key={t}
-                      style={[s.tabBtn, { borderBottomColor: active ? cfg.color : 'transparent' }]}
-                      onPress={() => setActiveTab(t)}
-                      activeOpacity={0.7}
-                    >
-                      <Feather name={cfg.icon} size={13} color={active ? cfg.color : C.textMuted} />
-                      <Text style={[s.tabLabel, { color: active ? cfg.color : C.textMuted, fontFamily: active ? Font.bold : Font.regular }]}>
-                        {cfg.labelPlural}
-                      </Text>
-                      <View style={[s.tabBadge, { backgroundColor: active ? cfg.bg : C.background }]}>
-                        <Text style={[s.tabBadgeText, { color: active ? cfg.color : C.textMuted, fontFamily: Font.bold }]}>
-                          {count}
+              {/* Tabs: Customers | Suppliers — hidden when only one type is allowed */}
+              {allowedTypes.length > 1 && (
+                <View style={[s.tabRow, { borderBottomColor: C.border }]}>
+                  {allowedTypes.map((t) => {
+                    const cfg = TYPE_CONFIG[t];
+                    const active = activeTab === t;
+                    const count = t === 'customer' ? customers.length : suppliers.length;
+                    return (
+                      <TouchableOpacity
+                        key={t}
+                        style={[s.tabBtn, { borderBottomColor: active ? cfg.color : 'transparent' }]}
+                        onPress={() => setActiveTab(t)}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name={cfg.icon} size={13} color={active ? cfg.color : C.textMuted} />
+                        <Text style={[s.tabLabel, { color: active ? cfg.color : C.textMuted, fontFamily: active ? Font.bold : Font.regular }]}>
+                          {cfg.labelPlural}
                         </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        <View style={[s.tabBadge, { backgroundColor: active ? cfg.bg : C.background }]}>
+                          <Text style={[s.tabBadgeText, { color: active ? cfg.color : C.textMuted, fontFamily: Font.bold }]}>
+                            {count}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
 
               {/* Remove selected contact */}
               {selectedContactId && (
@@ -333,7 +339,7 @@ export default function ContactPickerModal({
             <View style={s.createWrap}>
               <Text style={[s.fieldLabel, { color: C.textMuted, fontFamily: Font.semiBold }]}>Type</Text>
               <View style={s.typeRow}>
-                {(['customer', 'supplier']).map((t) => {
+                {allowedTypes.map((t) => {
                   const cfg = TYPE_CONFIG[t];
                   const active = newType === t;
                   return (

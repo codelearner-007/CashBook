@@ -21,7 +21,12 @@ const EntryForm = forwardRef(function EntryForm(
   const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const { getFields } = useBookFieldsStore();
-  const { showContact, showCategory, showPaymentMode } = getFields(bookId);
+  const { showCustomer, showSupplier, showCategory, showPaymentMode } = getFields(bookId);
+  const showContact = showCustomer || showSupplier;
+  const allowedContactTypes = [
+    ...(showCustomer ? ['customer'] : []),
+    ...(showSupplier ? ['supplier'] : []),
+  ];
 
   const [entryType,    setEntryType]    = useState(initialValues?.type ?? initialType);
   const [amount,       setAmount]       = useState(initialValues?.amount?.toString() ?? '');
@@ -152,7 +157,7 @@ const EntryForm = forwardRef(function EntryForm(
           <View style={s.fieldGap}>
             <TouchableOpacity onPress={() => setShowContactModal(true)} activeOpacity={0.85}>
               <AppInput
-                label={customerId ? 'Customer' : supplierId ? 'Supplier' : 'Contact (Customer/Supplier)'}
+                label={customerId ? 'Customer' : supplierId ? 'Supplier' : allowedContactTypes.length === 1 ? (allowedContactTypes[0] === 'customer' ? 'Customer' : 'Supplier') : 'Contact (Customer/Supplier)'}
                 value={contactName}
                 placeholder="Select contact"
                 editable={false}
@@ -266,6 +271,7 @@ const EntryForm = forwardRef(function EntryForm(
         bookId={bookId}
         selectedContactId={customerId || supplierId}
         selectedContactType={customerId ? 'customer' : supplierId ? 'supplier' : null}
+        allowedTypes={allowedContactTypes}
         onSelect={({ id, name, customer_id, supplier_id }) => {
           setContactName(name);
           setCustomerId(customer_id || null);

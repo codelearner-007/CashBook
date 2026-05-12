@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar,
   FlatList, Modal, Alert, ActivityIndicator, Animated,
-  Keyboard, Platform, TextInput,
+  Keyboard, Platform, TextInput, Switch,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import SearchBar from '../components/ui/SearchBar';
@@ -15,6 +15,7 @@ import {
 } from '../hooks/useCategories';
 import CategoryMenuSheet from '../components/books/CategoryMenuSheet';
 import DeleteCategorySheet from '../components/ui/DeleteCategorySheet';
+import { useBookFieldsStore } from '../store/bookFieldsStore';
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
@@ -35,25 +36,25 @@ function EmptyState({ C, Font }) {
 }
 
 const es = StyleSheet.create({
-  wrap:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
   iconBox: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  title:   { fontSize: 16, lineHeight: 24, marginBottom: 8 },
-  sub:     { fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  title: { fontSize: 16, lineHeight: 24, marginBottom: 8 },
+  sub: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
 });
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function CategoriesSettingsScreen() {
-  const router   = useRouter();
+  const router = useRouter();
   const basePath = useBookBasePath();
   const { id: bookId, name: bookName } = useLocalSearchParams();
   const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(), []);
 
-  const [search,     setSearch]     = useState('');
+  const [search, setSearch] = useState('');
   const [addVisible, setAddVisible] = useState(false);
-  const [newName,    setNewName]    = useState('');
-  const [kbHeight,   setKbHeight]   = useState(0);
+  const [newName, setNewName] = useState('');
+  const [kbHeight, setKbHeight] = useState(0);
 
   useEffect(() => {
     if (!addVisible) { setKbHeight(0); return; }
@@ -68,9 +69,12 @@ export default function CategoriesSettingsScreen() {
     return () => { show.remove(); hide.remove(); };
   }, [addVisible]);
 
-  const [menuCategoryId,    setMenuCategoryId]    = useState(null);
-  const [deletingCategory,  setDeletingCategory]  = useState(null); // snapshot for delete sheet
-  const [showDeleteSheet,   setShowDeleteSheet]   = useState(false);
+  const [menuCategoryId, setMenuCategoryId] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null); // snapshot for delete sheet
+  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+
+  const { getFields, setField } = useBookFieldsStore();
+  const { showCategory } = getFields(bookId);
 
   const { data: categories = [], isLoading } = useCategories(bookId);
   const { mutate: createCategory, isPending: creating } = useCreateCategory(bookId);
@@ -92,7 +96,7 @@ export default function CategoriesSettingsScreen() {
   const isEmpty = !isLoading && filtered.length === 0 && !search.trim();
 
   // ── FAB glow + arrow animations (only when empty in list tab) ─────────────
-  const glowScale   = useRef(new Animated.Value(1)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
   const arrow1 = useRef(new Animated.Value(0)).current;
   const arrow2 = useRef(new Animated.Value(0)).current;
@@ -111,12 +115,12 @@ export default function CategoriesSettingsScreen() {
     const glow = Animated.loop(
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(glowScale,   { toValue: 2,    duration: 950, useNativeDriver: true }),
-          Animated.timing(glowOpacity, { toValue: 0,    duration: 950, useNativeDriver: true }),
+          Animated.timing(glowScale, { toValue: 2, duration: 950, useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0, duration: 950, useNativeDriver: true }),
         ]),
         Animated.parallel([
-          Animated.timing(glowScale,   { toValue: 1,    duration: 0,   useNativeDriver: true }),
-          Animated.timing(glowOpacity, { toValue: 0.55, duration: 0,   useNativeDriver: true }),
+          Animated.timing(glowScale, { toValue: 1, duration: 0, useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0.55, duration: 0, useNativeDriver: true }),
         ]),
       ])
     );
@@ -124,7 +128,7 @@ export default function CategoriesSettingsScreen() {
       Animated.sequence([
         Animated.stagger(200, arrowAnims.map(a =>
           Animated.sequence([
-            Animated.timing(a, { toValue: 1,    duration: 300, useNativeDriver: true }),
+            Animated.timing(a, { toValue: 1, duration: 300, useNativeDriver: true }),
             Animated.timing(a, { toValue: 0.12, duration: 300, useNativeDriver: true }),
           ])
         )),
@@ -243,6 +247,27 @@ export default function CategoriesSettingsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* Field visibility toggle */}
+      <View style={[s.toggleRow, { backgroundColor: C.card, borderBottomColor: C.border }]}>
+        <View style={[s.toggleIconBox, { backgroundColor: C.primaryLight }]}>
+          <Feather name="edit-3" size={15} color={C.primary} />
+        </View>
+        <View style={s.toggleBody}>
+          <Text style={[s.toggleLabel, { color: C.text, fontFamily: Font.semiBold }]}>
+            Show Category Field
+          </Text>
+          <Text style={[s.toggleSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+            Category field in Cash In / Cash Out
+          </Text>
+        </View>
+        <Switch
+          value={showCategory}
+          onValueChange={(v) => setField(bookId, 'showCategory', v)}
+          trackColor={{ false: C.border, true: C.primary }}
+          thumbColor="#fff"
+        />
+      </View>
+
       <View style={[s.searchWrap, { borderBottomColor: C.border }]}>
         <SearchBar
           value={search}
@@ -328,7 +353,7 @@ export default function CategoriesSettingsScreen() {
       {/* Add Modal — bottom sheet */}
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => { setAddVisible(false); setNewName(''); }}>
         <Pressable style={[s.modalOverlay, { backgroundColor: C.overlay }]} onPress={() => { setAddVisible(false); setNewName(''); }}>
-          <Pressable style={[s.modalSheet, { backgroundColor: C.card, marginBottom: kbHeight }]} onPress={() => {}}>
+          <Pressable style={[s.modalSheet, { backgroundColor: C.card, marginBottom: kbHeight }]} onPress={() => { }}>
             <View style={[s.modalHandle, { backgroundColor: C.border }]} />
             <View style={s.modalHeader}>
               <Text style={[s.modalTitle, { color: C.text, fontFamily: Font.bold }]}>Add Category</Text>
@@ -376,11 +401,17 @@ export default function CategoriesSettingsScreen() {
 const makeStyles = () => StyleSheet.create({
   safe: { flex: 1 },
 
-  header:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14 },
-  backBtn:      { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14 },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle:  { fontSize: 17, color: '#fff', lineHeight: 24 },
-  headerSub:    { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
+  headerTitle: { fontSize: 17, color: '#fff', lineHeight: 24 },
+  headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
+
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1 },
+  toggleIconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  toggleBody: { flex: 1 },
+  toggleLabel: { fontSize: 14, lineHeight: 20 },
+  toggleSub: { fontSize: 11, lineHeight: 16, marginTop: 1 },
 
   searchWrap: { paddingVertical: 10, borderBottomWidth: 1 },
 
@@ -392,17 +423,17 @@ const makeStyles = () => StyleSheet.create({
     borderRadius: 50, paddingVertical: 6, paddingLeft: 6, paddingRight: 10,
     borderWidth: 1.5,
   },
-  avatar:   { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  avatar: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   cardBody: { flex: 1 },
   cardName: { fontSize: 14, lineHeight: 20, marginBottom: 2 },
-  cardSub:  { fontSize: 12, lineHeight: 18 },
+  cardSub: { fontSize: 12, lineHeight: 18 },
 
   balancePill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
   balanceText: { fontSize: 13, lineHeight: 18 },
 
-  empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 60 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 60 },
   emptyTitle: { fontSize: 17, lineHeight: 26 },
-  emptySub:   { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 240 },
+  emptySub: { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 240 },
 
   fabWrap: {
     position: 'absolute', bottom: 24, right: 24,
@@ -411,18 +442,18 @@ const makeStyles = () => StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.18, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10,
   },
   fabGlow: { position: 'absolute', width: 56, height: 56, borderRadius: 28 },
-  fab:     { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  fab: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   fabArrow: { position: 'absolute', bottom: 38, right: 88, flexDirection: 'row', alignItems: 'center', gap: -6 },
 
   // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalSheet:   { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
-  modalHandle:  { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  modalTitle:   { fontSize: 17, lineHeight: 26 },
+  modalSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12 },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  modalTitle: { fontSize: 17, lineHeight: 26 },
 
-  modalInput:   { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 22, marginBottom: 16 },
+  modalInput: { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 22, marginBottom: 16 },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  modalBtn:     { flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  modalBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   modalBtnText: { fontSize: 15, lineHeight: 22 },
 });
