@@ -121,7 +121,14 @@ const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark, groupe
         {item.category ? (
           <Text style={s.entryCategory} numberOfLines={1}>{item.category}</Text>
         ) : null}
-        <Text style={s.entryMeta}>Entry by You  ·  {fmt12h(item.entry_time)}</Text>
+        <View style={s.entryMetaRow}>
+          <Text style={s.entryMeta}>Entry by You  ·  {fmt12h(item.entry_time)}</Text>
+          {item.attachment_url ? (
+            <View style={[s.attachDot, { backgroundColor: C.primaryLight }]}>
+              <Feather name="paperclip" size={9} color={C.primary} />
+            </View>
+          ) : null}
+        </View>
       </View>
       <Text
         style={[s.entryAmount, { color: item.type === 'in' ? C.cashIn : C.danger }]}
@@ -1214,7 +1221,9 @@ const makeStyles = (C, Font) => StyleSheet.create({
     fontSize: 10, fontFamily: Font.regular, color: C.textMuted,
     lineHeight: 15, marginBottom: 1,
   },
+  entryMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   entryMeta: { fontSize: 10, fontFamily: Font.regular, color: C.textMuted, lineHeight: 15 },
+  attachDot: { borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2 },
   entryAmount: { fontSize: 13, fontFamily: Font.medium, lineHeight: 19, minWidth: 66, textAlign: 'right' },
 
   // Only You

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
-  ScrollView, ActivityIndicator, Modal, Animated,
+  ScrollView, ActivityIndicator, Modal, Animated, Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -69,6 +69,8 @@ const EntryForm = forwardRef(function EntryForm(
     if (!p) return null;
     return p.endsWith('.pdf') ? 'pdf' : 'image';
   });
+
+  const [showAttachViewer, setShowAttachViewer] = useState(false);
 
   // Attach picker sheet + inline error state
   const [showAttachPicker, setShowAttachPicker] = useState(false);
@@ -284,6 +286,14 @@ const EntryForm = forwardRef(function EntryForm(
 
   const attachDisplayUri = attachmentLocalUri || attachmentUrl;
 
+  const handleViewAttachment = () => {
+    if (attachmentType === 'image') {
+      setShowAttachViewer(true);
+    } else if (attachDisplayUri) {
+      Linking.openURL(attachDisplayUri);
+    }
+  };
+
   const ATTACH_OPTIONS = [
     { icon: 'camera',    label: 'Camera',       sub: 'Take a new photo',         onPress: pickCamera  },
     { icon: 'image',     label: 'Gallery',       sub: 'Choose from your gallery', onPress: pickGallery  },
@@ -426,6 +436,9 @@ const EntryForm = forwardRef(function EntryForm(
                     Tap to change
                   </Text>
                 </View>
+                <TouchableOpacity onPress={handleViewAttachment} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={{ marginRight: 8 }}>
+                  <Feather name="eye" size={18} color={C.primary} />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={handleRemove} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <Feather name="x" size={18} color={C.textMuted} />
                 </TouchableOpacity>
@@ -556,6 +569,23 @@ const EntryForm = forwardRef(function EntryForm(
           </Animated.View>
         </View>
       </Modal>
+
+      {/* ── Image Viewer Modal ──────────────────────────────────────────────── */}
+      {showAttachViewer && (
+        <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={() => setShowAttachViewer(false)}>
+          <View style={s.viewerBg}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowAttachViewer(false)} />
+            <TouchableOpacity style={s.viewerClose} onPress={() => setShowAttachViewer(false)} activeOpacity={0.8}>
+              <Feather name="x" size={20} color="#fff" />
+            </TouchableOpacity>
+            <Image
+              source={{ uri: attachDisplayUri }}
+              style={s.viewerImage}
+              resizeMode="contain"
+            />
+          </View>
+        </Modal>
+      )}
 
       {/* ── Other modals ────────────────────────────────────────────────────── */}
       <CategoryPickerModal
@@ -716,4 +746,19 @@ const makeStyles = (C, Font) => StyleSheet.create({
     borderRadius: 14, alignItems: 'center',
   },
   pickerCancelText: { fontSize: 15 },
+
+  // ── Attachment full-screen viewer ────────────────────────────────────────────
+  viewerBg: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.94)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  viewerClose: {
+    position: 'absolute', top: 56, right: 20, zIndex: 20,
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  viewerImage: {
+    width: '92%', height: '75%', borderRadius: 8,
+  },
 });

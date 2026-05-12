@@ -61,7 +61,7 @@ export default function DeleteContactSheet({
     Keyboard.dismiss();
     animateClose(onDismiss);
   };
-  const matched = input.trim() === contactName?.trim();
+  const matched = !!contactName?.trim() && input.trim().toLowerCase() === contactName.trim().toLowerCase();
 
   if (!visible) return null;
 

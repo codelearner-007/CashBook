@@ -14,6 +14,22 @@ Each sub-folder has its own `CLAUDE.md` with detailed, up-to-date logic for that
 | Backend | [backend/CLAUDE.md](backend/CLAUDE.md) | Endpoints, Pydantic models, auth middleware, DB patterns |
 | Supabase | [supabase/CLAUDE.md](supabase/CLAUDE.md) | Schema, RLS, Storage, Auth setup, migrations |
 
+## App Skeleton (click-by-click use-case map)
+
+**File:** [skeleton.md](skeleton.md)
+
+This file documents every screen, every button, every navigation flow, every API call triggered, and every error/loading state in the app. It is the single reference for "what happens when I tap X."
+
+**Rule: Update [skeleton.md](skeleton.md) whenever any of the following change:**
+- A screen gains or loses a button, tab, or modal
+- A button's action changes (different navigation target, different API call, new behavior)
+- A new screen is added or an existing screen is removed
+- A feature moves from TODO/skeleton to implemented
+- Navigation routes change
+- An error or loading state is added or removed
+
+Update the relevant section(s) only — do not rewrite unrelated sections.
+
 ---
 
 ## Project Identity

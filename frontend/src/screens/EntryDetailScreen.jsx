@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Pressable,
-  StatusBar, ScrollView, Alert,
+  StatusBar, ScrollView, Alert, Image, Linking,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -10,6 +10,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { apiGetEntries, apiDeleteEntry } from '../lib/api';
 import { ChevronLeftIcon, PencilIcon, DotsVerticalIcon, TrashIcon, CloudIcon } from '../components/ui/Icons';
+import { Feather } from '@expo/vector-icons';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export default function EntryDetailScreen() {
   const qc = useQueryClient();
 
   const [showMenu, setShowMenu] = useState(false);
+  const [showAttachViewer, setShowAttachViewer] = useState(false);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['entries', id],
@@ -83,6 +85,7 @@ export default function EntryDetailScreen() {
   const typeColor      = isIn ? C.cashIn : C.danger;
   const typeBg         = isIn ? C.cashInLight : C.dangerLight;
   const categoryDeleted = !!(entry?.category && !entry?.category_id);
+  const attachType = entry?.attachment_path?.endsWith('.pdf') ? 'pdf' : (entry?.attachment_url ? 'image' : null);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -135,7 +138,60 @@ export default function EntryDetailScreen() {
               </View>
             </View>
 
+            {/* Attachment card */}
+            {attachType && (
+              <View style={[s.attachCard, { backgroundColor: C.card, borderColor: C.border }]}>
+                {attachType === 'image' ? (
+                  <Image source={{ uri: entry.attachment_url }} style={s.attachThumb} resizeMode="cover" />
+                ) : (
+                  <View style={[s.attachPdfIcon, { backgroundColor: C.dangerLight }]}>
+                    <Feather name="file-text" size={20} color={C.danger} />
+                  </View>
+                )}
+                <View style={s.attachBody}>
+                  <Text style={[s.attachName, { color: C.text, fontFamily: Font.semiBold }]} numberOfLines={1}>
+                    {attachType === 'pdf'
+                      ? (entry.attachment_path?.split('/').pop() || 'Document.pdf')
+                      : 'Attached Photo'}
+                  </Text>
+                  <Text style={[s.attachSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+                    {attachType === 'pdf' ? 'PDF Document' : 'Image'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[s.viewBtn, { backgroundColor: C.primaryLight }]}
+                  onPress={() => {
+                    if (attachType === 'image') {
+                      setShowAttachViewer(true);
+                    } else {
+                      Linking.openURL(entry.attachment_url);
+                    }
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[s.viewBtnText, { color: C.primary, fontFamily: Font.semiBold }]}>View</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
           </ScrollView>
+
+          {/* Image viewer modal */}
+          {showAttachViewer && (
+            <Modal visible transparent statusBarTranslucent animationType="fade" onRequestClose={() => setShowAttachViewer(false)}>
+              <View style={s.viewerBg}>
+                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowAttachViewer(false)} />
+                <TouchableOpacity style={s.viewerClose} onPress={() => setShowAttachViewer(false)} activeOpacity={0.8}>
+                  <Feather name="x" size={20} color="#fff" />
+                </TouchableOpacity>
+                <Image
+                  source={{ uri: entry?.attachment_url }}
+                  style={s.viewerImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </Modal>
+          )}
 
           {/* Bottom bar — Edit only */}
           <View style={s.bottomBar}>
@@ -233,4 +289,31 @@ const makeStyles = (C, Font) => StyleSheet.create({
   },
   menuItemText: { fontSize: 14, lineHeight: 20 },
   menuDivider:  { height: 1, marginHorizontal: 0 },
+
+  // Attachment card
+  attachCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 16, borderWidth: 1,
+    paddingVertical: 10, paddingHorizontal: 12,
+  },
+  attachThumb:   { width: 52, height: 52, borderRadius: 10 },
+  attachPdfIcon: { width: 52, height: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  attachBody:    { flex: 1 },
+  attachName:    { fontSize: 14, lineHeight: 20 },
+  attachSub:     { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  viewBtn:       { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  viewBtnText:   { fontSize: 13, lineHeight: 18 },
+
+  // Full-screen image viewer
+  viewerBg: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.94)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  viewerClose: {
+    position: 'absolute', top: 56, right: 20, zIndex: 20,
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  viewerImage: { width: '92%', height: '75%', borderRadius: 8 },
 });

@@ -27,7 +27,7 @@ const getInitials = (str = '') =>
 
 const fmtLastEntry = (iso) => {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = new Date(iso.replace(/:(\d{2})$/, ''));
   if (isNaN(d.getTime())) return null;
   const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });

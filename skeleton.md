@@ -1,0 +1,764 @@
+# CashBook — Full App Skeleton & Use-Case Reference
+
+This file is the authoritative click-by-click use-case map of the CashBook app.
+**Every time any screen, component, or navigation flow changes, update this file.**
+
+---
+
+## Navigation Overview
+
+```
+App Start
+  └─ app/index.jsx → redirect to /(auth)/login
+
+/(auth)/login         LoginScreen
+/(app)/books          BooksScreen          [role: user]
+/(app)/dashboard      AdminUsersScreen     [role: superadmin]  ← lands here
+/(app)/books/[id]                          BookDetailScreen
+/(app)/books/[id]/add-entry               AddEntryScreen
+/(app)/books/[id]/edit-entry              EditEntryScreen
+/(app)/books/[id]/entry-detail            EntryDetailScreen
+/(app)/books/[id]/category-detail         CategoryDetailScreen
+/(app)/books/[id]/reports                 ReportsScreen
+/(app)/books/[id]/book-settings           BookSettingsScreen
+/(app)/settings                           SettingsScreen
+/(app)/settings/profile                   ProfileScreen
+/(app)/settings/business                  BusinessSettingsScreen
+/(app)/settings/currency                  CurrencyScreen
+/(app)/dashboard/users                    AdminUsersScreen     [superadmin]
+/(app)/dashboard/books                    AdminBooksScreen     [superadmin]
+/(app)/dashboard/settings                 SettingsScreen       [superadmin]
+```
+
+**Auth Guard logic** (`app/_layout.jsx`):
+- After login, reads `user.role` from `authStore`
+- `role === 'superadmin'` → push `/(app)/dashboard/users`
+- `role === 'user'` → push `/(app)/books`
+- On `SIGNED_OUT` event → push `/(auth)/login`
+
+---
+
+## 1. LoginScreen — `/(auth)/login`
+
+**Purpose:** Authenticate user via Google OAuth or Email OTP.
+
+### UI Elements
+
+| Element | Action | Result |
+|---|---|---|
+| "Continue with Google" button | Tap | `supabase.auth.signInWithOAuth({ provider: 'google' })` — opens browser OAuth flow |
+| "Continue with Email" button | Tap | Opens EmailModal (Step 1) |
+
+### EmailModal — Step 1 (Email input)
+| Element | Action | Result |
+|---|---|---|
+| Email input | Type | Updates local state |
+| "Send OTP" / "Continue" button | Tap | `supabase.auth.signInWithOtp({ email })` → advances to OTP step |
+| Close / Back | Tap | Closes modal |
+
+### EmailModal — Step 2 (OTP verification)
+| Element | Action | Result |
+|---|---|---|
+| 6-digit OTP input | Type | Updates local state |
+| "Verify" button | Tap | `supabase.auth.verifyOtp({ email, token, type: 'email' })` |
+| "Resend OTP" | Tap | Re-calls `signInWithOtp` |
+
+### After Successful Login
+1. `SupabaseAuthListener` detects `SIGNED_IN` event
+2. Fetches profile from `GET /api/v1/profile`
+3. Stores in `authStore` (`setUser(profile, session)`)
+4. `AuthGuard` redirects based on role
+
+### Error States
+- Invalid OTP → toast "Invalid OTP, please try again"
+- Network error → toast with error message
+- Inactive account → toast "Account disabled. Contact admin."
+
+---
+
+## 2. BooksScreen — `/(app)/books` (role: user)
+
+**Component:** `BooksScreen.jsx` → delegates entirely to `BooksView.jsx`
+
+### Header Row
+| Element | Action | Result |
+|---|---|---|
+| "Personal Workspace ▾" title | Tap | (No action — display only) |
+| Theme toggle (moon/sun icon) | Tap | `toggleTheme()` — switches dark/light mode globally |
+| Avatar (top-right) | Tap | Navigate to `/(app)/settings` |
+
+### Search Bar
+| Element | Action | Result |
+|---|---|---|
+| Search input | Type | Filters books list by name (client-side, instant) |
+| Clear (✕) button | Tap | Clears search query |
+
+### Sort Button / Sort Sheet
+| Element | Action | Result |
+|---|---|---|
+| Sort label / icon | Tap | Opens `SortSheet` bottom sheet |
+| **Last Updated** option | Tap | Sorts by `updated_at` descending |
+| **Created At** option | Tap | Sorts by `created_at` descending |
+| **Alphabetical** option | Tap | Sorts A→Z by book name |
+| **Drag to Reorder** option | Tap | Activates drag-handle on each card |
+
+### Book Card
+| Element | Action | Result |
+|---|---|---|
+| Card body | Tap | Navigate to `/(app)/books/[id]` (BookDetailScreen) |
+| ⋮ (3-dot menu) | Tap | Opens `BookMenu` bottom sheet |
+
+### BookMenu Bottom Sheet
+| Element | Action | Result |
+|---|---|---|
+| **Rename** | Tap | Opens rename modal with current name pre-filled |
+| **Delete** | Tap | Opens delete confirmation modal |
+| Dismiss / drag down | — | Closes sheet |
+
+#### Rename Modal
+| Element | Action | Result |
+|---|---|---|
+| Name input | Edit | Updates new name state |
+| "Save" / confirm button | Tap | `useRenameBook().mutate({ bookId, name })` → optimistic update + refetch |
+| Cancel | Tap | Closes modal without saving |
+
+#### Delete Confirmation Modal
+| Element | Action | Result |
+|---|---|---|
+| "Delete" confirm button | Tap | `useDeleteBook().mutate(bookId)` → optimistic removal → `DELETE /api/v1/books/:id` → refetch |
+| Cancel | Tap | Closes modal |
+
+### FAB ("+ Add New Book")
+| Element | Action | Result |
+|---|---|---|
+| FAB button | Tap | Opens "Add New Book" modal |
+
+#### Add New Book Modal
+| Element | Action | Result |
+|---|---|---|
+| Book name input | Type | Updates `newBookName` state |
+| "Create" button | Tap | `useCreateBook().mutate({ name })` → optimistic prepend → `POST /api/v1/books` → refetch |
+| Cancel / close | Tap | Closes modal, clears input |
+
+### Bottom Navigation Bar
+| Tab | Action | Result |
+|---|---|---|
+| **Cashbooks** (active) | Tap | Already on this screen |
+| **Help** | Tap | (TODO — no-op or placeholder) |
+| **Settings** | Tap | Navigate to `/(app)/settings` |
+
+### Loading / Error / Empty States
+| State | Display |
+|---|---|
+| Loading | Skeleton cards (animated placeholders) |
+| Error | Error message + "Retry" button → re-triggers `useBooks()` |
+| Empty (no books) | Empty state illustration + "Create your first book" |
+| Empty search results | "No books match your search" |
+
+---
+
+## 3. AdminBooksScreen — `/(app)/dashboard/books` (role: superadmin)
+
+**Identical to BooksScreen** with these differences:
+- Header shows "Admin Workspace" instead of "Personal Workspace"
+- No bottom nav bar (FAB is at `bottom: 16` instead of above nav)
+- Book links go to `/(app)/dashboard/books/[id]` via `bookBasePath`
+
+All interactions, mutations, states, and API calls are identical to BooksScreen.
+
+---
+
+## 4. AdminUsersScreen — `/(app)/dashboard/users` (role: superadmin)
+
+**Layout:** This is the default landing for superadmin. Three tabs at the top (Expo `<Tabs>`):
+- **Users** (this screen)
+- **My Books** → AdminBooksScreen
+- **Settings** → SettingsScreen
+
+### Header Row
+| Element | Action | Result |
+|---|---|---|
+| Avatar (top-left) | Tap | Navigate to admin profile screen |
+| "Dashboard" title | — | Display only |
+| SuperAdmin badge (animated sparks) | — | Display only |
+| Theme toggle | Tap | `toggleTheme()` |
+
+### Stats Row (auto-refreshed every 10 s)
+- Total Users count + active sub-count
+- Total Books count
+- Storage used
+
+### Search Bar
+| Element | Action | Result |
+|---|---|---|
+| Search input | Type | Filters user list by name or email (client-side) |
+| Clear (✕) | Tap | Clears query |
+
+### Segmented Filter (All / Active / Inactive)
+| Tab | Action | Result |
+|---|---|---|
+| **All** | Tap | Shows all non-superadmin users |
+| **Active** | Tap | Shows only active users |
+| **Inactive** | Tap | Shows only inactive users |
+Each tab shows count badge.
+
+### User Card
+| Element | Action | Result |
+|---|---|---|
+| Card | Tap | Opens **User Detail Modal** |
+
+### User Detail Modal
+| Element | Action | Result |
+|---|---|---|
+| Avatar, name, email | — | Display only |
+| Stats: Books / Entries / Storage | — | Display only |
+| Status pill (Active / Inactive) | — | Display only |
+| **Account Status toggle** | Tap | Opens **Confirm Status Change Modal** |
+| Close / backdrop tap | Tap | Closes modal |
+
+### Confirm Status Change Modal
+| Element | Action | Result |
+|---|---|---|
+| "Activate" or "Deactivate" button | Tap | `PATCH /api/v1/admin/users/:id/status` → optimistic cache update + refetch |
+| Cancel | Tap | Closes confirmation, no change |
+
+### Polling
+- `GET /api/v1/admin/users` is called every **10 seconds** while screen is focused
+- New users appear automatically without manual refresh
+
+### Error / Empty States
+| State | Display |
+|---|---|
+| Loading | Skeleton rows |
+| Error | Error text + retry |
+| Empty search | "No users found" |
+| No users | "No users registered yet" |
+
+---
+
+## 5. BookDetailScreen — `/(app)/books/[id]`
+
+**Purpose:** View and manage all entries in a single book.
+
+### Header Row
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back to BooksScreen |
+| Book name (title) | — | Display only |
+| User-plus icon | Tap | (TODO — invite collaborator, not yet implemented) |
+| ⋮ (3-dot menu) | Tap | Opens dropdown menu |
+
+### Dropdown Menu
+| Option | Action | Result |
+|---|---|---|
+| **Book Settings** | Tap | Navigate to `/(app)/books/[id]/book-settings` |
+| **Delete All Entries** | Tap | Opens `DeleteAllEntriesSheet` confirmation sheet |
+
+### DeleteAllEntriesSheet
+| Element | Action | Result |
+|---|---|---|
+| Entry count display | — | Shows "X entries will be deleted" |
+| "Delete All" confirm | Tap | `DELETE /api/v1/books/:id/entries` (all) → success dialog |
+| Cancel / drag down | — | Closes sheet |
+
+### Search Bar
+| Element | Action | Result |
+|---|---|---|
+| Search input | Type | Filters entries by remark or amount (client-side) |
+| Clear (✕) | Tap | Clears search |
+
+### Filter Chips Row
+Each chip shows the active filter (or default label). Tap to open picker.
+
+| Chip | Picker Options | Applies |
+|---|---|---|
+| **Date** | Today / Yesterday / This Week / This Month / Custom range | Filters by `entry_date` |
+| **Entry Type** | Cash In / Cash Out | Filters by `type` |
+| **Contact** | List of Customers & Suppliers | Filters by `customer_id` or `supplier_id` |
+| **Category** | List of book categories | Filters by `category_id` |
+| **Payment Mode** | Cash / Online / Cheque / Other | Filters by `payment_mode` |
+
+Active filter chips show a colored indicator. Tap active chip → clears that filter.
+
+### Balance Summary Card
+| Element | Action | Result |
+|---|---|---|
+| Net Balance | — | Display only (from `books.net_balance`) |
+| Total In | — | Display only (from summary) |
+| Total Out | — | Display only (from summary) |
+| **"VIEW REPORTS"** button | Tap | Navigate to `/(app)/books/[id]/reports` |
+
+### Entry List (grouped by date)
+Sections collapsed/expanded per date.
+
+| Element | Action | Result |
+|---|---|---|
+| Date section header | Tap | Toggles collapse/expand for that date group |
+| Entry card | Tap | Navigate to `/(app)/books/[id]/entry-detail` with entry data |
+| Entry card | Long press | Alert: "Delete this entry?" → confirm → `DELETE /api/v1/books/:id/entries/:entry_id` |
+
+#### Entry Card displays:
+- Payment mode badge (Cash / Online / Cheque / Other)
+- Remark text
+- Category name (if set)
+- Time
+- Amount (green = Cash In, red = Cash Out)
+
+### Sticky Action Buttons (bottom)
+| Button | Action | Result |
+|---|---|---|
+| **CASH IN** | Tap | Navigate to `/(app)/books/[id]/add-entry?type=in` |
+| **CASH OUT** | Tap | Navigate to `/(app)/books/[id]/add-entry?type=out` |
+
+### Loading / Error / Empty States
+| State | Display |
+|---|---|
+| Loading entries | Skeleton list |
+| Error | Error message + retry |
+| Empty book | "No entries yet. Add your first entry." |
+| Empty filter result | "No entries match your filters" with clear-filters button |
+
+---
+
+## 6. AddEntryScreen — `/(app)/books/[id]/add-entry`
+
+**Purpose:** Create a new Cash In or Cash Out entry.
+
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back to BookDetailScreen |
+| "Cash In" or "Cash Out" title | — | Derived from route param `type` |
+
+### EntryForm Fields
+
+| Field | Visibility | Behavior |
+|---|---|---|
+| **Amount** | Always | Auto-focused; numeric keyboard; required |
+| **Remark** | Always | Optional text; max length not enforced |
+| **Category** | If `book.show_category = true` | Tap → opens CategoryPickerModal |
+| **Customer / Supplier** | If `book.show_customer` or `book.show_supplier` | Tap → opens ContactPickerModal |
+| **Payment Mode** | Always | Tap → opens dropdown; **required** |
+| **Date** | Always | Tap → opens DatePickerModal (defaults today) |
+| **Time** | Always | Tap → opens TimePickerModal (defaults now) |
+| **Attachment** | If `book.show_attachment = true` | Tap → opens attachment picker sheet |
+
+#### CategoryPickerModal
+| Element | Action | Result |
+|---|---|---|
+| Search input | Type | Filters categories by name |
+| Category row | Tap | Selects category, closes modal |
+| "+ Create Category" | Tap | Creates category inline + selects it |
+
+#### ContactPickerModal
+| Tab | Content |
+|---|---|
+| **Customers** | List of customers for this book |
+| **Suppliers** | List of suppliers for this book |
+
+| Element | Action | Result |
+|---|---|---|
+| Search input | Type | Filters contacts by name or phone |
+| Contact row | Tap | Selects contact, closes modal |
+| "+ Add Customer/Supplier" | Tap | Navigates to contact creation screen |
+
+#### Attachment Picker Sheet
+| Option | Action | Result |
+|---|---|---|
+| **Take Photo** | Tap | Opens device camera; captured image is compressed (1000 px wide, 0.55 JPEG quality) |
+| **Choose from Gallery** | Tap | Opens image picker; image compressed same way |
+| **Choose PDF / Document** | Tap | Opens file picker; PDF uploaded as-is |
+| Max size | — | 6 MB limit; over-limit shows toast error |
+
+### Save Button
+| State | Behavior |
+|---|---|
+| Disabled | While save is in progress |
+| Enabled | Tap → validates form (amount + payment mode required) → `POST /api/v1/books/:id/entries` → on success navigate back |
+
+### Error States
+- Amount missing → inline validation error "Amount is required"
+- Payment mode missing → inline validation error
+- Attachment > 6 MB → toast "File too large (max 6 MB)"
+- API error → toast with server message
+
+---
+
+## 7. EditEntryScreen — `/(app)/books/[id]/edit-entry`
+
+**Purpose:** Edit an existing entry; pre-fills EntryForm with current values.
+
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back |
+| "Edit Entry" title | — | Display |
+| Trash icon | Tap | Opens animated DeleteSheet |
+
+### EntryForm
+- Same fields as AddEntryScreen
+- `showTypeToggle = true` → user can switch type between In/Out
+- Pre-filled from entry data passed via navigation params
+- If linked contact was deleted → contact field shows "(deleted)" + form disabled
+- If linked category was deleted → category shows "(deleted)"
+
+### Update Button
+| State | Behavior |
+|---|---|
+| Disabled | If contact or category is deleted, or while saving |
+| Enabled | Tap → validate → `PUT /api/v1/books/:id/entries/:entry_id` → navigate back on success |
+
+### Delete Sheet (animated bottom sheet)
+| Element | Action | Result |
+|---|---|---|
+| "Delete Entry" button | Tap | Alert confirm → `DELETE /api/v1/books/:id/entries/:entry_id` → navigate back |
+| Cancel | Tap | Closes sheet |
+
+---
+
+## 8. EntryDetailScreen — `/(app)/books/[id]/entry-detail`
+
+**Purpose:** Read-only view of a single entry with all details.
+
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back |
+| "Entry Detail" title | — | Display |
+| ⋮ (3-dot menu) | Tap | Opens dropdown |
+
+### Dropdown Menu
+| Option | Action | Result |
+|---|---|---|
+| **Backup Entry** | Tap | (TODO — not implemented) |
+| **Delete Entry** | Tap | Alert "Delete this entry?" → confirm → `DELETE` → navigate back |
+
+### Amount Card
+- Large amount display with +/− sign
+- Type badge (CASH IN / CASH OUT)
+- Date and time
+
+### Detail Rows
+| Row | Content |
+|---|---|
+| Remark | Entry remark text |
+| Category | Category name (or "—" if none) |
+| Payment Mode | Mode name |
+| Customer / Supplier | Contact name (or "—") |
+| Date | Formatted date |
+| Time | Formatted time |
+| Entry by | User's name |
+
+### Attachment Card (shown only if attachment exists)
+| Element | Action | Result |
+|---|---|---|
+| Image thumbnail | Tap | Opens full-screen image viewer modal |
+| PDF icon | Tap | Opens PDF URL in system browser / viewer |
+| "View" button | Tap | Same as tapping thumbnail/icon |
+
+### Image Viewer Modal
+| Element | Action | Result |
+|---|---|---|
+| Full-screen image | Pinch/zoom | Zoom in/out |
+| Close (✕) button | Tap | Closes modal |
+
+### Bottom Bar
+| Button | Action | Result |
+|---|---|---|
+| **"Edit Entry"** | Tap | Navigate to `/(app)/books/[id]/edit-entry` with entry data |
+
+---
+
+## 9. CategoryDetailScreen — `/(app)/books/[id]/category-detail`
+
+**Purpose:** View all entries belonging to one category within a book.
+
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back |
+| Category name | — | Display |
+| "Category Balance" | — | Display |
+
+### Summary Card
+- Cash In total
+- Net Balance
+- Cash Out total
+
+### Search Bar
+| Element | Action | Result |
+|---|---|---|
+| Search input | Type | Filters entries by remark, payment mode, or amount |
+| Clear | Tap | Clears search |
+
+### Entry List (grouped by date, collapsible)
+| Element | Action | Result |
+|---|---|---|
+| Date section header | Tap | Toggles collapse/expand |
+| Entry card | Tap | Navigate to EntryDetailScreen |
+
+#### Entry Card displays:
+- Left color border (green = in, red = out)
+- Payment mode badge
+- Remark
+- Meta (category, time)
+- Amount
+
+### Loading / Empty States
+| State | Display |
+|---|---|
+| Loading | Skeleton |
+| Empty | "No entries in this category" |
+
+---
+
+## 10. ReportsScreen — `/(app)/books/[id]/reports`
+
+**Status: Skeleton — not yet fully implemented.**
+
+### Filter Tabs
+| Tab | Action |
+|---|---|
+| This Month | Loads current month data |
+| Last Month | Loads previous month data |
+| Last 3 Months | Loads rolling 3-month data |
+| Custom | Opens date range picker |
+
+### Summary Cards (static skeleton)
+- Income total
+- Expenses total
+- Net Balance
+
+### Bar Chart
+- Income vs Expenses bar chart (Chart.js / Victory Native)
+- Grouped by month
+
+### Recent Entries Preview
+- Top 5 entries (most recent)
+
+### Export Buttons (TODO)
+| Button | Intended Action |
+|---|---|
+| **Export PDF** | `GET /api/v1/books/:id/reports/pdf` → download file |
+| **Export Excel** | `GET /api/v1/books/:id/reports/excel` → download file |
+
+---
+
+## 11. BookSettingsScreen — `/(app)/books/[id]/book-settings`
+
+**Purpose:** Configure which fields are visible in the EntryForm for this book.
+
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back |
+| Book name | — | Display |
+
+### Field Visibility Toggles
+Each toggle calls `PATCH /api/v1/books/:id/field-settings` on change.
+
+| Toggle | Controls |
+|---|---|
+| Show Category | Hides/shows category picker in EntryForm |
+| Show Customer | Hides/shows contact picker (customer tab) |
+| Show Supplier | Hides/shows contact picker (supplier tab) |
+| Show Attachment | Hides/shows attachment picker in EntryForm |
+
+### Tabs in BookSettingsScreen
+BookSettingsScreen has multiple tabs:
+
+| Tab | Content |
+|---|---|
+| **Fields** | Toggle field visibility (above) |
+| **Categories** | List all categories; add / rename / delete |
+| **Customers** | List all customers; add / edit / delete |
+| **Suppliers** | List all suppliers; add / edit / delete |
+| **Payment Modes** | List payment modes; add / reorder / delete |
+
+#### Categories Tab
+| Element | Action | Result |
+|---|---|---|
+| "+ Add Category" | Tap | Opens add-category modal |
+| Category row ⋮ | Tap | Opens `CategoryMenuSheet` (Rename / Delete) |
+| **Rename** | Tap | Inline rename input + save |
+| **Delete** | Tap | Opens `DeleteCategorySheet` confirm → `DELETE /api/v1/books/:id/categories/:id` |
+
+#### Customers / Suppliers Tabs
+| Element | Action | Result |
+|---|---|---|
+| "+ Add Contact" | Tap | Opens add-contact form |
+| Contact row | Tap | Opens contact detail / edit screen |
+| Contact row ⋮ | Tap | Opens `ContactMenuSheet` (Edit / Delete) |
+| **Delete** | Tap | Opens `DeleteContactSheet` confirm → `DELETE` |
+
+---
+
+## 12. SettingsScreen — `/(app)/settings`
+
+Used by both regular users (bottom nav) and superadmin (dashboard Settings tab).
+
+### Avatar Card
+| Element | Action | Result |
+|---|---|---|
+| Avatar / initials | — | Display only |
+| Full name | — | Display only |
+| Email | — | Display only |
+| **"Edit Profile"** button | Tap | Navigate to `/(app)/settings/profile` |
+
+### Account Section
+| Row | Action | Result |
+|---|---|---|
+| **Profile** | Tap | Navigate to `/(app)/settings/profile` |
+| **Business Settings** | Tap | Navigate to `/(app)/settings/business` |
+| **Currency** | Tap | Navigate to `/(app)/settings/currency` |
+
+### App Section (all TODO)
+| Row | Intended Action |
+|---|---|
+| Notifications | Open notification preferences |
+| Privacy & Security | Open privacy settings |
+| Backup & Sync | Open backup settings |
+| Language | Open language picker |
+
+### Support Section (all TODO)
+| Row | Intended Action |
+|---|---|
+| Help & FAQ | Open help center |
+| Rate the App | Open app store rating |
+| Share App | Open OS share sheet |
+
+### Logout
+| Element | Action | Result |
+|---|---|---|
+| **Logout** button / row | Tap | Alert "Are you sure?" → confirm → `supabase.auth.signOut()` + `clearUser()` → redirect to `/login` |
+
+---
+
+## 13. ProfileScreen — `/(app)/settings/profile`
+
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back |
+| "Profile" title | — | Display |
+
+### Avatar Card (overlapping top)
+| Element | Action | Result |
+|---|---|---|
+| Avatar image or initials | Tap | Opens **Photo Picker Sheet** |
+| Camera icon (overlay) | Tap | Opens Photo Picker Sheet |
+
+### Photo Picker Sheet
+| Option | Action | Result |
+|---|---|---|
+| **View Photo** | Tap | Opens image viewer modal (full-screen) |
+| **Take Photo** | Tap | Opens camera → captured image uploaded via `useUploadAvatar()` |
+| **Choose from Gallery** | Tap | Opens image library → selected image uploaded |
+| Cancel | Tap | Closes sheet |
+
+### Form Fields
+| Field | Editable | Validation |
+|---|---|---|
+| Full Name | Yes | Required, non-empty |
+| Email | No (read-only) | Shows "Verified" badge |
+| Phone Number | Yes | Optional |
+
+### Update Button
+| State | Behavior |
+|---|---|
+| Disabled | No changes made or save in progress |
+| Enabled | Tap → `useUpdateProfile().mutate(...)` → `PUT /api/v1/profile` → success toast |
+
+### Image Viewer Modal
+| Element | Action | Result |
+|---|---|---|
+| Full-screen photo | — | Display current avatar |
+| Close (✕) | Tap | Closes modal |
+
+### Loading State
+- Skeleton loader while profile is fetching
+
+---
+
+## 14. BusinessSettingsScreen — `/(app)/settings/business`
+
+Allows user to set their business/company details (name, address, logo, etc.).
+Used for PDF report headers.
+*(Detailed use-case: populate when screen is implemented)*
+
+---
+
+## 15. CurrencyScreen — `/(app)/settings/currency`
+
+Allows user to set their preferred currency symbol.
+*(Detailed use-case: populate when screen is implemented)*
+
+---
+
+## EntryForm Component (shared: AddEntry + EditEntry)
+
+`src/components/entry/EntryForm.jsx`
+
+This component is used in both AddEntryScreen and EditEntryScreen. It exposes a `ref` with:
+- `getValues()` — returns all form field values
+- `validate()` — returns `true` if form passes validation
+
+### Field render conditions
+| Field | Renders when |
+|---|---|
+| Type toggle (In/Out) | `showTypeToggle` prop is `true` (EditEntry only) |
+| Category picker | `book.show_category === true` |
+| Contact picker | `book.show_customer === true` OR `book.show_supplier === true` |
+| Attachment picker | `book.show_attachment === true` |
+| Payment Mode | Always |
+| Amount | Always |
+| Remark | Always |
+| Date | Always |
+| Time | Always |
+
+### Attachment rules
+- Images: compressed to 1000 px wide, 0.55 JPEG quality before upload
+- PDFs: uploaded as-is
+- Max 6 MB per file; over-limit → toast error, file not attached
+- Upload API: `POST /api/v1/upload/attachment` → returns `{ url, path }`
+- Delete old attachment on edit: `DELETE /api/v1/upload/attachment` before saving new one
+
+---
+
+## Known TODOs / Incomplete Features
+
+| Feature | Screen | Status |
+|---|---|---|
+| Backup Entry | EntryDetailScreen ⋮ menu | Not implemented |
+| Export PDF | ReportsScreen | Not implemented |
+| Export Excel | ReportsScreen | Not implemented |
+| Invite collaborator | BookDetailScreen user-plus icon | Not implemented |
+| Notifications settings | SettingsScreen | Not implemented |
+| Privacy & Security | SettingsScreen | Not implemented |
+| Backup & Sync | SettingsScreen | Not implemented |
+| Language picker | SettingsScreen | Not implemented |
+| Help & FAQ | SettingsScreen | Not implemented |
+| Rate the App | SettingsScreen | Not implemented |
+| Share App | SettingsScreen | Not implemented |
+| Business Settings | BusinessSettingsScreen | Skeleton only |
+| Currency picker | CurrencyScreen | Skeleton only |
+| Reports charts | ReportsScreen | Skeleton only |
+
+---
+
+## Common Error Patterns (App-wide)
+
+| Error | Trigger | Display |
+|---|---|---|
+| 401 Unauthorized | Expired/invalid JWT | Auto sign-out → redirect to login |
+| 403 Forbidden | Role mismatch | Auto sign-out → redirect to login |
+| Network error | No connectivity | Toast with message |
+| Inactive account | `is_active = false` on profile fetch | Toast + sign-out |
+| Validation (client) | Missing required field | Inline field error |
+| File too large | Attachment > 6 MB | Toast "File too large (max 6 MB)" |
+| Duplicate category | Same name in book | Toast from API error |
+
+---
+
+*Last updated: 2026-05-12*
+*Update this file whenever any screen, button, navigation flow, or API call changes.*
