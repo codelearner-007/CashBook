@@ -20,13 +20,19 @@ Each sub-folder has its own `CLAUDE.md` with detailed, up-to-date logic for that
 
 This file documents every screen, every button, every navigation flow, every API call triggered, and every error/loading state in the app. It is the single reference for "what happens when I tap X."
 
-**Rule: Update [skeleton.md](skeleton.md) whenever any of the following change:**
-- A screen gains or loses a button, tab, or modal
+**Rule: Update [skeleton.md](skeleton.md) after EVERY change to any screen or component, including:**
+- Any visual/design change: layout, colors, icons, typography, spacing, card style
+- A screen gains or loses a button, tab, modal, sheet, or chip
 - A button's action changes (different navigation target, different API call, new behavior)
 - A new screen is added or an existing screen is removed
 - A feature moves from TODO/skeleton to implemented
 - Navigation routes change
 - An error or loading state is added or removed
+- Filter, sort, or search behavior changes
+- Any icon swap or label rename on an interactive element
+- Any new state variable that changes what the user sees
+
+**This is non-negotiable: no prompt that touches a screen file is complete until skeleton.md is also updated.**
 
 Update the relevant section(s) only — do not rewrite unrelated sections.
 

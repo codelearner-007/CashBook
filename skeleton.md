@@ -194,13 +194,30 @@ All interactions, mutations, states, and API calls are identical to BooksScreen.
 | Search input | Type | Filters user list by name or email (client-side) |
 | Clear (✕) | Tap | Clears query |
 
-### Segmented Filter (All / Active / Inactive)
-| Tab | Action | Result |
+### Date Filter Chips (horizontal scroll)
+| Chip | Action | Result |
 |---|---|---|
-| **All** | Tap | Shows all non-superadmin users |
+| **All Time** | Tap | Shows users registered at any date (default) |
+| **Today** | Tap | Shows users registered today |
+| **Last 7 Days** | Tap | Shows users registered in last 7 days |
+| **This Month** | Tap | Shows users registered this calendar month |
+| **This Year** | Tap | Shows users registered this calendar year |
+Filtering is client-side against `created_at`. Active chip highlights in primary color.
+
+### Status Filter (select dropdown)
+| Element | Action | Result |
+|---|---|---|
+| Status dropdown button | Tap | Opens **Status Picker Sheet** |
+
+#### Status Picker Sheet
+| Option | Action | Result |
+|---|---|---|
+| **All Users** | Tap | Shows all users (default) |
 | **Active** | Tap | Shows only active users |
 | **Inactive** | Tap | Shows only inactive users |
-Each tab shows count badge.
+Selected option shown with checkmark; backdrop tap closes sheet.
+
+Both filters compose (date + status applied together).
 
 ### User Card
 | Element | Action | Result |
@@ -514,33 +531,69 @@ Sections collapsed/expanded per date.
 
 ## 10. ReportsScreen — `/(app)/books/[id]/reports`
 
-**Status: Skeleton — not yet fully implemented.**
+**Status: Complete.**
 
-### Filter Tabs
-| Tab | Action |
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (‹) | Tap | Navigate back |
+| "Reports" + book name | — | Display only |
+
+### Date Filter Chips (horizontal scroll)
+| Chip | Effect |
 |---|---|
-| This Month | Loads current month data |
-| Last Month | Loads previous month data |
-| Last 3 Months | Loads rolling 3-month data |
-| Custom | Opens date range picker |
+| This Month | Sets `date_from` = first day of current month, `date_to` = today |
+| Last Month | Sets `date_from` / `date_to` to previous calendar month |
+| Last 3 Months | Sets `date_from` = 3 months ago (first of month), `date_to` = today |
+| All Time | No date filter — loads all entries |
+| Custom | Shows two date picker buttons (From / To) using DateTimePickerModal |
 
-### Summary Cards (static skeleton)
-- Income total
-- Expenses total
-- Net Balance
+Selecting any chip triggers a React Query refetch with the new date range.
 
-### Bar Chart
-- Income vs Expenses bar chart (Chart.js / Victory Native)
-- Grouped by month
+### Custom Date Pickers (visible only when "Custom" chip is active)
+| Element | Action | Result |
+|---|---|---|
+| "From" button | Tap | Opens DateTimePickerModal (date mode) → sets `customFrom` |
+| "To" button | Tap | Opens DateTimePickerModal (date mode) → sets `customTo` |
 
-### Recent Entries Preview
-- Top 5 entries (most recent)
+### Date Range Label
+- Displays the active period (e.g. "Jan 1, 2025 – May 12, 2025") or "All entries"
+- Shows a small ActivityIndicator while loading
 
-### Export Buttons (TODO)
-| Button | Intended Action |
+### Summary Cards (3 in a row)
+All values are computed client-side from the filtered entries list.
+- **Income** (green, ↑) — sum of `type=in` amounts
+- **Expenses** (red, ↓) — sum of `type=out` amounts
+- **Net** (green/red, ≈) — income minus expenses
+
+### Bar Chart — Income vs Expenses
+- Three bars: In / Out / Net
+- Bar heights are proportional to the largest value
+- Values labeled above each bar; category labels below
+- Uses `C.cashIn` / `C.cashOut` colours from theme
+
+### Recent Entries Preview (up to 8)
+- Each row: coloured dot icon, remark, date · category · mode · contact, amount (+/-)
+- If more than 8 entries exist, shows "+N more entries included in export" note
+- Empty state: "No entries for this period"
+
+### Export Section
+Data loaded: React Query key `['report-entries', bookId, dateFrom, dateTo]` via `GET /api/v1/books/:id/entries?date_from=&date_to=`.
+
+| Button | Action | Result |
+|---|---|---|
+| **Export as PDF** (red border) | Tap | `FileSystem.downloadAsync` → `GET /api/v1/books/:id/report/pdf?date_from=&date_to=` with Bearer token → saves to cache dir → `Sharing.shareAsync()` opens native share sheet |
+| **Export as Excel** (green border) | Tap | Same flow but `GET /api/v1/books/:id/report/excel` → `.xlsx` → `Sharing.shareAsync()` |
+
+Both buttons show `ActivityIndicator` while downloading.  Both buttons disabled while an export is in progress.  Share sheet includes: Save to Files, WhatsApp, Email, Google Drive, Dropbox, and any installed app that handles PDF or XLSX.
+
+### Loading / Error / Empty States
+| State | UI |
 |---|---|
-| **Export PDF** | `GET /api/v1/books/:id/reports/pdf` → download file |
-| **Export Excel** | `GET /api/v1/books/:id/reports/excel` → download file |
+| Loading entries | ActivityIndicator next to date range label |
+| No entries in range | "No entries for this period" in entries section |
+| Export error | `Alert.alert('Export Failed', message)` |
+| Sharing unavailable | `Alert.alert('File Saved', localPath)` |
 
 ---
 
@@ -730,8 +783,8 @@ This component is used in both AddEntryScreen and EditEntryScreen. It exposes a 
 | Feature | Screen | Status |
 |---|---|---|
 | Backup Entry | EntryDetailScreen ⋮ menu | Not implemented |
-| Export PDF | ReportsScreen | Not implemented |
-| Export Excel | ReportsScreen | Not implemented |
+| Export PDF | ReportsScreen | ✅ Complete |
+| Export Excel | ReportsScreen | ✅ Complete |
 | Invite collaborator | BookDetailScreen user-plus icon | Not implemented |
 | Notifications settings | SettingsScreen | Not implemented |
 | Privacy & Security | SettingsScreen | Not implemented |
@@ -742,7 +795,7 @@ This component is used in both AddEntryScreen and EditEntryScreen. It exposes a 
 | Share App | SettingsScreen | Not implemented |
 | Business Settings | BusinessSettingsScreen | Skeleton only |
 | Currency picker | CurrencyScreen | Skeleton only |
-| Reports charts | ReportsScreen | Skeleton only |
+| Reports charts | ReportsScreen | ✅ Complete |
 
 ---
 

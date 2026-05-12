@@ -194,6 +194,20 @@ frontend/
 
 ---
 
+### `ReportsScreen` → `/(app)/books/[id]/reports`
+- Filter chips: This Month | Last Month | Last 3 Months | All Time | Custom
+- Selecting a preset chip derives `dateFrom` / `dateTo` from the current date (no API call just for the range)
+- "Custom" chip reveals two date picker buttons; each opens `DateTimePickerModal` (date mode) to set `customFrom` / `customTo`
+- Query: `['report-entries', bookId, dateFrom, dateTo]` → `GET /api/v1/books/:id/entries?date_from=&date_to=`; staleTime 2 min; re-fetches automatically when date range changes
+- Summary (Income, Expenses, Net) computed client-side from the filtered entries list
+- Bar chart: 3 bars (In/Out/Net), height proportional to largest value, uses `C.cashIn` / `C.cashOut` from theme
+- Recent Entries shows up to 8 rows; shows "+N more" note if list is longer
+- Export: tapping PDF or Excel calls `FileSystem.downloadAsync(backendUrl, cacheDir/filename, { headers: { Authorization } })` then `Sharing.shareAsync(localUri)` — opens native OS share sheet (WhatsApp, Email, Google Drive, Save to Files, etc.)
+- Loading indicator shown inline next to date range label while fetching
+- Both export buttons disabled while any export is in progress
+
+---
+
 ### `SettingsScreen` → `/(app)/settings` (and `/(app)/dashboard/settings`)
 - Sections: Account | App | Support
 - Logout → `supabase.auth.signOut()` → `clearUser()` → AuthGuard redirects to login
@@ -389,6 +403,7 @@ useEffect(() => {
 | `['suppliers', bookId]` | 2 min | — | All suppliers for a book |
 | `['supplier', bookId, id]` | 2 min | — | Single supplier with balance |
 | `['supplier-entries', bookId, id]` | 2 min | — | Entries linked to a supplier |
+| `['report-entries', bookId, dateFrom, dateTo]` | 2 min | — | Filtered entries for ReportsScreen; dateFrom/dateTo are YYYY-MM-DD strings or null |
 
 Mutations use `qc.setQueryData(...)` for optimistic updates + `qc.invalidateQueries(...)` on success to sync with DB.
 
@@ -401,3 +416,9 @@ Mutations use `qc.setQueryData(...)` for optimistic updates + `qc.invalidateQuer
 - New API function added to `api.js`
 - New Zustand store or store field added
 - Component moved, renamed, or has a new significant behaviour
+
+## skeleton.md Update Rule
+
+**Every prompt that touches a screen or component file must also update [skeleton.md](../skeleton.md).**
+This includes: icon changes, label renames, layout changes, new/removed buttons or modals, filter/sort changes, color or style overhauls, new states — anything a user would see or interact with.
+No frontend change is complete until skeleton.md reflects it.
