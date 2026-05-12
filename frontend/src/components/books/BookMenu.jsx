@@ -1,32 +1,16 @@
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, Modal, Pressable, Dimensions, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, Modal, Pressable, Dimensions, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const POPUP_W = 220;
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-const PencilIcon = ({ color, size = 16 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size * 0.68, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }] }} />
-    <View style={{ position: 'absolute', top: size * 0.05, right: size * 0.08, width: size * 0.28, height: size * 0.28, backgroundColor: color, borderTopLeftRadius: 3, borderTopRightRadius: 3, transform: [{ rotate: '-45deg' }] }} />
-    <View style={{ position: 'absolute', bottom: size * 0.02, left: size * 0.06, width: size * 0.2, height: size * 0.2, borderBottomWidth: 2, borderLeftWidth: 2, borderColor: color, transform: [{ rotate: '-45deg' }] }} />
-  </View>
-);
-
-const TrashIcon = ({ color, size = 16 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size * 0.65, height: size * 0.65, borderWidth: 1.5, borderColor: color, borderRadius: 2, marginTop: size * 0.2 }} />
-    <View style={{ position: 'absolute', top: size * 0.1, width: size * 0.82, height: 1.5, backgroundColor: color, borderRadius: 1 }} />
-    <View style={{ position: 'absolute', top: 0, width: size * 0.4, height: size * 0.16, borderWidth: 1.5, borderColor: color, borderRadius: 2 }} />
-  </View>
-);
-
 // ── Menu items config ─────────────────────────────────────────────────────────
 
 const ITEMS = [
-  { key: 'rename', label: 'Rename',      Icon: PencilIcon, danger: false },
-  { key: 'delete', label: 'Delete Book', Icon: TrashIcon,  danger: true  },
+  { key: 'rename',   label: 'Rename',        icon: 'edit-2',   danger: false },
+  { key: 'settings', label: 'Book Settings', icon: 'settings', danger: false },
+  { key: 'delete',   label: 'Delete Book',   icon: 'trash-2',  danger: true  },
 ];
 
 // ── Popup menu ────────────────────────────────────────────────────────────────
@@ -88,8 +72,8 @@ const BookMenu = memo(({ book, anchor, onClose, onSelect, C, Font }) => {
               }}
               activeOpacity={0.7}
             >
-              <item.Icon color={item.danger ? '#E53935' : C.textSubtle} size={16} />
-              <Text style={{ fontSize: 14, fontFamily: Font.medium, color: item.danger ? '#E53935' : C.text, lineHeight: 20 }}>
+              <Feather name={item.icon} size={16} color={item.danger ? C.danger : C.textMuted} />
+              <Text style={{ fontSize: 14, fontFamily: Font.medium, color: item.danger ? C.danger : C.text, lineHeight: 20 }}>
                 {item.label}
               </Text>
             </TouchableOpacity>

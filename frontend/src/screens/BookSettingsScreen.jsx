@@ -8,6 +8,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
+import { useBookFieldsStore } from '../store/bookFieldsStore';
 import { useRenameBook } from '../hooks/useBooks';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { useCategories } from '../hooks/useCategories';
@@ -32,6 +33,9 @@ export default function BookSettingsScreen() {
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const deleteSheetCloseRef = useRef(null);
+
+  const getFields = useBookFieldsStore((s) => s.getFields);
+  const fields = getFields(id);
 
   const qc = useQueryClient();
   const renameBook = useRenameBook();
@@ -92,6 +96,7 @@ export default function BookSettingsScreen() {
       label: 'Customers',
       sub: 'Manage customers for this book',
       count: customers.length,
+      fieldKey: 'showCustomer',
       route: `${basePath}/[id]/customers`,
       params: { type: 'customer' },
     },
@@ -100,6 +105,7 @@ export default function BookSettingsScreen() {
       label: 'Suppliers',
       sub: 'Manage suppliers for this book',
       count: suppliers.length,
+      fieldKey: 'showSupplier',
       route: `${basePath}/[id]/suppliers`,
       params: { type: 'supplier' },
     },
@@ -108,6 +114,7 @@ export default function BookSettingsScreen() {
       label: 'Categories',
       sub: 'Add or remove categories',
       count: categories.length,
+      fieldKey: 'showCategory',
       route: `${basePath}/[id]/categories-settings`,
       params: {},
     },
@@ -115,6 +122,7 @@ export default function BookSettingsScreen() {
       icon: 'credit-card',
       label: 'Payment Mode',
       sub: 'Configure payment modes',
+      fieldKey: 'showPaymentMode',
       route: `${basePath}/[id]/payment-mode-settings`,
       params: {},
     },
@@ -179,7 +187,11 @@ export default function BookSettingsScreen() {
                     <Text style={[s.countBadgeText, { color: C.primary }]}>{item.count}</Text>
                   </View>
                 )}
-                <Feather name="chevron-right" size={18} color={C.textSubtle} />
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={item.fieldKey != null && fields[item.fieldKey] ? C.primary : C.textSubtle}
+                />
               </TouchableOpacity>
               {idx < ENTRY_FIELDS.length - 1 && (
                 <View style={[s.divider, { backgroundColor: C.border }]} />

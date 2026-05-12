@@ -262,11 +262,14 @@ export default function BooksView({
         setRenameDialog(book);
         setRenameText(book.name);
         break;
+      case 'settings':
+        router.push({ pathname: `${bookBasePath}/[id]/book-settings`, params: { id: book.id, name: book.name } });
+        break;
       case 'delete':
         setDeleteDialog(book);
         break;
     }
-  }, []);
+  }, [router, bookBasePath]);
 
   const handleRenameSubmit = useCallback(() => {
     if (!renameText.trim() || !renameDialog) return;
