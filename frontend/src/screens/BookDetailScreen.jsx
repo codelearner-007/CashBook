@@ -97,7 +97,8 @@ const PAYMENT_META_DARK = {
 // ── EntryCard ─────────────────────────────────────────────────────────────────
 
 const EntryCard = memo(({ item, onPress, onLongPress, C, Font, s, isDark, grouped, isLast }) => {
-  const meta = isDark ? PAYMENT_META_DARK[item.payment_mode] : PAYMENT_META[item.payment_mode];
+  const modeKey = item.payment_mode?.toLowerCase();
+  const meta = isDark ? (PAYMENT_META_DARK[modeKey] ?? {}) : (PAYMENT_META[modeKey] ?? {});
   const badgeBg = meta.bg ?? (isDark ? C.primaryLight : C.primaryLight);
   const badgeText = meta.text ?? C.primary;
 

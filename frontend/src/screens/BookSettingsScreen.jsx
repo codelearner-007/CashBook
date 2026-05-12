@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity, Switch,
   StatusBar, ScrollView, Modal, TextInput, Alert,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
@@ -8,13 +8,13 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { useBookFieldsStore } from '../store/bookFieldsStore';
-import { useRenameBook } from '../hooks/useBooks';
+import { useBooks, useRenameBook } from '../hooks/useBooks';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { useCategories } from '../hooks/useCategories';
 import { usePaymentModes } from '../hooks/usePaymentModes';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { apiDeleteAllEntries, apiGetEntries } from '../lib/api';
+import { apiDeleteAllEntries, apiGetEntries, apiUpdateBookFieldSettings } from '../lib/api';
+
 import SuccessDialog from '../components/ui/SuccessDialog';
 import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
 
@@ -35,10 +35,44 @@ export default function BookSettingsScreen() {
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const deleteSheetCloseRef = useRef(null);
 
-  const getFields = useBookFieldsStore((s) => s.getFields);
-  const fields = getFields(id);
-
   const qc = useQueryClient();
+  const { data: books = [] } = useBooks();
+  const currentBook = books.find(b => b.id === id);
+  const fields = {
+    showCustomer:   currentBook?.show_customer   ?? false,
+    showSupplier:   currentBook?.show_supplier   ?? false,
+    showCategory:   currentBook?.show_category   ?? false,
+    showAttachment: currentBook?.show_attachment ?? false,
+  };
+
+  const saveFieldSettings = useMutation({
+    mutationFn: (newFields) => apiUpdateBookFieldSettings(id, newFields),
+    onMutate: async (newFields) => {
+      await qc.cancelQueries({ queryKey: ['books'] });
+      const snapshot = qc.getQueryData(['books']);
+      qc.setQueryData(['books'], (prev = []) =>
+        prev.map(b => b.id === id ? {
+          ...b,
+          show_customer:   newFields.showCustomer,
+          show_supplier:   newFields.showSupplier,
+          show_category:   newFields.showCategory,
+          show_attachment: newFields.showAttachment,
+        } : b)
+      );
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot !== undefined) qc.setQueryData(['books'], ctx.snapshot);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['books'] });
+    },
+  });
+
+  const handleSetField = (bookId, fieldKey, val) => {
+    saveFieldSettings.mutate({ ...fields, [fieldKey]: val });
+  };
+
   const renameBook = useRenameBook();
 
   const { data: entries = [] } = useQuery({
@@ -114,7 +148,7 @@ export default function BookSettingsScreen() {
     {
       icon: 'tag',
       label: 'Categories',
-      sub: 'Add or remove categories',
+      sub: 'Manage categories for this book',
       count: categories.length,
       fieldKey: 'showCategory',
       route: `${basePath}/[id]/categories-settings`,
@@ -128,6 +162,13 @@ export default function BookSettingsScreen() {
       alwaysActive: true,
       route: `${basePath}/[id]/payment-mode-settings`,
       params: {},
+    },
+    {
+      icon: 'paperclip',
+      label: 'Attachments',
+      sub: 'Allow image or PDF on each entry',
+      fieldKey: 'showAttachment',
+      hasToggleOnly: true,
     },
   ];
 
@@ -173,29 +214,47 @@ export default function BookSettingsScreen() {
         <View style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}>
           {ENTRY_FIELDS.map((item, idx) => (
             <View key={item.label}>
-              <TouchableOpacity
-                style={s.row}
-                onPress={() => router.push({ pathname: item.route, params: { id, name: bookName, ...(item.params || {}) } })}
-                activeOpacity={0.75}
-              >
-                <View style={[s.iconBox, { backgroundColor: C.primaryLight }]}>
-                  <Feather name={item.icon} size={18} color={C.primary} />
-                </View>
-                <View style={s.rowBody}>
-                  <Text style={s.rowLabel}>{item.label}</Text>
-                  <Text style={s.rowSub}>{item.sub}</Text>
-                </View>
-                {item.count != null && (
-                  <View style={[s.countBadge, { backgroundColor: C.primaryLight }]}>
-                    <Text style={[s.countBadgeText, { color: C.primary }]}>{item.count}</Text>
+              {item.hasToggleOnly ? (
+                <View style={s.row}>
+                  <View style={[s.iconBox, { backgroundColor: fields[item.fieldKey] ? C.primaryLight : C.inputBg }]}>
+                    <Feather name={item.icon} size={18} color={fields[item.fieldKey] ? C.primary : C.textMuted} />
                   </View>
-                )}
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color={item.alwaysActive || (item.fieldKey != null && fields[item.fieldKey]) ? C.primary : C.textSubtle}
-                />
-              </TouchableOpacity>
+                  <View style={s.rowBody}>
+                    <Text style={s.rowLabel}>{item.label}</Text>
+                    <Text style={s.rowSub}>{item.sub}</Text>
+                  </View>
+                  <Switch
+                    value={fields[item.fieldKey] ?? false}
+                    onValueChange={(val) => handleSetField(id, item.fieldKey, val)}
+                    trackColor={{ false: C.border, true: C.primary }}
+                    thumbColor="#fff"
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={s.row}
+                  onPress={() => router.push({ pathname: item.route, params: { id, name: bookName, ...(item.params || {}) } })}
+                  activeOpacity={0.75}
+                >
+                  <View style={[s.iconBox, { backgroundColor: C.primaryLight }]}>
+                    <Feather name={item.icon} size={18} color={C.primary} />
+                  </View>
+                  <View style={s.rowBody}>
+                    <Text style={s.rowLabel}>{item.label}</Text>
+                    <Text style={s.rowSub}>{item.sub}</Text>
+                  </View>
+                  {item.count != null && (
+                    <View style={[s.countBadge, { backgroundColor: C.primaryLight }]}>
+                      <Text style={[s.countBadgeText, { color: C.primary }]}>{item.count}</Text>
+                    </View>
+                  )}
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color={item.alwaysActive || (item.fieldKey != null && fields[item.fieldKey]) ? C.primary : C.textSubtle}
+                  />
+                </TouchableOpacity>
+              )}
               {idx < ENTRY_FIELDS.length - 1 && (
                 <View style={[s.divider, { backgroundColor: C.border }]} />
               )}

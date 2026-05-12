@@ -68,6 +68,8 @@ async def create_entry(
         "customer_id": customer_id,
         "supplier_id": supplier_id,
         "attachment_url": payload.attachment_url,
+        "attachment_path": payload.attachment_path,
+        "attachment_provider": payload.attachment_provider,
         "entry_date": payload.entry_date,
         "entry_time": payload.entry_time,
     }).execute()

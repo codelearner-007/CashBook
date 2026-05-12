@@ -7,7 +7,6 @@ import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { useBookFieldsStore } from '../store/bookFieldsStore';
 
 const DEMO_CONTACTS = [
   { id: '1', name: 'Ali Khan',    phone: '+92 300 1234567' },
@@ -21,9 +20,7 @@ export default function ContactSettingsScreen() {
   const { C, Font, isDark } = useTheme();
   const s = makeStyles(C, Font);
 
-  const { getFields, setField } = useBookFieldsStore();
-  const showField = getFields(id).showContact;
-  const setShowField = (val) => setField(id, 'showContact', val);
+  const [showField, setShowField] = React.useState(false);
 
   const [contacts, setContacts]       = useState(DEMO_CONTACTS);
   const [addVisible, setAddVisible]   = useState(false);

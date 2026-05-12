@@ -13,7 +13,9 @@ import { useTheme } from '../hooks/useTheme';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '../hooks/useContacts';
 import ContactMenuSheet from '../components/books/ContactMenuSheet';
 import DeleteContactSheet from '../components/ui/DeleteContactSheet';
-import { useBookFieldsStore } from '../store/bookFieldsStore';
+import { useBooks } from '../hooks/useBooks';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiUpdateBookFieldSettings } from '../lib/api';
 
 const TYPE_CONFIG = {
   customer: { label: 'Customers', icon: 'user-check', emptyIcon: 'user-plus' },
@@ -53,10 +55,37 @@ export default function ContactsListScreen() {
 
   const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.customer;
 
-  const { getFields, setField } = useBookFieldsStore();
-  const fields = getFields(bookId);
-  const fieldKey = type === 'supplier' ? 'showSupplier' : 'showCustomer';
-  const showField = fields[fieldKey];
+  const qc = useQueryClient();
+  const { data: books = [] } = useBooks();
+  const currentBook = books.find(b => b.id === bookId);
+  const showField = type === 'supplier'
+    ? (currentBook?.show_supplier ?? false)
+    : (currentBook?.show_customer ?? false);
+
+  const toggleField = useMutation({
+    mutationFn: (newVal) => apiUpdateBookFieldSettings(bookId, {
+      showCustomer:   type === 'customer' ? newVal : (currentBook?.show_customer ?? false),
+      showSupplier:   type === 'supplier' ? newVal : (currentBook?.show_supplier ?? false),
+      showCategory:   currentBook?.show_category   ?? false,
+      showAttachment: currentBook?.show_attachment ?? false,
+    }),
+    onMutate: async (newVal) => {
+      await qc.cancelQueries({ queryKey: ['books'] });
+      const snapshot = qc.getQueryData(['books']);
+      qc.setQueryData(['books'], (prev = []) =>
+        prev.map(b => b.id === bookId ? {
+          ...b,
+          show_customer: type === 'customer' ? newVal : b.show_customer,
+          show_supplier: type === 'supplier' ? newVal : b.show_supplier,
+        } : b)
+      );
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot) qc.setQueryData(['books'], ctx.snapshot);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['books'] }),
+  });
 
   const [search, setSearch] = useState('');
   const [addVisible, setAddVisible] = useState(false);
@@ -273,7 +302,7 @@ export default function ContactsListScreen() {
         </View>
         <Switch
           value={showField}
-          onValueChange={(v) => setField(bookId, fieldKey, v)}
+          onValueChange={(v) => toggleField.mutate(v)}
           trackColor={{ false: C.border, true: C.primary }}
           thumbColor="#fff"
         />

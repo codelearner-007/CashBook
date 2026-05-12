@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
-from app.models.book import BookCreate, BookUpdate, BookResponse
+from app.models.book import BookCreate, BookUpdate, BookResponse, FieldSettingsBody
 
 router = APIRouter()
 
@@ -92,3 +92,40 @@ async def delete_book(book_id: str, user_id: str = Depends(get_current_user)):
     if not check.data:
         raise HTTPException(status_code=404, detail="Book not found")
     sb.table("books").delete().eq("id", book_id).eq("user_id", user_id).execute()
+
+
+@router.patch("/{book_id}/field-settings", response_model=BookResponse)
+async def update_field_settings(
+    book_id: str,
+    payload: FieldSettingsBody,
+    user_id: str = Depends(get_current_user),
+):
+    sb = get_supabase()
+    check = (
+        sb.table("books")
+        .select("id")
+        .eq("id", book_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not check.data:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    sb.table("books").update({
+        "show_customer":   payload.showCustomer,
+        "show_supplier":   payload.showSupplier,
+        "show_category":   payload.showCategory,
+        "show_attachment": payload.showAttachment,
+    }).eq("id", book_id).eq("user_id", user_id).execute()
+
+    result = (
+        sb.table("books")
+        .select("*")
+        .eq("id", book_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    book = result.data[0]
+    return {**book, "net_balance": book.get("net_balance", 0), "last_entry_at": None}

@@ -115,14 +115,17 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `` | List all books for current user (net_balance, last_entry_at) | ✅ |
+| GET | `` | List all books for current user (net_balance, last_entry_at, field_settings) | ✅ |
 | POST | `` | Create a new book | ✅ |
 | PUT | `/{book_id}` | Rename or update book currency | ✅ |
 | DELETE | `/{book_id}` | Delete a book (cascades entries) | ✅ |
+| PATCH | `/{book_id}/field-settings` | Save entry field visibility toggles for a book | ✅ |
 
-**GET /books** — tries `get_books_with_summary` RPC first (single round-trip, includes pre-computed `net_balance` and `last_entry_at`). Falls back to a direct table query if the RPC is not yet defined (migration 002 not run).
+**GET /books** — tries `get_books_with_summary` RPC first (single round-trip, includes pre-computed `net_balance`, `last_entry_at`, and `field_settings`). Falls back to a direct table query if the RPC is not yet defined (migration 002 not run).
 
 **POST /books** — returns the new book immediately; `net_balance` defaults to 0 (trigger fires on first entry).
+
+**PATCH /books/:id/field-settings body:** `{ "showCustomer": bool, "showSupplier": bool, "showCategory": bool, "showAttachment": bool }` — updates the book's 4 individual boolean columns (`show_customer`, `show_supplier`, `show_category`, `show_attachment`).
 
 ---
 
@@ -197,9 +200,10 @@ Query params: `?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 | POST | `/attachment` | Upload entry photo to Supabase Storage | ✅ |
 | POST | `/avatar` | Upload profile photo to Supabase Storage (`avatars` bucket) | ✅ |
 
-- `/attachment` — `multipart/form-data` with `entry_id` (form field) + `file` (image); path `{user_id}/{entry_id}/attachment.{ext}`; returns signed URL (1 h)
-- `/avatar` — `multipart/form-data` with `file` (image only); path `{user_id}/profile.{ext}`; creates/uses public `avatars` bucket; updates `profiles.avatar_url`; returns `{ "avatar_url": "<public-url>" }`
-- Both: max 5 MB; allowed types: JPEG, PNG, WebP, HEIC
+- `POST /attachment` — `multipart/form-data` with optional `entry_id` (form field) + `file`; generates a UUID path if `entry_id` omitted; allowed types: JPEG, PNG, WebP, HEIC, PDF; max 5 MB; path `{user_id}/{storage_id}/attachment.{ext}`; returns 7-day signed URL + `{ attachment_url, path, provider: "supabase" }`
+- `DELETE /attachment?path=...` — removes file from `attachments` bucket; verifies path starts with `{user_id}/` before deleting
+- `POST /avatar` — `multipart/form-data` with `file` (image only); path `{user_id}/profile.{ext}`; creates/uses public `avatars` bucket; updates `profiles.avatar_url`; returns `{ "avatar_url": "<public-url>" }`
+- Images + PDF: max 5 MB; image compression is done client-side before upload (see `storage.js`)
 
 ---
 
@@ -215,14 +219,15 @@ class StatusUpdate:       is_active: bool
 
 ### `models/book.py`
 ```python
-class BookCreate:    name, currency (default PKR)
-class BookUpdate:    name?, currency?
-class BookResponse:  id, user_id, name, currency, net_balance (float, default 0), created_at, updated_at?, last_entry_at?
+class BookCreate:         name, currency (default PKR)
+class BookUpdate:         name?, currency?
+class FieldSettingsBody:  showCustomer, showSupplier, showCategory, showAttachment (all bool, default False)
+class BookResponse:       id, user_id, name, currency, net_balance (float, default 0), show_customer (bool), show_supplier (bool), show_category (bool), show_attachment (bool), created_at, updated_at?, last_entry_at?
 ```
 
 ### `models/entry.py`
 ```python
-class EntryCreate:   type, amount, remark?, category?, payment_mode, contact_name?, customer_id?, supplier_id?, attachment_url?, entry_date, entry_time
+class EntryCreate:   type, amount, remark?, category?, payment_mode, contact_name?, customer_id?, supplier_id?, attachment_url?, attachment_path?, attachment_provider?, entry_date, entry_time
 class EntryUpdate:   all EntryCreate fields optional
 class EntryResponse: EntryCreate fields + id, book_id, user_id, created_at
                      Validator strips HH:MM:SS → HH:MM (Postgres time type)

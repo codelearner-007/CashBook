@@ -56,6 +56,11 @@ export const apiDeleteBook = async (bookId) => {
   await api.delete(`/api/v1/books/${bookId}`);
 };
 
+/** PATCH /api/v1/books/:bookId/field-settings */
+export const apiUpdateBookFieldSettings = async (bookId, fieldSettings) => {
+  return (await api.patch(`/api/v1/books/${bookId}/field-settings`, fieldSettings)).data;
+};
+
 
 // ── Profile ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +82,21 @@ export const apiUploadAvatar = async (uri, mimeType = 'image/jpeg') => {
   return (await api.post('/api/v1/upload/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })).data;
+};
+
+/** POST /api/v1/upload/attachment — multipart, returns { attachment_url, path, provider } */
+export const apiUploadAttachment = async (uri, mimeType, filename, entryId = null) => {
+  const formData = new FormData();
+  if (entryId) formData.append('entry_id', entryId);
+  formData.append('file', { uri, type: mimeType, name: filename });
+  return (await api.post('/api/v1/upload/attachment', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })).data;
+};
+
+/** DELETE /api/v1/upload/attachment?path=... */
+export const apiDeleteAttachment = async (path) => {
+  await api.delete(`/api/v1/upload/attachment?path=${encodeURIComponent(path)}`);
 };
 
 

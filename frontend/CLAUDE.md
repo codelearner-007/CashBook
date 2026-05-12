@@ -72,6 +72,7 @@ frontend/
 │   ├── lib/
 │   │   ├── api.js                # All Axios API calls (real backend, no mocks)
 │   │   ├── supabase.js           # Supabase client (SecureStore / localStorage adapter)
+│   │   ├── storage.js            # Provider-agnostic attachment abstraction (uploadAttachment, removeAttachment)
 │   │   └── toast.js              # Toast helper
 │   ├── store/
 │   │   ├── authStore.js          # Zustand: user, session, setUser, clearUser
@@ -259,9 +260,12 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `apiCreateBook(name, currency)` | POST | `/api/v1/books` |
 | `apiUpdateBook(bookId, payload)` | PUT | `/api/v1/books/:id` |
 | `apiDeleteBook(bookId)` | DELETE | `/api/v1/books/:id` |
+| `apiUpdateBookFieldSettings(bookId, fieldSettings)` | PATCH | `/api/v1/books/:id/field-settings` |
 | `apiGetProfile()` | GET | `/api/v1/profile` |
 | `apiUpdateProfile(payload)` | PUT | `/api/v1/profile` |
 | `apiUploadAvatar(uri, mimeType)` | POST | `/api/v1/upload/avatar` — multipart, returns `{ avatar_url }` |
+| `apiUploadAttachment(uri, mimeType, filename, entryId?)` | POST | `/api/v1/upload/attachment` — multipart, returns `{ attachment_url, path, provider }` |
+| `apiDeleteAttachment(path)` | DELETE | `/api/v1/upload/attachment?path=...` — removes file from Supabase Storage |
 | `apiGetEntries(bookId, params)` | GET | `/api/v1/books/:id/entries` |
 | `apiGetSummary(bookId)` | GET | `/api/v1/books/:id/summary` |
 | `apiCreateEntry(bookId, payload)` | POST | `/api/v1/books/:id/entries` |
@@ -296,7 +300,7 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 |---|---|---|
 | `authStore` | Zustand | `user`, `session`, `setUser(user, session)`, `clearUser()` |
 | `themeStore` | Zustand | `isDark`, `toggle()` |
-| `bookFieldsStore` | Zustand | Per-book: categories list, contacts list, payment mode toggles |
+| `bookFieldsStore` | Zustand | Empty store (stub); field visibility is persisted as individual boolean columns on `books` (DB) and read from `['books']` React Query cache as `show_customer`, `show_supplier`, `show_category`, `show_attachment` |
 | `['books']` | React Query | All books for current user; staleTime 2 min |
 | `['admin-users']` | React Query | All non-admin users; refetchInterval 10 s |
 | `['entries', bookId]` | React Query | Entries for a specific book; staleTime 2 min |

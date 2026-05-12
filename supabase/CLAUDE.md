@@ -26,6 +26,9 @@ Supabase provides three things for CashBook:
 9. `supabase/migrations/010_categories.sql` — `categories` table per book (with stored `total_in`/`total_out`/`net_balance`) + `category_id` FK column on entries (ON DELETE SET NULL); UNIQUE(book_id, name); RLS; `trg_update_category_balance` trigger keeps balances in sync automatically
 10. `supabase/migrations/012_payment_modes.sql` — `payment_modes` table per book; Cash + Cheque seeded on book creation; `entries.payment_mode_id` nullable FK
 11. `supabase/migrations/013_storage_calc.sql` — `get_user_data_bytes()` and `get_user_storage_bytes()` security-definer functions for real admin storage stats
+12. `supabase/migrations/014_attachment_metadata.sql` — attachment metadata columns on entries
+13. `supabase/migrations/015_book_field_settings.sql` — `field_settings JSONB` column on `books` (superseded by 016)
+14. `supabase/migrations/016_book_field_settings_normalized.sql` — replaces `field_settings` JSONB with 4 individual boolean columns (`show_customer`, `show_supplier`, `show_category`, `show_attachment`); migrates existing data; recreates `get_books_with_summary` RPC
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -61,6 +64,10 @@ Supabase provides three things for CashBook:
 | `name` | text | NOT NULL |
 | `currency` | text | default `'PKR'` |
 | `net_balance` | numeric(14,2) | NOT NULL, default `0` — maintained by trigger |
+| `show_customer` | boolean | NOT NULL, default `false` |
+| `show_supplier` | boolean | NOT NULL, default `false` |
+| `show_category` | boolean | NOT NULL, default `false` |
+| `show_attachment` | boolean | NOT NULL, default `false` |
 | `created_at` | timestamptz | default `now()` |
 | `updated_at` | timestamptz | default `now()` (auto-updated by trigger) |
 
@@ -209,7 +216,7 @@ create policy "Users own their entries" on public.entries
 
 | Function | Args | Returns | Use |
 |---|---|---|---|
-| `get_books_with_summary(p_user_id)` | uuid | table(id, user_id, name, currency, net_balance, created_at, updated_at, last_entry_at) | GET /books — single round-trip |
+| `get_books_with_summary(p_user_id)` | uuid | table(id, user_id, name, currency, net_balance, show_customer, show_supplier, show_category, show_attachment, created_at, updated_at, last_entry_at) | GET /books — single round-trip |
 | `get_book_summary(p_book_id, p_user_id)` | uuid, uuid | table(total_in, total_out, net_balance) | GET /books/:id/summary |
 | `get_user_data_bytes(p_user_id)` | uuid | bigint | Admin: actual DB row bytes via `pg_column_size()` across all 7 user tables |
 | `get_user_storage_bytes(p_user_id)` | uuid | bigint | Admin: actual Storage file bytes from `storage.objects` (attachments + avatars buckets) |

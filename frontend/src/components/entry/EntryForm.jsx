@@ -1,17 +1,31 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, Image,
+  ScrollView, ActivityIndicator, Modal, Animated,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import * as DocumentPicker from 'expo-document-picker';
 import AppInput from '../ui/Input';
 import DatePickerModal from '../ui/DatePickerModal';
 import TimePickerModal from '../ui/TimePickerModal';
 import ContactPickerModal from './ContactPickerModal';
 import CategoryPickerModal from './CategoryPickerModal';
 import { ChevronDownIcon, CloseIcon } from '../ui/Icons';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
-import { useBookFieldsStore } from '../../store/bookFieldsStore';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePaymentModes } from '../../hooks/usePaymentModes';
+import { uploadAttachment } from '../../lib/storage';
+
+const MAX_FILE_MB = 6;  // max file size accepted from device (images compressed after; PDFs sent as-is)
+
+const getErrorMessage = (err) => {
+  if (err?.response?.data?.detail) return err.response.data.detail;
+  if (typeof err?.response?.data === 'string') return err.response.data;
+  if (err?.message) return err.message;
+  return 'Something went wrong. Please try again.';
+};
 
 // Exposes { getValues(), validate() } via ref.
 const EntryForm = forwardRef(function EntryForm(
@@ -20,8 +34,12 @@ const EntryForm = forwardRef(function EntryForm(
 ) {
   const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
-  const { getFields } = useBookFieldsStore();
-  const { showCustomer, showSupplier, showCategory } = getFields(bookId);
+  const qc = useQueryClient();
+  const _book = qc.getQueryData(['books'])?.find(b => b.id === bookId);
+  const showCustomer   = _book?.show_customer   ?? false;
+  const showSupplier   = _book?.show_supplier   ?? false;
+  const showCategory   = _book?.show_category   ?? false;
+  const showAttachment = _book?.show_attachment ?? false;
   const showContact = showCustomer || showSupplier;
   const allowedContactTypes = [
     ...(showCustomer ? ['customer'] : []),
@@ -39,10 +57,40 @@ const EntryForm = forwardRef(function EntryForm(
   const [customerId,    setCustomerId]    = useState(initialValues?.customer_id ?? null);
   const [supplierId,    setSupplierId]    = useState(initialValues?.supplier_id ?? null);
 
+  // Attachment state
+  const [attachmentUrl,       setAttachmentUrl]       = useState(initialValues?.attachment_url ?? null);
+  const [attachmentPath,      setAttachmentPath]      = useState(initialValues?.attachment_path ?? null);
+  const [attachmentProvider,  setAttachmentProvider]  = useState(initialValues?.attachment_provider ?? 'supabase');
+  const [attachmentLocalUri,  setAttachmentLocalUri]  = useState(null);
+  const [attachmentName,      setAttachmentName]      = useState(null);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [attachmentType, setAttachmentType] = useState(() => {
+    const p = initialValues?.attachment_path;
+    if (!p) return null;
+    return p.endsWith('.pdf') ? 'pdf' : 'image';
+  });
+
+  // Attach picker sheet + inline error state
+  const [showAttachPicker, setShowAttachPicker] = useState(false);
+  const [attachError,      setAttachError]      = useState(null);
+  const slideY = useRef(new Animated.Value(320)).current;
+
+  const openAttachPicker = () => {
+    setAttachError(null);
+    setShowAttachPicker(true);
+    Animated.spring(slideY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 220 }).start();
+  };
+
+  const closeAttachPicker = (cb) => {
+    Animated.timing(slideY, { toValue: 320, duration: 200, useNativeDriver: true }).start(() => {
+      setShowAttachPicker(false);
+      cb?.();
+    });
+  };
+
   // Payment modes from DB — always shown, required field
   const { data: paymentModes = [], isLoading: modesLoading } = usePaymentModes(bookId);
 
-  // Auto-resolve when modes load: match by id → by name → first mode
   useEffect(() => {
     if (!paymentModes.length) return;
     if (paymentModeId && paymentModes.find(m => m.id === paymentModeId)) return;
@@ -54,9 +102,7 @@ const EntryForm = forwardRef(function EntryForm(
     setPaymentMode(resolved.name);
   }, [paymentModes]);
 
-  // true when an entry still has a name snapshot but the linked contact was deleted
   const contactDeleted = contactName !== '' && !customerId && !supplierId;
-  // true when an entry still has a category name snapshot but the linked category was deleted
   const categoryDeleted = category !== '' && !categoryId;
 
   useEffect(() => { onContactDeletedChange?.(contactDeleted); }, [contactDeleted]);
@@ -83,22 +129,32 @@ const EntryForm = forwardRef(function EntryForm(
     setContactName(initialValues.contact_name ?? '');
     setCustomerId(initialValues.customer_id ?? null);
     setSupplierId(initialValues.supplier_id ?? null);
+    setAttachmentUrl(initialValues.attachment_url ?? null);
+    setAttachmentPath(initialValues.attachment_path ?? null);
+    setAttachmentProvider(initialValues.attachment_provider ?? 'supabase');
+    setAttachmentLocalUri(null);
+    setAttachmentName(null);
+    const p = initialValues.attachment_path;
+    setAttachmentType(p ? (p.endsWith('.pdf') ? 'pdf' : 'image') : null);
   }, [initialValues?.id]);
 
   useImperativeHandle(ref, () => ({
     getValues: () => ({
-      type:             entryType,
-      amount:           parseFloat(amount),
-      remark:           remark.trim() || undefined,
-      category:         categoryDeleted ? null : (category || undefined),
-      category_id:      categoryDeleted ? null : (categoryId || undefined),
-      payment_mode:     paymentMode,
-      payment_mode_id:  paymentModeId || undefined,
-      contact_name:     contactDeleted ? null : (contactName.trim() || null),
-      customer_id:      contactDeleted ? null : (customerId  || null),
-      supplier_id:      contactDeleted ? null : (supplierId  || null),
-      entry_date:       date.toISOString().split('T')[0],
-      entry_time:       date.toTimeString().slice(0, 5),
+      type:                entryType,
+      amount:              parseFloat(amount),
+      remark:              remark.trim() || undefined,
+      category:            categoryDeleted ? null : (category || undefined),
+      category_id:         categoryDeleted ? null : (categoryId || undefined),
+      payment_mode:        paymentMode,
+      payment_mode_id:     paymentModeId || undefined,
+      contact_name:        contactDeleted ? null : (contactName.trim() || null),
+      customer_id:         contactDeleted ? null : (customerId  || null),
+      supplier_id:         contactDeleted ? null : (supplierId  || null),
+      attachment_url:      attachmentUrl ?? null,
+      attachment_path:     attachmentPath ?? null,
+      attachment_provider: attachmentProvider ?? null,
+      entry_date:          date.toISOString().split('T')[0],
+      entry_time:          date.toTimeString().slice(0, 5),
     }),
     validate: () => {
       const parsed = parseFloat(amount);
@@ -122,6 +178,117 @@ const EntryForm = forwardRef(function EntryForm(
 
   const dateStr = date.toLocaleDateString('en-GB');
   const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+
+  // ── Attachment helpers ────────────────────────────────────────────────────────
+
+  const compressImage = async (uri) => {
+    // expo-image-manipulator v14 class-based API
+    const ctx = ImageManipulator.manipulate(uri);
+    ctx.resize({ width: 1000 });
+    const imageRef = await ctx.renderAsync();
+    const result   = await imageRef.saveAsync({ compress: 0.55, format: SaveFormat.JPEG });
+    return { uri: result.uri, mimeType: 'image/jpeg', filename: 'attachment.jpg' };
+  };
+
+  const processAndUpload = async (uri, type, name = null) => {
+    const prevLocalUri = attachmentLocalUri;
+    const prevType     = attachmentType;
+    const prevName     = attachmentName;
+
+    setAttachmentUploading(true);
+    setAttachmentLocalUri(uri);
+    setAttachmentType(type);
+    setAttachmentName(name || (type === 'pdf' ? 'Document.pdf' : null));
+
+    try {
+      let finalUri  = uri;
+      let finalMime = 'image/jpeg';
+      let finalName = name || 'attachment.jpg';
+
+      if (type === 'image') {
+        const compressed = await compressImage(uri);
+        finalUri  = compressed.uri;
+        finalMime = compressed.mimeType;
+        finalName = compressed.filename;
+        setAttachmentLocalUri(finalUri);
+      } else {
+        finalMime = 'application/pdf';
+        finalName = name || 'attachment.pdf';
+      }
+
+      const { url, path, provider } = await uploadAttachment({
+        entryId:  initialValues?.id || null,
+        uri:      finalUri,
+        mimeType: finalMime,
+        filename: finalName,
+      });
+
+      setAttachmentUrl(url);
+      setAttachmentPath(path);
+      setAttachmentProvider(provider);
+    } catch (err) {
+      setAttachmentLocalUri(prevLocalUri);
+      setAttachmentType(prevType);
+      setAttachmentName(prevName);
+      setAttachError(getErrorMessage(err));
+    } finally {
+      setAttachmentUploading(false);
+    }
+  };
+
+  const pickCamera = () => {
+    closeAttachPicker(async () => {
+      const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+      if (!granted) {
+        setAttachError('Camera permission is required. Please allow it in your device settings.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ quality: 1 });
+      if (!result.canceled && result.assets?.[0]) {
+        await processAndUpload(result.assets[0].uri, 'image');
+      }
+    });
+  };
+
+  const pickGallery = () => {
+    closeAttachPicker(async () => {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+      if (!result.canceled && result.assets?.[0]) {
+        await processAndUpload(result.assets[0].uri, 'image');
+      }
+    });
+  };
+
+  const pickPDF = () => {
+    closeAttachPicker(async () => {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        if (asset.size && asset.size > MAX_FILE_MB * 1024 * 1024) {
+          setAttachError(`PDF is ${(asset.size / (1024 * 1024)).toFixed(1)} MB — maximum allowed is ${MAX_FILE_MB} MB.`);
+          return;
+        }
+        await processAndUpload(asset.uri, 'pdf', asset.name);
+      }
+    });
+  };
+
+  const handleRemove = () => {
+    setAttachmentLocalUri(null);
+    setAttachmentUrl(null);
+    setAttachmentPath(null);
+    setAttachmentProvider(null);
+    setAttachmentType(null);
+    setAttachmentName(null);
+  };
+
+  const attachDisplayUri = attachmentLocalUri || attachmentUrl;
+
+  const ATTACH_OPTIONS = [
+    { icon: 'camera',    label: 'Camera',       sub: 'Take a new photo',         onPress: pickCamera  },
+    { icon: 'image',     label: 'Gallery',       sub: 'Choose from your gallery', onPress: pickGallery  },
+    { icon: 'file-text', label: 'PDF Document',  sub: 'Attach a PDF file',        onPress: pickPDF      },
+  ];
 
   return (
     <>
@@ -206,12 +373,77 @@ const EntryForm = forwardRef(function EntryForm(
           labelColor={C.primary}
         />
 
-        <TouchableOpacity style={[s.attachBtn, { borderColor: C.border }]} activeOpacity={0.7}>
-          <Text style={{ fontSize: 16 }}>📎</Text>
-          <Text style={[s.attachText, { color: C.primary, fontFamily: Font.semiBold }]}>
-            Attach Image or PDF
-          </Text>
-        </TouchableOpacity>
+        {/* ── Attachment ──────────────────────────────────────────────────────── */}
+        {showAttachment && (
+          <View style={s.fieldGap}>
+            {attachmentUploading ? (
+              <View style={[s.attachBtn, { borderColor: C.primary }]}>
+                <ActivityIndicator size="small" color={C.primary} />
+                <Text style={[s.attachText, { color: C.textMuted, fontFamily: Font.medium }]}>
+                  Uploading…
+                </Text>
+              </View>
+            ) : attachError ? (
+              <View style={[s.attachErrorCard, { backgroundColor: C.dangerLight, borderColor: C.danger }]}>
+                <View style={[s.attachErrorIconBox, { backgroundColor: C.danger }]}>
+                  <Feather name="alert-circle" size={18} color="#fff" />
+                </View>
+                <View style={s.attachErrorBody}>
+                  <Text style={[s.attachErrorTitle, { color: C.danger, fontFamily: Font.semiBold }]}>
+                    Upload Failed
+                  </Text>
+                  <Text style={[s.attachErrorMsg, { color: C.danger, fontFamily: Font.regular }]} numberOfLines={3}>
+                    {attachError}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setAttachError(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="x" size={16} color={C.danger} />
+                </TouchableOpacity>
+              </View>
+            ) : attachDisplayUri ? (
+              <TouchableOpacity
+                style={[s.attachPreview, { backgroundColor: C.card, borderColor: C.border }]}
+                onPress={openAttachPicker}
+                activeOpacity={0.85}
+              >
+                {attachmentType === 'image' ? (
+                  <Image source={{ uri: attachDisplayUri }} style={s.attachThumb} resizeMode="cover" />
+                ) : (
+                  <View style={[s.attachPdfIcon, { backgroundColor: C.dangerLight }]}>
+                    <Feather name="file-text" size={20} color={C.danger} />
+                  </View>
+                )}
+                <View style={s.attachPreviewBody}>
+                  <Text style={[s.attachPreviewName, { color: C.text, fontFamily: Font.semiBold }]} numberOfLines={1}>
+                    {attachmentType === 'pdf'
+                      ? (attachmentName || attachmentPath?.split('/').pop() || 'Document.pdf')
+                      : 'Photo attached'}
+                  </Text>
+                  <Text style={[s.attachPreviewSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+                    Tap to change
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={handleRemove} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Feather name="x" size={18} color={C.textMuted} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[s.attachBtn, { borderColor: C.border }]}
+                onPress={openAttachPicker}
+                activeOpacity={0.7}
+              >
+                <Feather name="paperclip" size={16} color={C.primary} />
+                <Text style={[s.attachText, { color: C.primary, fontFamily: Font.semiBold }]}>
+                  Attach Image or PDF
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {showCategory && (
           <View style={s.fieldGap}>
@@ -238,9 +470,7 @@ const EntryForm = forwardRef(function EntryForm(
           </View>
         )}
 
-        <Text style={s.sectionLabel}>
-          Payment Mode *
-        </Text>
+        <Text style={s.sectionLabel}>Payment Mode *</Text>
         {modesLoading ? (
           <ActivityIndicator size="small" color={C.primary} style={{ marginBottom: 16 }} />
         ) : (
@@ -263,24 +493,80 @@ const EntryForm = forwardRef(function EntryForm(
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Category Picker */}
+      {/* ── Attach Picker Bottom Sheet ───────────────────────────────────────── */}
+      <Modal
+        visible={showAttachPicker}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => closeAttachPicker()}
+      >
+        <View style={s.pickerOverlay}>
+          {/* Dim backdrop — tapping closes the sheet */}
+          <TouchableOpacity style={s.pickerBackdrop} activeOpacity={1} onPress={() => closeAttachPicker()} />
+
+          {/* Sheet */}
+          <Animated.View style={[s.pickerSheet, { backgroundColor: C.card, transform: [{ translateY: slideY }] }]}>
+            {/* Handle bar */}
+            <View style={[s.pickerHandle, { backgroundColor: C.border }]} />
+
+            <Text style={[s.pickerTitle, { color: C.text, fontFamily: Font.bold }]}>Attach File</Text>
+
+            {/* Options */}
+            {ATTACH_OPTIONS.map((opt, idx) => (
+              <TouchableOpacity
+                key={opt.label}
+                style={[s.pickerOption, idx < ATTACH_OPTIONS.length - 1 && { borderBottomWidth: 1, borderBottomColor: C.border }]}
+                onPress={opt.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={[s.pickerOptionIcon, { backgroundColor: C.primaryLight }]}>
+                  <Feather name={opt.icon} size={20} color={C.primary} />
+                </View>
+                <View style={s.pickerOptionBody}>
+                  <Text style={[s.pickerOptionLabel, { color: C.text, fontFamily: Font.semiBold }]}>{opt.label}</Text>
+                  <Text style={[s.pickerOptionSub, { color: C.textMuted, fontFamily: Font.regular }]}>{opt.sub}</Text>
+                </View>
+                <Feather name="chevron-right" size={16} color={C.textMuted} />
+              </TouchableOpacity>
+            ))}
+
+            {/* Remove option — only when attachment exists */}
+            {attachDisplayUri && (
+              <TouchableOpacity
+                style={[s.pickerRemove, { borderTopWidth: 1, borderTopColor: C.border }]}
+                onPress={() => { closeAttachPicker(handleRemove); }}
+                activeOpacity={0.7}
+              >
+                <View style={[s.pickerOptionIcon, { backgroundColor: C.dangerLight }]}>
+                  <Feather name="trash-2" size={20} color={C.danger} />
+                </View>
+                <Text style={[s.pickerRemoveLabel, { color: C.danger, fontFamily: Font.semiBold }]}>Remove Attachment</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Cancel */}
+            <TouchableOpacity
+              style={[s.pickerCancel, { backgroundColor: C.inputBg }]}
+              onPress={() => closeAttachPicker()}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.pickerCancelText, { color: C.text, fontFamily: Font.semiBold }]}>Cancel</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* ── Other modals ────────────────────────────────────────────────────── */}
       <CategoryPickerModal
         visible={showCategoryModal}
         bookId={bookId}
         selectedCategoryId={categoryId}
-        onSelect={({ id, name }) => {
-          setCategory(name);
-          setCategoryId(id);
-          setShowCategoryModal(false);
-        }}
-        onDeselect={() => {
-          setCategory('');
-          setCategoryId(null);
-        }}
+        onSelect={({ id, name }) => { setCategory(name); setCategoryId(id); setShowCategoryModal(false); }}
+        onDeselect={() => { setCategory(''); setCategoryId(null); }}
         onClose={() => setShowCategoryModal(false)}
       />
 
-      {/* Contact Picker — self-contained modal */}
       <ContactPickerModal
         visible={showContactModal}
         bookId={bookId}
@@ -293,11 +579,7 @@ const EntryForm = forwardRef(function EntryForm(
           setSupplierId(supplier_id || null);
           setShowContactModal(false);
         }}
-        onDeselect={() => {
-          setContactName('');
-          setCustomerId(null);
-          setSupplierId(null);
-        }}
+        onDeselect={() => { setContactName(''); setCustomerId(null); setSupplierId(null); }}
         onClose={() => setShowContactModal(false)}
       />
 
@@ -345,17 +627,93 @@ const makeStyles = (C, Font) => StyleSheet.create({
     marginTop: 5, paddingHorizontal: 2,
   },
 
+  // Attach — empty state button
   attachBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderWidth: 1.5, borderStyle: 'dashed',
     borderRadius: 12, paddingVertical: 13, paddingHorizontal: 16,
-    marginBottom: 14,
   },
   attachText: { fontSize: 14, lineHeight: 20 },
 
+  // Attach — has-file preview row
+  // Attach — inline error card
+  attachErrorCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1.5, borderRadius: 12,
+    paddingVertical: 10, paddingHorizontal: 12,
+  },
+  attachErrorIconBox: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  attachErrorBody:  { flex: 1 },
+  attachErrorTitle: { fontSize: 13, lineHeight: 18, marginBottom: 2 },
+  attachErrorMsg:   { fontSize: 12, lineHeight: 17 },
+
+  attachPreview: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10,
+  },
+  attachThumb:       { width: 48, height: 48, borderRadius: 8 },
+  attachPdfIcon:     { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  attachPreviewBody: { flex: 1 },
+  attachPreviewName: { fontSize: 13, lineHeight: 18 },
+  attachPreviewSub:  { fontSize: 11, lineHeight: 16, marginTop: 2 },
+
+  // Payment modes
   sectionLabel:    { fontSize: 13, fontFamily: Font.bold, color: C.text, marginBottom: 10, lineHeight: 18 },
   paymentRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' },
   paymentChip:     { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 24, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
   paymentChipText: { fontSize: 13, fontFamily: Font.semiBold, color: C.text, lineHeight: 18 },
 
+  // ── Attach picker sheet ──────────────────────────────────────────────────────
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  pickerSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: -4 },
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  pickerHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    alignSelf: 'center', marginBottom: 20,
+  },
+  pickerTitle: {
+    fontSize: 16, textAlign: 'center', marginBottom: 16,
+  },
+  pickerOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 14,
+  },
+  pickerOptionIcon: {
+    width: 44, height: 44, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pickerOptionBody: { flex: 1 },
+  pickerOptionLabel: { fontSize: 15, lineHeight: 20 },
+  pickerOptionSub:   { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  pickerRemove: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 14, marginTop: 4,
+  },
+  pickerRemoveLabel: { flex: 1, fontSize: 15, lineHeight: 20 },
+  pickerCancel: {
+    marginTop: 16, paddingVertical: 14,
+    borderRadius: 14, alignItems: 'center',
+  },
+  pickerCancelText: { fontSize: 15 },
 });

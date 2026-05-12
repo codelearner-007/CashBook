@@ -1,39 +1,78 @@
 import time
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+import uuid
+from typing import Optional
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Query, HTTPException
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 
 router = APIRouter()
 
-ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
-MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}
+ALLOWED_TYPES = ALLOWED_IMAGE_TYPES | {"application/pdf"}
+MAX_SIZE_BYTES = 6 * 1024 * 1024  # 6 MB
+SIGNED_URL_TTL = 60 * 60 * 24 * 7  # 7 days
 
 
 @router.post("/attachment")
 async def upload_attachment(
-    entry_id: str = Form(...),
     file: UploadFile = File(...),
+    entry_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user),
 ):
-    if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(status_code=400, detail="Only JPEG, PNG, WebP, HEIC images are allowed")
+    content_type = (file.content_type or "").lower().strip()
+    if content_type == "image/jpg":
+        content_type = "image/jpeg"
+
+    if content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, WebP, HEIC images and PDFs are allowed")
 
     content = await file.read()
     if len(content) > MAX_SIZE_BYTES:
         raise HTTPException(status_code=400, detail="File exceeds 5 MB limit")
 
     sb = get_supabase()
-    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "jpg"
-    path = f"{user_id}/{entry_id}/attachment.{ext}"
+
+    try:
+        sb.storage.create_bucket("attachments", options={"public": False})
+    except Exception:
+        pass  # Already exists
+
+    storage_id = entry_id or str(uuid.uuid4())
+
+    if content_type == "application/pdf":
+        ext = "pdf"
+    else:
+        ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
+        if ext.lower() in ("jpg", "jpeg"):
+            ext = "jpg"
+
+    path = f"{user_id}/{storage_id}/attachment.{ext}"
 
     sb.storage.from_("attachments").upload(
         path,
         content,
-        {"content-type": file.content_type, "upsert": "true"},
+        {"content-type": content_type, "upsert": "true"},
     )
 
-    signed = sb.storage.from_("attachments").create_signed_url(path, 3600)
-    return {"attachment_url": signed["signedURL"], "path": path}
+    signed = sb.storage.from_("attachments").create_signed_url(path, SIGNED_URL_TTL)
+    return {
+        "attachment_url": signed["signedURL"],
+        "path": path,
+        "provider": "supabase",
+    }
+
+
+@router.delete("/attachment")
+async def delete_attachment(
+    path: str = Query(...),
+    user_id: str = Depends(get_current_user),
+):
+    # Verify the path belongs to the requesting user
+    if not path.startswith(f"{user_id}/"):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this file")
+    sb = get_supabase()
+    sb.storage.from_("attachments").remove([path])
+    return {"deleted": True}
 
 
 @router.post("/avatar")
@@ -46,7 +85,7 @@ async def upload_avatar(
     if content_type == "image/jpg":
         content_type = "image/jpeg"
 
-    if content_type not in ALLOWED_TYPES:
+    if content_type not in ALLOWED_IMAGE_TYPES:
         # Fall back: infer from filename extension
         fname = (file.filename or "").lower()
         if fname.endswith((".jpg", ".jpeg")):
@@ -69,7 +108,7 @@ async def upload_avatar(
     except Exception:
         pass  # Already exists
 
-    ext = content_type.split("/")[-1]  # derive extension from normalised type
+    ext = content_type.split("/")[-1]
     if ext in ("jpeg", "jpg"):
         ext = "jpg"
     path = f"{user_id}/profile.{ext}"

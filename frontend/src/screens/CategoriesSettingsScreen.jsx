@@ -15,7 +15,9 @@ import {
 } from '../hooks/useCategories';
 import CategoryMenuSheet from '../components/books/CategoryMenuSheet';
 import DeleteCategorySheet from '../components/ui/DeleteCategorySheet';
-import { useBookFieldsStore } from '../store/bookFieldsStore';
+import { useBooks } from '../hooks/useBooks';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiUpdateBookFieldSettings } from '../lib/api';
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
@@ -73,8 +75,31 @@ export default function CategoriesSettingsScreen() {
   const [deletingCategory, setDeletingCategory] = useState(null); // snapshot for delete sheet
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
 
-  const { getFields, setField } = useBookFieldsStore();
-  const { showCategory } = getFields(bookId);
+  const qc = useQueryClient();
+  const { data: books = [] } = useBooks();
+  const currentBook = books.find(b => b.id === bookId);
+  const showCategory = currentBook?.show_category ?? false;
+
+  const toggleCategory = useMutation({
+    mutationFn: (newVal) => apiUpdateBookFieldSettings(bookId, {
+      showCustomer:   currentBook?.show_customer   ?? false,
+      showSupplier:   currentBook?.show_supplier   ?? false,
+      showCategory:   newVal,
+      showAttachment: currentBook?.show_attachment ?? false,
+    }),
+    onMutate: async (newVal) => {
+      await qc.cancelQueries({ queryKey: ['books'] });
+      const snapshot = qc.getQueryData(['books']);
+      qc.setQueryData(['books'], (prev = []) =>
+        prev.map(b => b.id === bookId ? { ...b, show_category: newVal } : b)
+      );
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot) qc.setQueryData(['books'], ctx.snapshot);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['books'] }),
+  });
 
   const { data: categories = [], isLoading } = useCategories(bookId);
   const { mutate: createCategory, isPending: creating } = useCreateCategory(bookId);
@@ -262,7 +287,7 @@ export default function CategoriesSettingsScreen() {
         </View>
         <Switch
           value={showCategory}
-          onValueChange={(v) => setField(bookId, 'showCategory', v)}
+          onValueChange={(v) => toggleCategory.mutate(v)}
           trackColor={{ false: C.border, true: C.primary }}
           thumbColor="#fff"
         />
