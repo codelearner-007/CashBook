@@ -171,7 +171,7 @@ All endpoints require `require_superadmin` dependency (403 if not superadmin).
 | PATCH | `/users/{user_id}/status` | Toggle `is_active`; cannot deactivate superadmin |
 | GET | `/users/{user_id}/books` | Any user's books (with net_balance and last_entry_at) |
 
-**GET /users** — N+1 pattern: one extra query per user for book count and entry count. Acceptable for admin dashboards at current scale.
+**GET /users** — N+1 pattern: one extra query per user for book count and entry count, plus two RPC calls (`get_user_data_bytes`, `get_user_storage_bytes`) for real storage. Each RPC has a try/except fallback to 0 if migration 013 hasn't run. Acceptable for admin dashboards at current scale.
 
 **GET /users/:id/books** — tries `get_books_with_summary` RPC first, falls back to direct table query. Same fallback pattern as `/books`.
 

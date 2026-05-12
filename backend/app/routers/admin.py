@@ -42,7 +42,20 @@ async def get_all_users(admin_id: str = Depends(require_superadmin)):
             .execute()
         )
         entry_count = len(entries_res.data or [])
-        storage_mb = round(0.2 + entry_count * 0.0005, 2)
+
+        try:
+            db_b = sb.rpc("get_user_data_bytes", {"p_user_id": u["id"]}).execute()
+            db_bytes = db_b.data or 0
+        except Exception:
+            db_bytes = 0
+
+        try:
+            st_b = sb.rpc("get_user_storage_bytes", {"p_user_id": u["id"]}).execute()
+            storage_bytes = st_b.data or 0
+        except Exception:
+            storage_bytes = 0
+
+        storage_mb = round((db_bytes + storage_bytes) / (1024 * 1024), 3)
 
         result.append({**u, "book_count": book_count, "entry_count": entry_count, "storage_mb": storage_mb})
 
@@ -71,7 +84,20 @@ async def toggle_user_status(
     book_count  = len(books_res.data or [])
     entries_res = sb.table("entries").select("id").eq("user_id", user_id).execute()
     entry_count = len(entries_res.data or [])
-    storage_mb  = round(0.2 + entry_count * 0.0005, 2)
+
+    try:
+        db_b = sb.rpc("get_user_data_bytes", {"p_user_id": user_id}).execute()
+        db_bytes = db_b.data or 0
+    except Exception:
+        db_bytes = 0
+
+    try:
+        st_b = sb.rpc("get_user_storage_bytes", {"p_user_id": user_id}).execute()
+        storage_bytes = st_b.data or 0
+    except Exception:
+        storage_bytes = 0
+
+    storage_mb = round((db_bytes + storage_bytes) / (1024 * 1024), 3)
 
     return {**u, "book_count": book_count, "entry_count": entry_count, "storage_mb": storage_mb}
 

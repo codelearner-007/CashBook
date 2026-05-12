@@ -24,6 +24,8 @@ Supabase provides three things for CashBook:
 7. `supabase/migrations/008_contacts.sql` — `customers` and `suppliers` tables (with stored `total_in`/`total_out`/`net_balance`) + `customer_id`/`supplier_id` FK columns on entries; RLS; `trg_update_contact_balance` trigger keeps balances in sync automatically
 8. `supabase/migrations/009_clear_contact_name_on_delete.sql` — `BEFORE DELETE` triggers on `customers` and `suppliers` that null out `entries.contact_name` for all linked entries when a contact is deleted (FK `ON DELETE SET NULL` handles `customer_id`/`supplier_id`; this covers the snapshot name field)
 9. `supabase/migrations/010_categories.sql` — `categories` table per book (with stored `total_in`/`total_out`/`net_balance`) + `category_id` FK column on entries (ON DELETE SET NULL); UNIQUE(book_id, name); RLS; `trg_update_category_balance` trigger keeps balances in sync automatically
+10. `supabase/migrations/012_payment_modes.sql` — `payment_modes` table per book; Cash + Cheque seeded on book creation; `entries.payment_mode_id` nullable FK
+11. `supabase/migrations/013_storage_calc.sql` — `get_user_data_bytes()` and `get_user_storage_bytes()` security-definer functions for real admin storage stats
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -209,6 +211,8 @@ create policy "Users own their entries" on public.entries
 |---|---|---|---|
 | `get_books_with_summary(p_user_id)` | uuid | table(id, user_id, name, currency, net_balance, created_at, updated_at, last_entry_at) | GET /books — single round-trip |
 | `get_book_summary(p_book_id, p_user_id)` | uuid, uuid | table(total_in, total_out, net_balance) | GET /books/:id/summary |
+| `get_user_data_bytes(p_user_id)` | uuid | bigint | Admin: actual DB row bytes via `pg_column_size()` across all 7 user tables |
+| `get_user_storage_bytes(p_user_id)` | uuid | bigint | Admin: actual Storage file bytes from `storage.objects` (attachments + avatars buckets) |
 
 `get_books_with_summary` computes `last_entry_at` by joining `entries` and taking `MAX(entry_date || 'T' || entry_time)` per book. The result is ordered by `books.created_at DESC`.
 
@@ -288,9 +292,9 @@ The `GET /api/v1/admin/users` endpoint computes stats per user in Python (N+1 pa
 |---|---|
 | `book_count` | `SELECT count(*) FROM books WHERE user_id = ?` |
 | `entry_count` | `SELECT count(*) FROM entries WHERE user_id = ?` |
-| `storage_mb` | Estimated: `0.2 + entry_count * 0.0005` MB (not real Storage usage) |
+| `storage_mb` | `get_user_data_bytes(user_id)` + `get_user_storage_bytes(user_id)` converted to MB (migration 013) |
 
-The storage estimate is approximate. Actual attachment sizes are not queried from Supabase Storage.
+`storage_mb` reflects actual usage: DB row bytes across all 7 user tables (entries, books, categories, profiles, payment_modes, customers, suppliers) plus real file sizes from Supabase Storage (attachments + avatars buckets). Both RPC calls have try/except fallbacks — if migration 013 hasn't run, storage_mb returns 0.
 
 ---
 
