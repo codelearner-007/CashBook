@@ -69,6 +69,7 @@ export default function EditEntryScreen() {
       qc.invalidateQueries({ queryKey: ['books'] });
       qc.invalidateQueries({ queryKey: ['categories', id] });
       qc.invalidateQueries({ queryKey: ['category-entries', id] });
+      qc.invalidateQueries({ queryKey: ['report-entries', id] });
       router.back();
     },
     onError: () => Toast.show({ type: 'error', text1: 'Failed to update entry', text2: 'Please try again.' }),
@@ -82,6 +83,7 @@ export default function EditEntryScreen() {
       qc.invalidateQueries({ queryKey: ['books'] });
       qc.invalidateQueries({ queryKey: ['categories', id] });
       qc.invalidateQueries({ queryKey: ['category-entries', id] });
+      qc.invalidateQueries({ queryKey: ['report-entries', id] });
       animateClose(() => { setShowDeleteSheet(false); goToBook(); });
     },
     onError: () => {

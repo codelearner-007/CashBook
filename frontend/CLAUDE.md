@@ -383,6 +383,22 @@ useEffect(() => {
 - Per-screen styles via `StyleSheet.create()` inside a local `makeStyles(C, Font)` function called with current theme values
 - `CARD_ACCENTS` from `constants/colors.js` — color each book card by `index % CARD_ACCENTS.length`
 
+### Design Consistency — mandatory for every new screen and component
+
+Before writing any new screen or component, open a similar existing screen and match its visual pattern exactly. Non-negotiable rules:
+
+| Element | Rule |
+|---|---|
+| **Header** | `C.primary` bg, `C.onPrimary` text, back button in same position/size, icon buttons in 44×44 `C.onPrimaryIconBg` circles |
+| **Cards** | `C.card` bg, `1.5px C.border` border, same `borderRadius` as nearby screens |
+| **Typography** | Use `Font.*` constants only — never a raw string. Scale: caption 10–11, label 12, body 13–14, subtitle 15–16, title 18–20 |
+| **Status colors** | Income/positive → `C.cashIn` / `C.cashInLight`; Expense/destructive → `C.danger` / `C.dangerLight`; Accent → `C.primary` / `C.primaryLight` |
+| **Spacing** | `paddingHorizontal: 16` on list content, `20` on headers/modals; match `gap` and `marginBottom` from adjacent screens |
+| **Bottom sheets / Modals** | Handle bar (`width:36, height:4, C.border`), rounded top corners (`borderRadius:20–24`), `C.overlay` backdrop — no new layouts |
+| **Empty states** | 80×80 icon box with `C.primaryLight` bg, `borderRadius:24`, bold title, muted subtitle — same structure as all other empty states |
+| **Icons** | Default to `Feather`; only use another set when Feather has no suitable icon — add a comment explaining why |
+| **No one-off styles** | If a style differs from every other screen without a clear reason, redesign it to match — consistency is more important than novelty |
+
 ---
 
 ## React Query Conventions

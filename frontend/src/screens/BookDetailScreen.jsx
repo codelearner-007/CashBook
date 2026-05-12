@@ -15,7 +15,6 @@ import { useTheme } from '../hooks/useTheme';
 import { apiGetEntries, apiGetSummary, apiDeleteEntry, apiDeleteAllEntries } from '../lib/api';
 import { useBooks } from '../hooks/useBooks';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
-import { PAYMENT_MODES, CATEGORIES } from '../constants/categories';
 import SuccessDialog from '../components/ui/SuccessDialog';
 import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
 
@@ -369,6 +368,7 @@ export default function BookDetailScreen() {
       qc.invalidateQueries({ queryKey: ['books'] });
       qc.invalidateQueries({ queryKey: ['categories', id] });
       qc.invalidateQueries({ queryKey: ['category-entries', id] });
+      qc.invalidateQueries({ queryKey: ['report-entries', id] });
     },
   });
 
@@ -380,6 +380,7 @@ export default function BookDetailScreen() {
       qc.invalidateQueries({ queryKey: ['books'] });
       qc.invalidateQueries({ queryKey: ['categories', id] });
       qc.invalidateQueries({ queryKey: ['category-entries', id] });
+      qc.invalidateQueries({ queryKey: ['report-entries', id] });
       // Drive the close animation; show success only after it finishes
       deleteSheetCloseRef.current?.(() => {
         setShowDeleteAllSheet(false);
@@ -422,6 +423,10 @@ export default function BookDetailScreen() {
     [...new Set(entries.map(e => e.category).filter(Boolean))],
     [entries]);
 
+  const bookPayments = useMemo(() =>
+    [...new Set(entries.map(e => e.payment_mode).filter(Boolean))],
+    [entries]);
+
   const grouped = useMemo(() => groupByDate(filtered), [filtered]);
 
   const isFiltered = activeFilterCount > 0 || !!search;
@@ -443,9 +448,41 @@ export default function BookDetailScreen() {
     ]);
   }, [deleteEntry]);
 
+  const fmtDate = (d) => d.toISOString().split('T')[0];
+
   const goToReports = useCallback(() => {
-    router.push({ pathname: `${basePath}/[id]/reports`, params: { id } });
-  }, [router, basePath, id]);
+    const params = { id, name };
+
+    if (filterDate === 'month') {
+      params.initialFilter = 'This Month';
+    } else if (filterDate === 'today') {
+      const today = new Date();
+      params.initialFilter = 'Custom';
+      params.customFrom = fmtDate(today);
+      params.customTo = fmtDate(today);
+    } else if (filterDate === 'yesterday') {
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      params.initialFilter = 'Custom';
+      params.customFrom = fmtDate(yesterday);
+      params.customTo = fmtDate(yesterday);
+    } else if (filterDate === 'week') {
+      const today = new Date();
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - 6);
+      params.initialFilter = 'Custom';
+      params.customFrom = fmtDate(weekStart);
+      params.customTo = fmtDate(today);
+    }
+
+    if (filterType) params.initialType = filterType;
+    if (filterContact) params.initialContact = filterContact;
+    if (filterCategory) params.initialCategory = filterCategory;
+    if (filterPayment) params.initialPayment = filterPayment;
+
+    router.push({ pathname: `${basePath}/[id]/reports`, params });
+  }, [router, basePath, id, name, filterDate, filterType, filterContact, filterCategory, filterPayment]);
 
   const goToBookSettings = useCallback(() => {
     setMenuVisible(false);
@@ -786,47 +823,65 @@ export default function BookDetailScreen() {
 
             {/* CATEGORY picker */}
             {activePicker === 'category' && (
-              <ScrollView style={s.pickerList} showsVerticalScrollIndicator={false}>
-                {(bookCategories.length > 0 ? bookCategories : CATEGORIES).map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[s.pickerRow, { borderBottomColor: C.border }, filterCategory === cat && { backgroundColor: C.primaryLight }]}
-                    onPress={() => applyFilter('category', cat)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={[s.catDot, { backgroundColor: C.primaryMid }]}>
-                      <Feather name="tag" size={13} color={C.primary} />
-                    </View>
-                    <Text style={[s.pickerRowLabel, { color: C.text, fontFamily: filterCategory === cat ? Font.semiBold : Font.regular }]}>{cat}</Text>
-                    {filterCategory === cat && <Feather name="check" size={16} color={C.primary} />}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              bookCategories.length === 0 ? (
+                <View style={s.pickerEmpty}>
+                  <Feather name="tag" size={36} color={C.textSubtle} />
+                  <Text style={[s.pickerEmptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>No categories used</Text>
+                  <Text style={[s.pickerEmptySub, { color: C.textMuted }]}>Add categories to entries to filter by them.</Text>
+                </View>
+              ) : (
+                <ScrollView style={s.pickerList} showsVerticalScrollIndicator={false}>
+                  {bookCategories.map(cat => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[s.pickerRow, { borderBottomColor: C.border }, filterCategory === cat && { backgroundColor: C.primaryLight }]}
+                      onPress={() => applyFilter('category', cat)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[s.catDot, { backgroundColor: C.primaryMid }]}>
+                        <Feather name="tag" size={13} color={C.primary} />
+                      </View>
+                      <Text style={[s.pickerRowLabel, { color: C.text, fontFamily: filterCategory === cat ? Font.semiBold : Font.regular }]}>{cat}</Text>
+                      {filterCategory === cat && <Feather name="check" size={16} color={C.primary} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )
             )}
 
             {/* PAYMENT picker */}
-            {activePicker === 'payment' && (
-              <View style={s.pickerGrid}>
-                {[
-                  { value: 'cash', label: 'Cash', icon: 'dollar-sign' },
-                  { value: 'online', label: 'Online', icon: 'wifi' },
-                  { value: 'cheque', label: 'Cheque', icon: 'file-text' },
-                  { value: 'other', label: 'Other', icon: 'more-horizontal' },
-                ].map(({ value, label, icon }) => (
-                  <TouchableOpacity
-                    key={value}
-                    style={[s.pickerGridItem, { borderColor: filterPayment === value ? C.primary : C.border, backgroundColor: filterPayment === value ? C.primaryLight : C.card }]}
-                    onPress={() => applyFilter('payment', value)}
-                    activeOpacity={0.75}
-                  >
-                    <Feather name={icon} size={20} color={filterPayment === value ? C.primary : C.textMuted} />
-                    <Text style={[s.pickerGridLabel, { color: filterPayment === value ? C.primary : C.text, fontFamily: filterPayment === value ? Font.bold : Font.medium }]}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {activePicker === 'payment' && (() => {
+              const payOpts = [
+                { value: 'cash', label: 'Cash', icon: 'dollar-sign' },
+                { value: 'online', label: 'Online', icon: 'wifi' },
+                { value: 'cheque', label: 'Cheque', icon: 'file-text' },
+                { value: 'other', label: 'Other', icon: 'more-horizontal' },
+              ].filter(p => bookPayments.includes(p.value));
+              if (payOpts.length === 0) return (
+                <View style={s.pickerEmpty}>
+                  <Feather name="credit-card" size={36} color={C.textSubtle} />
+                  <Text style={[s.pickerEmptyTitle, { color: C.text, fontFamily: Font.semiBold }]}>No payment modes used</Text>
+                  <Text style={[s.pickerEmptySub, { color: C.textMuted }]}>Payment modes will appear once entries are added.</Text>
+                </View>
+              );
+              return (
+                <View style={s.pickerGrid}>
+                  {payOpts.map(({ value, label, icon }) => (
+                    <TouchableOpacity
+                      key={value}
+                      style={[s.pickerGridItem, { borderColor: filterPayment === value ? C.primary : C.border, backgroundColor: filterPayment === value ? C.primaryLight : C.card }]}
+                      onPress={() => applyFilter('payment', value)}
+                      activeOpacity={0.75}
+                    >
+                      <Feather name={icon} size={20} color={filterPayment === value ? C.primary : C.textMuted} />
+                      <Text style={[s.pickerGridLabel, { color: filterPayment === value ? C.primary : C.text, fontFamily: filterPayment === value ? Font.bold : Font.medium }]}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              );
+            })()}
 
           </Pressable>
         </Pressable>

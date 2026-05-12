@@ -250,6 +250,18 @@ Key invariants:
 - All screens must handle loading, error, and empty states
 - `DraggableList` syncs its internal `items` with the `books` prop via `useEffect` when not dragging
 
+### Design Consistency (applies to every new screen and component)
+Every new or modified screen/component **must match the visual language of the existing app**. Before writing any JSX, look at a similar existing screen for reference. Specific rules:
+- **Header:** primary-color background (`C.primary`), white text (`C.onPrimary`), icon buttons in `C.onPrimaryIconBg` circles — same height and padding as other headers
+- **Cards:** `C.card` background, `C.border` border at `1.5` width, rounded corners consistent with existing cards (`borderRadius` matching nearby screens)
+- **Typography:** always `Font.regular / medium / semiBold / bold / extraBold` — never a raw `fontFamily` string; font sizes must match the scale used elsewhere (body 13–14, label 11–12, title 16–18)
+- **Colors:** `C.cashIn` / `C.cashInLight` for positive/income; `C.danger` / `C.dangerLight` for negative/destructive; `C.primary` / `C.primaryLight` for accent — no one-off colors
+- **Spacing:** use the same `paddingHorizontal: 16/20`, `gap`, and `marginBottom` values seen in adjacent screens
+- **Modals and sheets:** follow the existing bottom-sheet pattern (handle bar, rounded top corners, `C.overlay` backdrop) — do not invent new modal layouts
+- **Empty states:** icon box with `C.primaryLight` background, bold title, muted subtitle — same structure as existing empty states
+- **Icons:** use `Feather` by default; only import another set (e.g. `MaterialCommunityIcons`) when Feather has no suitable icon, and document why
+- **No one-off styles:** if a style looks different from every other screen, reconsider it — consistency beats novelty
+
 ### Backend
 - All routers return typed Pydantic response models
 - Admin endpoints (`/api/v1/admin/*`) guarded by `require_superadmin` dependency
