@@ -28,7 +28,7 @@ async def upload_attachment(
 
     content = await file.read()
     if len(content) > MAX_SIZE_BYTES:
-        raise HTTPException(status_code=400, detail="File exceeds 5 MB limit")
+        raise HTTPException(status_code=400, detail="File exceeds 6 MB limit")
 
     sb = get_supabase()
 
@@ -99,7 +99,7 @@ async def upload_avatar(
 
     content = await file.read()
     if len(content) > MAX_SIZE_BYTES:
-        raise HTTPException(status_code=400, detail="File exceeds 5 MB limit")
+        raise HTTPException(status_code=400, detail="File exceeds 6 MB limit")
 
     sb = get_supabase()
 

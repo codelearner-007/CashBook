@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from typing import List, Any
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 from app.models.payment_mode import PaymentModeCreate, PaymentModeUpdate, PaymentModeResponse
@@ -139,3 +139,24 @@ async def delete_payment_mode(
 
     # FK ON DELETE SET NULL clears entries.payment_mode_id automatically
     sb.table("payment_modes").delete().eq("id", mode_id).eq("user_id", user_id).execute()
+
+
+@router.get("/{book_id}/payment-modes/{mode_id}/entries", response_model=List[Any])
+async def get_payment_mode_entries(
+    book_id: str,
+    mode_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    sb = get_supabase()
+    _verify_mode(sb, mode_id, book_id, user_id)
+    result = (
+        sb.table("entries")
+        .select("*")
+        .eq("book_id", book_id)
+        .eq("user_id", user_id)
+        .eq("payment_mode_id", mode_id)
+        .order("entry_date", desc=True)
+        .order("entry_time", desc=True)
+        .execute()
+    )
+    return result.data or []

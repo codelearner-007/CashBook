@@ -228,6 +228,10 @@ export const apiUpdatePaymentMode = async (bookId, modeId, payload) =>
 export const apiDeletePaymentMode = async (bookId, modeId) =>
   api.delete(`/api/v1/books/${bookId}/payment-modes/${modeId}`);
 
+/** GET /api/v1/books/:bookId/payment-modes/:modeId/entries */
+export const apiGetPaymentModeEntries = async (bookId, modeId) =>
+  (await api.get(`/api/v1/books/${bookId}/payment-modes/${modeId}/entries`)).data;
+
 
 // ── Admin (superadmin only) ────────────────────────────────────────────────────
 

@@ -17,6 +17,7 @@ import SortSheet from './SortSheet';
 import DraggableList from './DraggableList';
 import BookMenu from './BookMenu';
 import SearchBar from '../ui/SearchBar';
+import DeleteBookSheet from '../ui/DeleteBookSheet';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -206,6 +207,7 @@ export default function BooksView({
   const [renameDialog,      setRenameDialog]      = useState(null); // book | null
   const [renameText,        setRenameText]        = useState('');
   const [deleteDialog,      setDeleteDialog]      = useState(null); // book | null
+  const deleteBookSheetCloseRef = useRef(null);
 
   const currency = profile?.currency ?? 'PKR';
 
@@ -284,8 +286,10 @@ export default function BooksView({
   const handleDeleteConfirm = useCallback(() => {
     if (!deleteDialog) return;
     const bookId = deleteDialog.id;
-    setDeleteDialog(null);
     deleteBook.mutate(bookId, {
+      onSuccess: () => {
+        deleteBookSheetCloseRef.current?.(() => setDeleteDialog(null));
+      },
       onError: () => Alert.alert('Error', 'Could not delete book. Please try again.'),
     });
   }, [deleteDialog, deleteBook]);
@@ -524,30 +528,17 @@ export default function BooksView({
         </Pressable>
       </Modal>
 
-      {/* ── Delete dialog ───────────────────────────────────────────────── */}
-      <Modal visible={!!deleteDialog} transparent animationType="fade" onRequestClose={() => setDeleteDialog(null)}>
-        <Pressable style={s.dialogOverlay} onPress={() => setDeleteDialog(null)}>
-          <Pressable style={s.dialogCard} onPress={() => {}}>
-            <Text style={s.dialogTitle}>Delete Book</Text>
-            <Text style={s.dialogSub}>
-              Delete <Text style={{ fontFamily: Font.semiBold, color: C.text }}>"{deleteDialog?.name}"</Text>?{'\n'}
-              This will permanently remove the book and all its entries. This cannot be undone.
-            </Text>
-            <View style={s.dialogBtns}>
-              <TouchableOpacity style={s.dlgCancel} onPress={() => setDeleteDialog(null)}>
-                <Text style={s.dlgCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={s.dlgDanger}
-                onPress={handleDeleteConfirm}
-                disabled={deleteBook.isPending}
-              >
-                <Text style={s.dlgDangerText}>{deleteBook.isPending ? 'Deleting…' : 'Delete'}</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* ── Delete book sheet ───────────────────────────────────────────── */}
+      <DeleteBookSheet
+        visible={!!deleteDialog}
+        onDismiss={() => setDeleteDialog(null)}
+        onConfirm={handleDeleteConfirm}
+        bookName={deleteDialog?.name ?? ''}
+        isLoading={deleteBook.isPending}
+        C={C}
+        Font={Font}
+        closeRef={deleteBookSheetCloseRef}
+      />
 
       {/* ── Add book modal (slide-up) ────────────────────────────────────── */}
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={closeModal}>

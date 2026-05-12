@@ -5,41 +5,23 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-export default function DeleteContactSheet({
-  visible, onDismiss, onConfirm, contactName, contactType, isLoading, C, Font,
+export default function DeleteBookSheet({
+  visible, onDismiss, onConfirm, bookName, isLoading, C, Font, closeRef,
 }) {
   const slideY    = useRef(new Animated.Value(500)).current;
   const bgOpacity = useRef(new Animated.Value(0)).current;
   const kbOffset  = useRef(new Animated.Value(0)).current;
   const [input, setInput] = useState('');
 
-  const LABELS = { customer: 'Customer', supplier: 'Supplier', mode: 'Payment Mode' };
-  const label = LABELS[contactType] ?? 'Customer';
-  const bodyText = contactType === 'mode'
-    ? `"${contactName}" will be removed. Existing entries will keep their payment mode text.`
-    : `"${contactName}" will be removed from your contacts. Linked entries will keep this name for historical reference.`;
-
-  // Keyboard listeners — lift sheet above keyboard, reset flush on dismiss
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const up = Keyboard.addListener(showEvent, (e) => {
-      Animated.timing(kbOffset, {
-        toValue: e.endCoordinates.height,
-        duration: Platform.OS === 'ios' ? e.duration : 150,
-        useNativeDriver: false,
-      }).start();
-    });
-
-    const down = Keyboard.addListener(hideEvent, (e) => {
-      Animated.timing(kbOffset, {
-        toValue: 0,
-        duration: Platform.OS === 'ios' ? e.duration : 150,
-        useNativeDriver: false,
-      }).start();
-    });
-
+    const up = Keyboard.addListener(showEvent, (e) =>
+      Animated.timing(kbOffset, { toValue: e.endCoordinates.height, duration: Platform.OS === 'ios' ? e.duration : 150, useNativeDriver: false }).start()
+    );
+    const down = Keyboard.addListener(hideEvent, (e) =>
+      Animated.timing(kbOffset, { toValue: 0, duration: Platform.OS === 'ios' ? e.duration : 150, useNativeDriver: false }).start()
+    );
     return () => { up.remove(); down.remove(); };
   }, []);
 
@@ -49,6 +31,10 @@ export default function DeleteContactSheet({
       Animated.timing(slideY,    { toValue: 500, duration: 220, useNativeDriver: true }),
     ]).start(() => callback?.());
   }, []);
+
+  useEffect(() => {
+    if (closeRef) closeRef.current = animateClose;
+  }, [closeRef, animateClose]);
 
   useEffect(() => {
     if (!visible) return;
@@ -65,18 +51,17 @@ export default function DeleteContactSheet({
     Keyboard.dismiss();
     animateClose(onDismiss);
   };
-  const matched = !!contactName?.trim() && input.trim().toLowerCase() === contactName.trim().toLowerCase();
+
+  const matched = input.trim() === bookName?.trim();
 
   if (!visible) return null;
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={close} statusBarTranslucent>
-      {/* Dim backdrop */}
       <Animated.View style={[StyleSheet.absoluteFill, s.dimBg, { opacity: bgOpacity }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
       </Animated.View>
 
-      {/* Sheet pinned to bottom; kbOffset lifts it above keyboard */}
       <View style={s.anchor} pointerEvents="box-none">
         <Animated.View style={{ marginBottom: kbOffset }}>
           <Animated.View style={[s.sheet, { backgroundColor: C.card, transform: [{ translateY: slideY }] }]}>
@@ -84,10 +69,10 @@ export default function DeleteContactSheet({
 
             <View style={s.headerRow}>
               <View style={[s.iconCircle, { backgroundColor: C.danger, shadowColor: C.danger }]}>
-                <Feather name="trash-2" size={20} color="#fff" />
+                <Feather name="book" size={20} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.title, { color: C.text, fontFamily: Font.bold }]}>Delete {label}</Text>
+                <Text style={[s.title, { color: C.text, fontFamily: Font.bold }]}>Delete Book</Text>
                 <Text style={[s.subtitle, { color: C.danger, fontFamily: Font.medium }]}>
                   This cannot be undone
                 </Text>
@@ -95,11 +80,12 @@ export default function DeleteContactSheet({
             </View>
 
             <Text style={[s.body, { color: C.textMuted, fontFamily: Font.regular }]}>
-              {bodyText}
+              <Text style={{ fontFamily: Font.semiBold, color: C.text }}>"{bookName}"</Text>
+              {' '}and all its entries will be permanently deleted. This action cannot be reversed.
             </Text>
 
             <Text style={[s.inputLabel, { color: C.textMuted, fontFamily: Font.medium }]}>
-              Type the {label.toLowerCase()} name to confirm
+              Type the book name to confirm
             </Text>
             <TextInput
               style={[
@@ -113,7 +99,7 @@ export default function DeleteContactSheet({
               ]}
               value={input}
               onChangeText={setInput}
-              placeholder={contactName}
+              placeholder={bookName}
               placeholderTextColor={C.textSubtle}
               autoCapitalize="none"
               autoCorrect={false}
@@ -135,7 +121,7 @@ export default function DeleteContactSheet({
                   : <Feather name="trash-2" size={15} color="#fff" />
                 }
                 <Text style={[s.btnText, { color: '#fff', fontFamily: Font.bold }]}>
-                  {isLoading ? 'Deleting…' : `Delete ${label}`}
+                  {isLoading ? 'Deleting…' : 'Delete Book'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -155,8 +141,7 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15, shadowRadius: 20, elevation: 20,
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
-
+  handle:    { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   iconCircle: {
     width: 44, height: 44, borderRadius: 14,

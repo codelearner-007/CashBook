@@ -184,11 +184,11 @@ const EntryForm = forwardRef(function EntryForm(
   // ── Attachment helpers ────────────────────────────────────────────────────────
 
   const compressImage = async (uri) => {
-    // expo-image-manipulator v14 class-based API
-    const ctx = ImageManipulator.manipulate(uri);
-    ctx.resize({ width: 1000 });
-    const imageRef = await ctx.renderAsync();
-    const result   = await imageRef.saveAsync({ compress: 0.55, format: SaveFormat.JPEG });
+    const imageRef = await ImageManipulator.manipulate(uri)
+      .resize({ width: 1200 })
+      .renderAsync();
+    const result = await imageRef.saveAsync({ compress: 0.72, format: SaveFormat.JPEG });
+    if (!result?.uri) throw new Error('Image processing failed. Please try a different photo.');
     return { uri: result.uri, mimeType: 'image/jpeg', filename: 'attachment.jpg' };
   };
 
@@ -245,7 +245,7 @@ const EntryForm = forwardRef(function EntryForm(
         setAttachError('Camera permission is required. Please allow it in your device settings.');
         return;
       }
-      const result = await ImagePicker.launchCameraAsync({ quality: 1 });
+      const result = await ImagePicker.launchCameraAsync({ quality: 1, exif: false, base64: false });
       if (!result.canceled && result.assets?.[0]) {
         await processAndUpload(result.assets[0].uri, 'image');
       }
@@ -254,7 +254,7 @@ const EntryForm = forwardRef(function EntryForm(
 
   const pickGallery = () => {
     closeAttachPicker(async () => {
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false, base64: false });
       if (!result.canceled && result.assets?.[0]) {
         await processAndUpload(result.assets[0].uri, 'image');
       }

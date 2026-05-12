@@ -8,7 +8,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { useBooks, useRenameBook } from '../hooks/useBooks';
+import { useBooks, useRenameBook, useDeleteBook } from '../hooks/useBooks';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { useCategories } from '../hooks/useCategories';
 import { usePaymentModes } from '../hooks/usePaymentModes';
@@ -17,6 +17,7 @@ import { apiDeleteAllEntries, apiGetEntries, apiUpdateBookFieldSettings } from '
 
 import SuccessDialog from '../components/ui/SuccessDialog';
 import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
+import DeleteBookSheet from '../components/ui/DeleteBookSheet';
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -34,6 +35,8 @@ export default function BookSettingsScreen() {
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const deleteSheetCloseRef = useRef(null);
+  const [showDeleteBookSheet, setShowDeleteBookSheet] = useState(false);
+  const deleteBookSheetCloseRef = useRef(null);
 
   const qc = useQueryClient();
   const { data: books = [] } = useBooks();
@@ -86,6 +89,22 @@ export default function BookSettingsScreen() {
   const { data: suppliers = [] }    = useSuppliers(id);
   const { data: categories = [] }   = useCategories(id);
   const { data: paymentModes = [] } = usePaymentModes(id);
+
+  const deleteBook = useDeleteBook();
+
+  const handleDeleteBook = () => {
+    deleteBook.mutate(id, {
+      onSuccess: () => {
+        deleteBookSheetCloseRef.current?.(() => {
+          setShowDeleteBookSheet(false);
+          router.replace(basePath);
+        });
+      },
+      onError: () => {
+        Alert.alert('Error', 'Could not delete book. Please try again.');
+      },
+    });
+  };
 
   const deleteAllEntries = useMutation({
     mutationFn: () => apiDeleteAllEntries(id),
@@ -248,11 +267,13 @@ export default function BookSettingsScreen() {
                       <Text style={[s.countBadgeText, { color: C.primary }]}>{item.count}</Text>
                     </View>
                   )}
-                  <Feather
-                    name="chevron-right"
-                    size={18}
-                    color={item.alwaysActive || (item.fieldKey != null && fields[item.fieldKey]) ? C.primary : C.textSubtle}
-                  />
+                  {(item.alwaysActive || (item.fieldKey != null && fields[item.fieldKey])) ? (
+                    <View style={s.arrowActive}>
+                      <Feather name="chevron-right" size={15} color={C.primary} />
+                    </View>
+                  ) : (
+                    <Feather name="chevron-right" size={18} color={C.textSubtle} />
+                  )}
                 </TouchableOpacity>
               )}
               {idx < ENTRY_FIELDS.length - 1 && (
@@ -276,6 +297,21 @@ export default function BookSettingsScreen() {
             <View style={s.rowBody}>
               <Text style={[s.rowLabel, { color: C.danger }]}>Delete All Entries</Text>
               <Text style={s.rowSub}>Permanently removes all entries from this book</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={C.danger} />
+          </TouchableOpacity>
+          <View style={[s.divider, { backgroundColor: C.border }]} />
+          <TouchableOpacity
+            style={s.row}
+            onPress={() => setShowDeleteBookSheet(true)}
+            activeOpacity={0.75}
+          >
+            <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
+              <Feather name="book" size={18} color={C.danger} />
+            </View>
+            <View style={s.rowBody}>
+              <Text style={[s.rowLabel, { color: C.danger }]}>Delete Book</Text>
+              <Text style={s.rowSub}>Permanently deletes this book and all its entries</Text>
             </View>
             <Feather name="chevron-right" size={18} color={C.danger} />
           </TouchableOpacity>
@@ -348,6 +384,17 @@ export default function BookSettingsScreen() {
         title="All Entries Deleted"
         subtitle={`"${bookName}" has been cleared successfully`}
       />
+
+      <DeleteBookSheet
+        visible={showDeleteBookSheet}
+        onDismiss={() => setShowDeleteBookSheet(false)}
+        onConfirm={handleDeleteBook}
+        bookName={bookName}
+        isLoading={deleteBook.isPending}
+        C={C}
+        Font={Font}
+        closeRef={deleteBookSheetCloseRef}
+      />
     </SafeAreaView>
   );
 }
@@ -397,6 +444,11 @@ const makeStyles = (C, Font) => StyleSheet.create({
   rowBody:  { flex: 1 },
   rowLabel: { fontSize: 15, fontFamily: Font.semiBold, color: C.text, lineHeight: 22, marginBottom: 2 },
   rowSub:   { fontSize: 12, fontFamily: Font.regular, color: C.textMuted, lineHeight: 18 },
+  arrowActive: {
+    backgroundColor: C.primaryLight,
+    borderRadius: 8, padding: 5,
+    alignItems: 'center', justifyContent: 'center',
+  },
   countBadge: {
     minWidth: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',

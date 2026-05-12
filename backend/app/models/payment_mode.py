@@ -16,4 +16,7 @@ class PaymentModeResponse(BaseModel):
     book_id: str
     user_id: str
     name: str
+    total_in:    float = 0.0
+    total_out:   float = 0.0
+    net_balance: float = 0.0
     created_at: datetime

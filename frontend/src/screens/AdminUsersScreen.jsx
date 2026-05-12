@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, memo, useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Switch, Modal, Pressable, Image, Animated,
+  StatusBar, Switch, Modal, Pressable, Image, Animated, ScrollView,
 } from 'react-native';
 import SearchBar from '../components/ui/SearchBar';
 import { Font } from '../constants/fonts';
@@ -84,6 +84,22 @@ const sab = StyleSheet.create({
   spark: { position: 'absolute', width: 4, height: 4, borderRadius: 1 },
 });
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const DATE_FILTERS = [
+  { key: 'all',   label: 'All Time' },
+  { key: 'today', label: 'Today' },
+  { key: 'last7', label: 'Last 7 Days' },
+  { key: 'month', label: 'This Month' },
+  { key: 'year',  label: 'This Year' },
+];
+
+const STATUS_OPTIONS = [
+  { key: 'all',      label: 'All Users' },
+  { key: 'active',   label: 'Active' },
+  { key: 'inactive', label: 'Inactive' },
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const getInitials = (str = '') =>
@@ -148,6 +164,17 @@ const CheckIcon = ({ color, size = 20 }) => (
       borderLeftWidth: 2.5, borderBottomWidth: 2.5,
       borderColor: color,
       transform: [{ rotate: '-45deg' }, { translateY: -size * 0.04 }],
+    }} />
+  </View>
+);
+
+const ChevronDownIcon = ({ color, size = 14 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{
+      width: size * 0.55, height: size * 0.55,
+      borderRightWidth: 2, borderBottomWidth: 2,
+      borderColor: color,
+      transform: [{ rotate: '45deg' }, { translateY: -size * 0.12 }],
     }} />
   </View>
 );
@@ -218,11 +245,14 @@ export default function AdminUsersScreen() {
     );
   }, [isDark, toggleTheme, updateProfile]);
 
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [searchQuery,    setSearchQuery]    = useState('');
-  const [confirmState,   setConfirmState]   = useState(null);
-  const [activeFilter,   setActiveFilter]   = useState('all'); // 'all' | 'active' | 'inactive'
-  const [isFocused,      setIsFocused]      = useState(false);
+  const [selectedUserId,  setSelectedUserId]  = useState(null);
+  const [searchQuery,     setSearchQuery]     = useState('');
+  const [confirmState,    setConfirmState]    = useState(null);
+  const [activeFilter,    setActiveFilter]    = useState('all'); // 'all' | 'active' | 'inactive'
+  const [dateFilter,      setDateFilter]      = useState('all'); // 'all' | 'today' | 'last7' | 'month' | 'year'
+  const [datePickerOpen,   setDatePickerOpen]   = useState(false);
+  const [statusPickerOpen, setStatusPickerOpen] = useState(false);
+  const [isFocused,       setIsFocused]       = useState(false);
 
   const { data: allUsers = [], isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
@@ -265,10 +295,23 @@ export default function AdminUsersScreen() {
     let users = !q ? allUsers : allUsers.filter(
       u => u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q),
     );
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      users = users.filter(u => {
+        if (!u.created_at) return true;
+        const d = new Date(u.created_at);
+        if (dateFilter === 'today')
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+        if (dateFilter === 'last7')  return (now - d) / 86400000 <= 7;
+        if (dateFilter === 'month')  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        if (dateFilter === 'year')   return d.getFullYear() === now.getFullYear();
+        return true;
+      });
+    }
     if (activeFilter === 'active')   return users.filter(u =>  u.is_active);
     if (activeFilter === 'inactive') return users.filter(u => !u.is_active);
     return users;
-  }, [allUsers, searchQuery, activeFilter]);
+  }, [allUsers, searchQuery, activeFilter, dateFilter]);
 
   const handleViewBooks = useCallback((userId) => {
     setSelectedUserId(userId);
@@ -308,6 +351,16 @@ export default function AdminUsersScreen() {
     />
   ), [C, s, handleViewBooks]);
 
+  const isAllSelected    = activeFilter === 'all' && dateFilter === 'all';
+  const currentDateLabel = DATE_FILTERS.find(d => d.key === dateFilter)?.label ?? 'All Time';
+  const statusIsActive  = activeFilter !== 'all';
+  const statusDotColor  = statusIsActive ? C.primary : C.textMuted;
+  const statusBg        = statusIsActive ? C.primary : C.card;
+  const statusBorder    = statusIsActive ? C.primary : C.border;
+  const statusTextColor = statusIsActive ? '#fff' : C.textMuted;
+  const statusLabel     = STATUS_OPTIONS.find(o => o.key === activeFilter && o.key !== 'all')?.label ?? 'Status';
+  const STATUS_PICKER   = STATUS_OPTIONS.filter(o => o.key !== 'all');
+
   const ListHeader = (
     <View>
       <SearchBar
@@ -316,42 +369,43 @@ export default function AdminUsersScreen() {
         placeholder="Search by name or email…"
       />
 
-      {/* Divider above filters */}
-      <View style={[s.listDivider, { marginBottom: 0 }]} />
+      {/* ── Single filter row ─────────────────────────────────────────────── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.filterRowContent}
+        style={s.filterRow}
+      >
+        {/* ALL */}
+        <TouchableOpacity
+          onPress={() => { setActiveFilter('all'); setDateFilter('all'); }}
+          activeOpacity={0.75}
+          style={[s.filterChip, { borderColor: isAllSelected ? C.primary : C.border, backgroundColor: isAllSelected ? C.primary : C.card }]}
+        >
+          <Text style={[s.filterChipText, { color: isAllSelected ? '#fff' : C.textMuted }]}>All</Text>
+        </TouchableOpacity>
 
-      {/* Segmented filter control */}
-      <View style={[s.segmentWrap, { backgroundColor: C.cardAlt, borderColor: C.border }]}>
-        {[
-          { key: 'all',      label: 'All',      count: allUsers.length },
-          { key: 'active',   label: 'Active',   count: allUsers.filter(u =>  u.is_active).length },
-          { key: 'inactive', label: 'Inactive', count: allUsers.filter(u => !u.is_active).length },
-        ].map((tab, i, arr) => {
-          const on = activeFilter === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={() => setActiveFilter(tab.key)}
-              activeOpacity={0.75}
-              style={[
-                s.segment,
-                on && { backgroundColor: C.primary },
-                i < arr.length - 1 && { borderRightWidth: 1, borderRightColor: C.border },
-              ]}
-            >
-              <Text style={[s.segmentText, { color: on ? '#fff' : C.textMuted }]}>
-                {tab.label}
-              </Text>
-              <View style={[s.segmentCount, {
-                backgroundColor: on ? 'rgba(255,255,255,0.22)' : C.border,
-              }]}>
-                <Text style={[s.segmentCountText, { color: on ? '#fff' : C.textMuted }]}>
-                  {tab.count}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        {/* Status picker button */}
+        <TouchableOpacity
+          onPress={() => setStatusPickerOpen(true)}
+          activeOpacity={0.75}
+          style={[s.filterChip, { borderColor: statusBorder, backgroundColor: statusBg, gap: 5 }]}
+        >
+          <View style={[s.filterDot, { backgroundColor: statusDotColor }]} />
+          <Text style={[s.filterChipText, { color: statusTextColor }]}>{statusLabel}</Text>
+          <ChevronDownIcon color={statusTextColor} size={12} />
+        </TouchableOpacity>
+
+        {/* Date picker button */}
+        <TouchableOpacity
+          onPress={() => setDatePickerOpen(true)}
+          activeOpacity={0.75}
+          style={[s.filterChip, { borderColor: dateFilter !== 'all' ? C.primary : C.border, backgroundColor: dateFilter !== 'all' ? C.primary : C.card, gap: 5 }]}
+        >
+          <Text style={[s.filterChipText, { color: dateFilter !== 'all' ? '#fff' : C.textMuted }]}>{currentDateLabel}</Text>
+          <ChevronDownIcon color={dateFilter !== 'all' ? '#fff' : C.textMuted} size={12} />
+        </TouchableOpacity>
+      </ScrollView>
 
       {/* Divider below filters / above user list */}
       <View style={s.listDivider} />
@@ -637,6 +691,64 @@ export default function AdminUsersScreen() {
           </Pressable>
         </Modal>
       )}
+      {/* ── Status Picker Modal ──────────────────────────────────────────── */}
+      {statusPickerOpen && (
+        <Modal visible animationType="slide" transparent onRequestClose={() => setStatusPickerOpen(false)}>
+          <Pressable style={s.datePickerOverlay} onPress={() => setStatusPickerOpen(false)}>
+            <Pressable style={s.datePickerBox} onPress={() => {}}>
+              <View style={s.modalHandle} />
+              <Text style={s.datePickerTitle}>Filter by Status</Text>
+              {STATUS_PICKER.map(opt => {
+                const on = activeFilter === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[s.datePickerRow, on && { backgroundColor: C.primaryLight }]}
+                    onPress={() => { setActiveFilter(opt.key); setStatusPickerOpen(false); }}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[s.filterDot, { backgroundColor: C.primary }]} />
+                    <Text style={[s.datePickerText, { color: on ? C.primary : C.text }]}>{opt.label}</Text>
+                    {on && <CheckIcon color={C.primary} size={16} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* ── Date Picker Modal ────────────────────────────────────────────── */}
+      {datePickerOpen && (
+        <Modal
+          visible
+          animationType="slide"
+          transparent
+          onRequestClose={() => setDatePickerOpen(false)}
+        >
+          <Pressable style={s.datePickerOverlay} onPress={() => setDatePickerOpen(false)}>
+            <Pressable style={s.datePickerBox} onPress={() => {}}>
+              <View style={s.modalHandle} />
+              <Text style={s.datePickerTitle}>Filter by Date</Text>
+              {DATE_FILTERS.map(opt => {
+                const on = dateFilter === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[s.datePickerRow, on && { backgroundColor: C.primaryLight }]}
+                    onPress={() => { setDateFilter(opt.key); setDatePickerOpen(false); }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[s.datePickerText, { color: on ? C.primary : C.text }]}>{opt.label}</Text>
+                    {on && <CheckIcon color={C.primary} size={16} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
     </SafeAreaView>
   );
 }
@@ -706,19 +818,34 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   listDivider: { height: 1, backgroundColor: C.border, marginBottom: 4 },
 
-  segmentWrap: {
-    flexDirection: 'row',
-    marginHorizontal: 16, marginTop: 10, marginBottom: 10,
-    borderRadius: 22, borderWidth: 1,
-    overflow: 'hidden',
+  // ── Unified filter row ──────────────────────────────────────────────────────
+  filterRow:        { marginTop: 10, marginBottom: 4 },
+  filterRowContent: { paddingHorizontal: 16, gap: 8, flexDirection: 'row', alignItems: 'center' },
+  filterChip: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 20, borderWidth: 1.5,
+    paddingHorizontal: 13, paddingVertical: 6,
   },
-  segment: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, height: 36,
+  filterChipText: { fontSize: 12, fontFamily: Font.semiBold },
+  filterDot:      { width: 7, height: 7, borderRadius: 4, marginRight: 5 },
+
+  // Date picker sheet
+  datePickerOverlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
+  datePickerBox: {
+    backgroundColor: C.card,
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 28,
   },
-  segmentText:      { fontSize: 12, fontFamily: Font.semiBold },
-  segmentCount:     { borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
-  segmentCountText: { fontSize: 10, fontFamily: Font.bold },
+  datePickerTitle: {
+    fontSize: 14, fontFamily: Font.bold, color: C.text,
+    textAlign: 'center', marginBottom: 14,
+  },
+  datePickerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 13, paddingHorizontal: 12, gap: 12,
+    borderRadius: 12, marginBottom: 4,
+  },
+  datePickerText: { flex: 1, fontSize: 14, fontFamily: Font.medium },
 
   // Empty
   empty:        { alignItems: 'center', paddingTop: 70, paddingHorizontal: 40 },
