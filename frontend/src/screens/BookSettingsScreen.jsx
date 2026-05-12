@@ -12,6 +12,7 @@ import { useBookFieldsStore } from '../store/bookFieldsStore';
 import { useRenameBook } from '../hooks/useBooks';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { useCategories } from '../hooks/useCategories';
+import { usePaymentModes } from '../hooks/usePaymentModes';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiDeleteAllEntries, apiGetEntries } from '../lib/api';
 import SuccessDialog from '../components/ui/SuccessDialog';
@@ -47,9 +48,10 @@ export default function BookSettingsScreen() {
     enabled: !!id,
   });
 
-  const { data: customers = [] } = useCustomers(id);
-  const { data: suppliers = [] } = useSuppliers(id);
-  const { data: categories = [] } = useCategories(id);
+  const { data: customers = [] }    = useCustomers(id);
+  const { data: suppliers = [] }    = useSuppliers(id);
+  const { data: categories = [] }   = useCategories(id);
+  const { data: paymentModes = [] } = usePaymentModes(id);
 
   const deleteAllEntries = useMutation({
     mutationFn: () => apiDeleteAllEntries(id),
@@ -121,8 +123,9 @@ export default function BookSettingsScreen() {
     {
       icon: 'credit-card',
       label: 'Payment Mode',
-      sub: 'Configure payment modes',
-      fieldKey: 'showPaymentMode',
+      sub: 'Manage payment methods for this book',
+      count: paymentModes.length,
+      alwaysActive: true,
       route: `${basePath}/[id]/payment-mode-settings`,
       params: {},
     },
@@ -190,7 +193,7 @@ export default function BookSettingsScreen() {
                 <Feather
                   name="chevron-right"
                   size={18}
-                  color={item.fieldKey != null && fields[item.fieldKey] ? C.primary : C.textSubtle}
+                  color={item.alwaysActive || (item.fieldKey != null && fields[item.fieldKey]) ? C.primary : C.textSubtle}
                 />
               </TouchableOpacity>
               {idx < ENTRY_FIELDS.length - 1 && (

@@ -10,7 +10,8 @@ class EntryCreate(BaseModel):
     remark: Optional[str] = None
     category: Optional[str] = None
     category_id: Optional[str] = None
-    payment_mode: str = "cash"
+    payment_mode: str = "Cash"
+    payment_mode_id: Optional[str] = None
     contact_name: Optional[str] = None
     customer_id: Optional[str] = None
     supplier_id: Optional[str] = None
@@ -26,6 +27,7 @@ class EntryUpdate(BaseModel):
     category: Optional[str] = None
     category_id: Optional[str] = None
     payment_mode: Optional[str] = None
+    payment_mode_id: Optional[str] = None
     contact_name: Optional[str] = None
     customer_id: Optional[str] = None
     supplier_id: Optional[str] = None
@@ -44,6 +46,7 @@ class EntryResponse(BaseModel):
     category: Optional[str] = None
     category_id: Optional[str] = None
     payment_mode: str
+    payment_mode_id: Optional[str] = None
     contact_name: Optional[str] = None
     customer_id: Optional[str] = None
     supplier_id: Optional[str] = None

@@ -22,6 +22,7 @@ npm install
 
 # Start dev server (local network)
 npx expo start
+npx expo start --clear
 
 # Start dev server (tunnel — use if local network doesn't work)
 npx expo start --tunnel

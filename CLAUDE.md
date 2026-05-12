@@ -234,6 +234,14 @@ Key invariants:
 - `GET /admin/users/:id/books` has try/except fallback — works even if migration 002 hasn't run
 - Balance never computed in Python — read `books.net_balance` from DB or use `get_book_summary()` RPC
 
+### Database Migrations
+- **Never run migration files automatically** — always provide the user with the exact command to run and let them execute it
+- When a new migration is needed, write the SQL file to `supabase/migrations/` and then tell the user to run it with the Supabase CLI command, e.g.:
+  ```bash
+  supabase db push
+  ```
+  or paste it manually in the Supabase SQL editor
+
 ### Git
 - Never commit `.env` files
 - Branch per feature: `feature/books-screen`, `feature/add-entry`

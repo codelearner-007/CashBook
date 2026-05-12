@@ -1,10 +1,9 @@
 import { create } from 'zustand';
 
 const DEFAULT_FIELDS = {
-  showCustomer:    false,
-  showSupplier:    false,
-  showCategory:    false,
-  showPaymentMode: true,
+  showCustomer: false,
+  showSupplier: false,
+  showCategory: false,
 };
 
 export const useBookFieldsStore = create((set, get) => ({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
 import AppInput from '../ui/Input';
 import DatePickerModal from '../ui/DatePickerModal';
@@ -11,7 +11,7 @@ import CategoryPickerModal from './CategoryPickerModal';
 import { ChevronDownIcon, CloseIcon } from '../ui/Icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useBookFieldsStore } from '../../store/bookFieldsStore';
-import { PAYMENT_MODES } from '../../constants/categories';
+import { usePaymentModes } from '../../hooks/usePaymentModes';
 
 // Exposes { getValues(), validate() } via ref.
 const EntryForm = forwardRef(function EntryForm(
@@ -21,22 +21,38 @@ const EntryForm = forwardRef(function EntryForm(
   const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const { getFields } = useBookFieldsStore();
-  const { showCustomer, showSupplier, showCategory, showPaymentMode } = getFields(bookId);
+  const { showCustomer, showSupplier, showCategory } = getFields(bookId);
   const showContact = showCustomer || showSupplier;
   const allowedContactTypes = [
     ...(showCustomer ? ['customer'] : []),
     ...(showSupplier ? ['supplier'] : []),
   ];
 
-  const [entryType,    setEntryType]    = useState(initialValues?.type ?? initialType);
-  const [amount,       setAmount]       = useState(initialValues?.amount?.toString() ?? '');
-  const [remark,       setRemark]       = useState(initialValues?.remark ?? '');
-  const [category,     setCategory]     = useState(initialValues?.category ?? '');
-  const [categoryId,   setCategoryId]   = useState(initialValues?.category_id ?? null);
-  const [paymentMode,  setPaymentMode]  = useState(initialValues?.payment_mode ?? 'cash');
-  const [contactName,  setContactName]  = useState(initialValues?.contact_name ?? '');
-  const [customerId,   setCustomerId]   = useState(initialValues?.customer_id ?? null);
-  const [supplierId,   setSupplierId]   = useState(initialValues?.supplier_id ?? null);
+  const [entryType,     setEntryType]     = useState(initialValues?.type ?? initialType);
+  const [amount,        setAmount]        = useState(initialValues?.amount?.toString() ?? '');
+  const [remark,        setRemark]        = useState(initialValues?.remark ?? '');
+  const [category,      setCategory]      = useState(initialValues?.category ?? '');
+  const [categoryId,    setCategoryId]    = useState(initialValues?.category_id ?? null);
+  const [paymentModeId, setPaymentModeId] = useState(initialValues?.payment_mode_id ?? null);
+  const [paymentMode,   setPaymentMode]   = useState(initialValues?.payment_mode ?? '');
+  const [contactName,   setContactName]   = useState(initialValues?.contact_name ?? '');
+  const [customerId,    setCustomerId]    = useState(initialValues?.customer_id ?? null);
+  const [supplierId,    setSupplierId]    = useState(initialValues?.supplier_id ?? null);
+
+  // Payment modes from DB — always shown, required field
+  const { data: paymentModes = [], isLoading: modesLoading } = usePaymentModes(bookId);
+
+  // Auto-resolve when modes load: match by id → by name → first mode
+  useEffect(() => {
+    if (!paymentModes.length) return;
+    if (paymentModeId && paymentModes.find(m => m.id === paymentModeId)) return;
+    const byName = paymentMode
+      ? paymentModes.find(m => m.name.toLowerCase() === paymentMode.toLowerCase())
+      : null;
+    const resolved = byName || paymentModes[0];
+    setPaymentModeId(resolved.id);
+    setPaymentMode(resolved.name);
+  }, [paymentModes]);
 
   // true when an entry still has a name snapshot but the linked contact was deleted
   const contactDeleted = contactName !== '' && !customerId && !supplierId;
@@ -46,7 +62,6 @@ const EntryForm = forwardRef(function EntryForm(
   useEffect(() => { onContactDeletedChange?.(contactDeleted); }, [contactDeleted]);
   useEffect(() => { onCategoryDeletedChange?.(categoryDeleted); }, [categoryDeleted]);
 
-  const [showAllPayments,   setShowAllPayments]   = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showContactModal,  setShowContactModal]  = useState(false);
   const [date,           setDate]           = useState(new Date());
@@ -63,7 +78,8 @@ const EntryForm = forwardRef(function EntryForm(
     setRemark(initialValues.remark ?? '');
     setCategory(initialValues.category ?? '');
     setCategoryId(initialValues.category_id ?? null);
-    setPaymentMode(initialValues.payment_mode ?? 'cash');
+    setPaymentMode(initialValues.payment_mode ?? '');
+    setPaymentModeId(initialValues.payment_mode_id ?? null);
     setContactName(initialValues.contact_name ?? '');
     setCustomerId(initialValues.customer_id ?? null);
     setSupplierId(initialValues.supplier_id ?? null);
@@ -71,26 +87,28 @@ const EntryForm = forwardRef(function EntryForm(
 
   useImperativeHandle(ref, () => ({
     getValues: () => ({
-      type:         entryType,
-      amount:       parseFloat(amount),
-      remark:       remark.trim() || undefined,
-      category:     categoryDeleted ? null : (category || undefined),
-      category_id:  categoryDeleted ? null : (categoryId || undefined),
-      payment_mode: paymentMode,
-      contact_name: contactDeleted ? null : (contactName.trim() || null),
-      customer_id:  contactDeleted ? null : (customerId  || null),
-      supplier_id:  contactDeleted ? null : (supplierId  || null),
-      entry_date:   date.toISOString().split('T')[0],
-      entry_time:   date.toTimeString().slice(0, 5),
+      type:             entryType,
+      amount:           parseFloat(amount),
+      remark:           remark.trim() || undefined,
+      category:         categoryDeleted ? null : (category || undefined),
+      category_id:      categoryDeleted ? null : (categoryId || undefined),
+      payment_mode:     paymentMode,
+      payment_mode_id:  paymentModeId || undefined,
+      contact_name:     contactDeleted ? null : (contactName.trim() || null),
+      customer_id:      contactDeleted ? null : (customerId  || null),
+      supplier_id:      contactDeleted ? null : (supplierId  || null),
+      entry_date:       date.toISOString().split('T')[0],
+      entry_time:       date.toTimeString().slice(0, 5),
     }),
     validate: () => {
       const parsed = parseFloat(amount);
-      return !(!amount || isNaN(parsed) || parsed <= 0);
+      if (!amount || isNaN(parsed) || parsed <= 0) return false;
+      if (!paymentModeId) return false;
+      return true;
     },
   }));
 
   const isIn = entryType === 'in';
-  const visibleModes = showAllPayments ? PAYMENT_MODES : PAYMENT_MODES.slice(0, 2);
 
   const confirmDate = (picked) => {
     setDate(prev => { const n = new Date(prev); n.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate()); return n; });
@@ -220,29 +238,26 @@ const EntryForm = forwardRef(function EntryForm(
           </View>
         )}
 
-        {showPaymentMode && (
-          <>
-            <Text style={s.sectionLabel}>Payment Mode</Text>
-            <View style={s.paymentRow}>
-              {visibleModes.map((mode) => (
-                <TouchableOpacity
-                  key={mode.value}
-                  style={[s.paymentChip, paymentMode === mode.value && { backgroundColor: C.primary, borderColor: C.primary }]}
-                  onPress={() => setPaymentMode(mode.value)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[s.paymentChipText, paymentMode === mode.value && { color: '#fff' }]}>
-                    {mode.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity onPress={() => setShowAllPayments(v => !v)} activeOpacity={0.7}>
-                <Text style={[s.showMoreText, { color: C.primary }]}>
-                  {showAllPayments ? 'Show Less ▲' : 'Show More ▾'}
+        <Text style={s.sectionLabel}>
+          Payment Mode *
+        </Text>
+        {modesLoading ? (
+          <ActivityIndicator size="small" color={C.primary} style={{ marginBottom: 16 }} />
+        ) : (
+          <View style={s.paymentRow}>
+            {paymentModes.map((mode) => (
+              <TouchableOpacity
+                key={mode.id}
+                style={[s.paymentChip, paymentModeId === mode.id && { backgroundColor: C.primary, borderColor: C.primary }]}
+                onPress={() => { setPaymentModeId(mode.id); setPaymentMode(mode.name); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.paymentChipText, paymentModeId === mode.id && { color: '#fff' }]}>
+                  {mode.name}
                 </Text>
               </TouchableOpacity>
-            </View>
-          </>
+            ))}
+          </View>
         )}
 
         <View style={{ height: 24 }} />
@@ -342,6 +357,5 @@ const makeStyles = (C, Font) => StyleSheet.create({
   paymentRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' },
   paymentChip:     { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 24, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
   paymentChipText: { fontSize: 13, fontFamily: Font.semiBold, color: C.text, lineHeight: 18 },
-  showMoreText:    { fontSize: 13, fontFamily: Font.semiBold, lineHeight: 18 },
 
 });

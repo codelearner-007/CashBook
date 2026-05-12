@@ -190,6 +190,25 @@ export const apiGetCategoryEntries = async (bookId, categoryId) =>
   (await api.get(`/api/v1/books/${bookId}/categories/${categoryId}/entries`)).data;
 
 
+// ── Payment Modes ─────────────────────────────────────────────────────────────
+
+/** GET /api/v1/books/:bookId/payment-modes */
+export const apiGetPaymentModes = async (bookId) =>
+  (await api.get(`/api/v1/books/${bookId}/payment-modes`)).data;
+
+/** POST /api/v1/books/:bookId/payment-modes */
+export const apiCreatePaymentMode = async (bookId, payload) =>
+  (await api.post(`/api/v1/books/${bookId}/payment-modes`, payload)).data;
+
+/** PUT /api/v1/books/:bookId/payment-modes/:modeId */
+export const apiUpdatePaymentMode = async (bookId, modeId, payload) =>
+  (await api.put(`/api/v1/books/${bookId}/payment-modes/${modeId}`, payload)).data;
+
+/** DELETE /api/v1/books/:bookId/payment-modes/:modeId */
+export const apiDeletePaymentMode = async (bookId, modeId) =>
+  api.delete(`/api/v1/books/${bookId}/payment-modes/${modeId}`);
+
+
 // ── Admin (superadmin only) ────────────────────────────────────────────────────
 
 /** GET /api/v1/admin/users */
