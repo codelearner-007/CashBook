@@ -248,7 +248,7 @@ export default function NotificationInbox({
   const s = useMemo(() => makeStyles(C), [C]);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView applyTop={false} style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* Header */}

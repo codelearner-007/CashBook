@@ -171,7 +171,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   header: {
     backgroundColor: C.primary,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingVertical: 14,
+    paddingHorizontal: 16, paddingVertical: 14,
   },
   backBtn:      { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   addHeaderBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },

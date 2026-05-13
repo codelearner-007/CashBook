@@ -72,8 +72,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.primary, paddingHorizontal: 8, paddingVertical: 10,
-    minHeight: 56,
+    backgroundColor: C.primary, paddingHorizontal: 16, paddingVertical: 14,
   },
   headerBtn:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, fontSize: 17, fontFamily: Font.bold, color: '#fff', lineHeight: 24, textAlign: 'center' },

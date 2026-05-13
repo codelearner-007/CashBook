@@ -253,7 +253,7 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
       {/* Header */}
       <View style={s.header}>
         {(showBottomNav || isTabRoot) ? (
-          <View style={{ width: 40 }} />
+          <View style={{ width: 40, height: 40 }} />
         ) : (
           <TouchableOpacity
             onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/books')}

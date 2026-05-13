@@ -1023,8 +1023,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.primary,
-    paddingHorizontal: 12, paddingVertical: 10,
-    minHeight: 56,
+    paddingHorizontal: 16, paddingVertical: 14,
   },
   backBtn: {
     width: 40, height: 40, alignItems: 'center', justifyContent: 'center',

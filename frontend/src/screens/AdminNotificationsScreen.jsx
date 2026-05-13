@@ -555,7 +555,7 @@ export default function AdminNotificationsScreen() {
           <View style={{ width: 9, height: 9, borderLeftWidth: 2.5, borderBottomWidth: 2.5, borderColor: '#fff', transform: [{ rotate: '45deg' }] }} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Send Notification</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 40, height: 40 }} />
       </View>
 
       <FlatList

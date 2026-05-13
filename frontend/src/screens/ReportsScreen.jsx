@@ -935,7 +935,7 @@ const makeStyles = (C, Font) => StyleSheet.create({
   // ── Header ────────────────────────────────────────────────────────────────
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 12,
+    backgroundColor: C.primary, paddingHorizontal: 16, paddingVertical: 14,
   },
   backBtn:     { padding: 6, marginRight: 6 },
   backIcon:    { fontSize: 28, color: C.onPrimary, lineHeight: 30 },
