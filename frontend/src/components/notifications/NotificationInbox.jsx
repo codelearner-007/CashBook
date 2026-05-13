@@ -73,12 +73,12 @@ const SendIcon = ({ color, size = 20 }) => (
 
 function formatRelative(iso) {
   if (!iso) return '';
-  const diffMs  = Date.now() - new Date(iso);
+  const diffMs = Date.now() - new Date(iso);
   const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1)  return 'Just now';
+  if (diffMin < 1) return 'Just now';
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24)   return `${diffH}h ago`;
+  if (diffH < 24) return `${diffH}h ago`;
   return `${Math.floor(diffH / 24)}d ago`;
 }
 
@@ -150,15 +150,15 @@ function NotificationRow({ item, isSelected, isSelecting, onPress, onLongPress, 
 }
 
 const rowS = StyleSheet.create({
-  row:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 12, marginBottom: 8, borderRadius: 12, borderWidth: 1.5 },
-  checkbox:  { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  iconBox:   { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  body:      { flex: 1 },
-  titleRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
-  title:     { fontSize: 13, flex: 1, marginRight: 8 },
-  time:      { fontSize: 10 },
-  bodyText:  { fontSize: 12, lineHeight: 17 },
-  dateTime:  { fontSize: 10, lineHeight: 15, marginTop: 3 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 12, marginBottom: 8, borderRadius: 12, borderWidth: 1.5 },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  iconBox: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  body: { flex: 1 },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  title: { fontSize: 13, flex: 1, marginRight: 8 },
+  time: { fontSize: 10 },
+  bodyText: { fontSize: 12, lineHeight: 17 },
+  dateTime: { fontSize: 10, lineHeight: 15, marginTop: 3 },
   unreadDot: { width: 6, height: 6, borderRadius: 3, position: 'absolute', right: 0, top: 0 },
 });
 
@@ -191,15 +191,15 @@ export default function NotificationInbox({
 }) {
   const { C } = useTheme();
 
-  const [search, setSearch]               = useState('');
+  const [search, setSearch] = useState('');
   const [selectedNotif, setSelectedNotif] = useState(null);
-  const [selectedIds, setSelectedIds]     = useState(new Set());
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const { data: notifications = [], isLoading } = useNotifications();
-  const markRead    = useMarkNotificationRead();
+  const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllRead();
-  const bulkDelete  = useBulkDeleteNotifications();
-  const bulkRead    = useBulkMarkRead();
+  const bulkDelete = useBulkDeleteNotifications();
+  const bulkRead = useBulkMarkRead();
 
   const isSelecting = selectedIds.size > 0;
 
@@ -243,12 +243,12 @@ export default function NotificationInbox({
     setSelectedIds(new Set());
   }
 
-  const hasFab   = !!(fabLabel && onFab);
+  const hasFab = !!(fabLabel && onFab);
   const listPadB = isSelecting ? 100 : hasFab ? 100 : 32;
   const s = useMemo(() => makeStyles(C), [C]);
 
   return (
-    <SafeAreaView applyTop={false} style={s.safe}>
+    <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* Header */}
@@ -424,17 +424,17 @@ const makeStyles = (C) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  backBtn:       { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle:   { fontSize: 17, fontFamily: Font.bold, color: '#fff' },
-  markAllBtn:    { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4 },
-  markAllText:   { fontSize: 12, fontFamily: Font.medium, color: '#fff' },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontFamily: Font.bold, color: '#fff' },
+  markAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4 },
+  markAllText: { fontSize: 12, fontFamily: Font.medium, color: '#fff' },
   headerSideBtn: { minWidth: 60, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  headerAction:  { fontSize: 14, color: '#fff' },
+  headerAction: { fontSize: 14, color: '#fff' },
 
-  searchBar:        { marginTop: 12, marginBottom: 0 },
-  unreadBanner:     { marginHorizontal: 16, marginTop: 10, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' },
+  searchBar: { marginTop: 12, marginBottom: 0 },
+  unreadBanner: { marginHorizontal: 16, marginTop: 10, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' },
   unreadBannerText: { fontSize: 13 },
-  selectHint:       { fontSize: 11, textAlign: 'center', marginTop: 6, marginBottom: 2 },
+  selectHint: { fontSize: 11, textAlign: 'center', marginTop: 6, marginBottom: 2 },
 
   list: { paddingHorizontal: 16, paddingTop: 14 },
 
@@ -444,7 +444,7 @@ const makeStyles = (C) => StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14, paddingBottom: 24,
     borderTopWidth: 1,
   },
-  actionBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12 },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12 },
   actionBtnText: { fontSize: 14 },
 
   fab: {
