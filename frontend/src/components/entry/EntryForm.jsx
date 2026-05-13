@@ -255,6 +255,11 @@ const EntryForm = forwardRef(function EntryForm(
 
   const pickGallery = () => {
     closeAttachPicker(async () => {
+      const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!granted) {
+        setAttachError('Photo library permission is required. Please allow it in your device settings.');
+        return;
+      }
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, exif: false, base64: false });
       if (!result.canceled && result.assets?.[0]) {
         await processAndUpload(result.assets[0].uri, 'image');

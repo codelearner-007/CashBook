@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   StatusBar, Dimensions, Modal, ActivityIndicator, Alert, TextInput,
+  Keyboard, Animated, Platform,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -72,6 +73,28 @@ function EmailModal({ visible, onClose }) {
   const [step,    setStep]    = useState('email'); // 'email' | 'otp'
   const [loading, setLoading] = useState(false);
 
+  const kbOffset = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const up = Keyboard.addListener(showEvent, (e) =>
+      Animated.timing(kbOffset, {
+        toValue: e.endCoordinates.height,
+        duration: Platform.OS === 'ios' ? e.duration : 150,
+        useNativeDriver: false,
+      }).start()
+    );
+    const down = Keyboard.addListener(hideEvent, (e) =>
+      Animated.timing(kbOffset, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? e.duration : 150,
+        useNativeDriver: false,
+      }).start()
+    );
+    return () => { up.remove(); down.remove(); };
+  }, [kbOffset]);
+
   const reset = () => { setEmail(''); setOtp(''); setStep('email'); };
 
   const handleSend = async () => {
@@ -112,67 +135,81 @@ function EmailModal({ visible, onClose }) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={() => { reset(); onClose(); }}>
-      <View style={styles.pickerOverlay}>
-        <View style={styles.pickerBox}>
-          <View style={styles.pickerHandle} />
-          <Text style={styles.pickerTitle}>
-            {step === 'email' ? 'Continue with Email' : 'Enter OTP Code'}
-          </Text>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={() => { reset(); onClose(); }}
+    >
+      {/* Dim backdrop */}
+      <View style={[StyleSheet.absoluteFill, styles.pickerOverlay]} pointerEvents="box-none">
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => { Keyboard.dismiss(); reset(); onClose(); }} />
+      </View>
 
-          {step === 'email' ? (
-            <>
-              <Text style={styles.pickerSub}>Enter your email to receive a sign-in code</Text>
-              <View style={styles.inputBox}>
-                <Text style={styles.inputLabel}>Email</Text>
-                <EmailTextInput value={email} onChangeText={setEmail} />
-              </View>
-              <TouchableOpacity
-                style={[styles.sendBtn, loading && { opacity: 0.6 }]}
-                onPress={handleSend}
-                disabled={loading}
-              >
-                {loading
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.sendBtnText}>Send Code</Text>}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.pickerCancel} onPress={() => { reset(); onClose(); }}>
-                <Text style={styles.pickerCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={styles.pickerSub}>
-                We sent a 6-digit code to {email}.{'\n'}Check your inbox and enter it below.
-              </Text>
-              <View style={styles.inputBox}>
-                <Text style={styles.inputLabel}>6-Digit Code</Text>
-                <TextInput
-                  style={[styles.textInput, styles.otpInput]}
-                  value={otp}
-                  onChangeText={setOtp}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  placeholder="000000"
-                  placeholderTextColor={C.textMuted}
-                  textAlign="center"
-                />
-              </View>
-              <TouchableOpacity
-                style={[styles.sendBtn, loading && { opacity: 0.6 }]}
-                onPress={handleVerify}
-                disabled={loading}
-              >
-                {loading
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.sendBtnText}>Verify & Sign In</Text>}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.pickerCancel} onPress={() => setStep('email')}>
-                <Text style={styles.pickerCancelText}>← Change Email</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+      {/* Sheet anchored to bottom; lifts above keyboard via marginBottom */}
+      <View style={styles.sheetAnchor} pointerEvents="box-none">
+        <Animated.View style={{ marginBottom: kbOffset }}>
+          <View style={styles.pickerBox}>
+            <View style={styles.pickerHandle} />
+            <Text style={styles.pickerTitle}>
+              {step === 'email' ? 'Continue with Email' : 'Enter OTP Code'}
+            </Text>
+
+            {step === 'email' ? (
+              <>
+                <Text style={styles.pickerSub}>Enter your email to receive a sign-in code</Text>
+                <View style={styles.inputBox}>
+                  <Text style={styles.inputLabel}>Email</Text>
+                  <EmailTextInput value={email} onChangeText={setEmail} />
+                </View>
+                <TouchableOpacity
+                  style={[styles.sendBtn, loading && { opacity: 0.6 }]}
+                  onPress={handleSend}
+                  disabled={loading}
+                >
+                  {loading
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.sendBtnText}>Send Code</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.pickerCancel} onPress={() => { reset(); onClose(); }}>
+                  <Text style={styles.pickerCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.pickerSub}>
+                  We sent a 6-digit code to {email}.{'\n'}Check your inbox and enter it below.
+                </Text>
+                <View style={styles.inputBox}>
+                  <Text style={styles.inputLabel}>6-Digit Code</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.otpInput]}
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    placeholder="000000"
+                    placeholderTextColor={C.textMuted}
+                    textAlign="center"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[styles.sendBtn, loading && { opacity: 0.6 }]}
+                  onPress={handleVerify}
+                  disabled={loading}
+                >
+                  {loading
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.sendBtnText}>Verify & Sign In</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.pickerCancel} onPress={() => setStep('email')}>
+                  <Text style={styles.pickerCancelText}>← Change Email</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -364,7 +401,8 @@ const styles = StyleSheet.create({
   trustText: { fontSize: 12, fontWeight: '600', color: '#15803D' },
 
   // Email modal
-  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheetAnchor: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   pickerBox: {
     backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     padding: 24, paddingTop: 12, paddingBottom: 36,
