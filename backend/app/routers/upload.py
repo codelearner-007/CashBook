@@ -126,6 +126,10 @@ async def upload_avatar(
     if isinstance(public_url, dict):
         public_url = public_url.get("publicURL") or public_url.get("publicUrl", "")
 
+    # storage3 always appends a trailing '?' even with no query params — strip it
+    # before adding our cache-bust param, otherwise the URL becomes "...jpg??v=..."
+    # which browsers normalise but native mobile loaders reject outright.
+    public_url = public_url.rstrip("?")
     versioned_url = f"{public_url}?v={int(time.time())}"
 
     sb.table("profiles").update({"avatar_url": versioned_url}).eq("id", user_id).execute()

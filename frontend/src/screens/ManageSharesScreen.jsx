@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  StatusBar, Alert, ActivityIndicator,
+  StatusBar, ActivityIndicator,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -11,6 +11,7 @@ import { useBookShares, useRemoveCollaborator } from '../hooks/useSharing';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { RIGHTS_MAP, getInitials } from '../constants/sharing';
 import EditShareSheet from '../components/sharing/EditShareSheet';
+import RemoveAccessSheet from '../components/sharing/RemoveAccessSheet';
 
 // ── CollaboratorRow ───────────────────────────────────────────────────────────
 
@@ -82,28 +83,24 @@ export default function ManageSharesScreen() {
   const { data: shares = [], isLoading } = useBookShares(id);
   const removeCollaborator = useRemoveCollaborator(id);
 
-  const [editShare, setEditShare] = useState(null);
+  const [editShare, setEditShare]     = useState(null);
+  const [removeShare, setRemoveShare] = useState(null);
 
   const handleEdit = useCallback((share) => {
     setEditShare(share);
   }, []);
 
   const handleRemove = useCallback((share) => {
-    Alert.alert(
-      'Remove Access',
-      `Remove ${share.shared_with?.full_name || share.shared_with?.email} from "${name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeCollaborator.mutate(share.id, {
-            onError: () => Alert.alert('Error', 'Could not remove collaborator. Please try again.'),
-          }),
-        },
-      ],
-    );
-  }, [removeCollaborator, name]);
+    setRemoveShare(share);
+  }, []);
+
+  const handleConfirmRemove = useCallback(() => {
+    if (!removeShare) return;
+    removeCollaborator.mutate(removeShare.id, {
+      onSuccess: () => setRemoveShare(null),
+      onError:   () => setRemoveShare(null),
+    });
+  }, [removeShare, removeCollaborator]);
 
   const openAdd = useCallback(() => {
     router.push({ pathname: `${basePath}/[id]/add-collaborator`, params: { id, name } });
@@ -202,6 +199,18 @@ export default function ManageSharesScreen() {
         share={editShare}
         bookId={id}
         onClose={() => setEditShare(null)}
+      />
+
+      {/* Remove access sheet */}
+      <RemoveAccessSheet
+        visible={!!removeShare}
+        share={removeShare}
+        bookName={name}
+        isLoading={removeCollaborator.isPending}
+        onDismiss={() => setRemoveShare(null)}
+        onConfirm={handleConfirmRemove}
+        C={C}
+        Font={Font}
       />
     </SafeAreaView>
   );
