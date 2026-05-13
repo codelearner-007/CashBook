@@ -11,7 +11,7 @@ EXPO_PUSH_URL = "https://exp.host/push/send"
 EXPO_PUSH_BATCH = 100   # Expo max per request
 
 
-def _send_expo_push(tokens: list[str], title: str, body: str, notification_id: str):
+async def _send_expo_push(tokens: list[str], title: str, body: str, notification_id: str):
     """Fire-and-forget: send push notifications via Expo Push API.
     Batches tokens in groups of 100. Errors are silently ignored so a
     failed push never blocks the DB fan-out."""
@@ -28,22 +28,21 @@ def _send_expo_push(tokens: list[str], title: str, body: str, notification_id: s
         }
         for token in tokens
     ]
-    # Send in batches
-    for i in range(0, len(messages), EXPO_PUSH_BATCH):
-        batch = messages[i : i + EXPO_PUSH_BATCH]
-        try:
-            httpx.post(
-                EXPO_PUSH_URL,
-                json=batch,
-                headers={
-                    "Accept": "application/json",
-                    "Accept-Encoding": "gzip, deflate",
-                    "Content-Type": "application/json",
-                },
-                timeout=10,
-            )
-        except Exception:
-            pass  # push delivery is best-effort; DB record is the source of truth
+    async with httpx.AsyncClient(timeout=10) as client:
+        for i in range(0, len(messages), EXPO_PUSH_BATCH):
+            batch = messages[i : i + EXPO_PUSH_BATCH]
+            try:
+                await client.post(
+                    EXPO_PUSH_URL,
+                    json=batch,
+                    headers={
+                        "Accept": "application/json",
+                        "Accept-Encoding": "gzip, deflate",
+                        "Content-Type": "application/json",
+                    },
+                )
+            except Exception:
+                pass  # push delivery is best-effort; DB record is the source of truth
 
 router = APIRouter()
 
@@ -290,7 +289,7 @@ async def send_notification(
                 .execute()
             )
             tokens = [t["token"] for t in (tokens_res.data or [])]
-            _send_expo_push(tokens, payload.title, payload.body, notif_id)
+            await _send_expo_push(tokens, payload.title, payload.body, notif_id)
         except Exception:
             pass
 

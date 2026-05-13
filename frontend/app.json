@@ -36,7 +36,8 @@
       "bundleIdentifier": "com.yourname.cashbook",
       "infoPlist": {
         "NSCameraUsageDescription": "CashBook uses your camera to set a profile photo.",
-        "NSPhotoLibraryUsageDescription": "CashBook accesses your photo library to set a profile photo."
+        "NSPhotoLibraryUsageDescription": "CashBook accesses your photo library to set a profile photo.",
+        "NSContactsUsageDescription": "CashBook accesses your contacts to quickly add customers and suppliers."
       }
     },
     "plugins": [
