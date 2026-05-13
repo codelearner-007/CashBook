@@ -184,25 +184,36 @@ const ChevronDownIcon = ({ color, size = 14 }) => (
 const UserRow = memo(({ item, onViewBooks, C, s }) => {
   const initials = getInitials(item.full_name);
   return (
-    <TouchableOpacity style={s.userCard} onPress={onViewBooks} activeOpacity={0.7}>
-      <View style={[s.userAvatar, { backgroundColor: item.is_active ? C.primaryLight : C.cardAlt, overflow: 'hidden' }]}>
+    <TouchableOpacity
+      style={[s.userCard, item.isAdmin && { borderColor: 'rgba(251,191,36,0.45)', backgroundColor: 'rgba(251,191,36,0.07)' }]}
+      onPress={onViewBooks}
+      activeOpacity={0.7}
+    >
+      <View style={[s.userAvatar, { backgroundColor: item.isAdmin ? 'rgba(251,191,36,0.18)' : item.is_active ? C.primaryLight : C.cardAlt, overflow: 'hidden' }]}>
         {item.avatar_url
           ? <ExpoImage source={{ uri: item.avatar_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-          : <Text style={[s.userAvatarText, { color: item.is_active ? C.primary : C.textMuted }]}>{initials}</Text>
+          : <Text style={[s.userAvatarText, { color: item.isAdmin ? '#D97706' : item.is_active ? C.primary : C.textMuted }]}>{initials}</Text>
         }
       </View>
       <View style={s.userInfo}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
           <Text style={[s.userName, { flex: 1 }]} numberOfLines={1}>{item.full_name}</Text>
-          <View style={[s.userStatusPill, {
-            backgroundColor: item.is_active ? C.cashInLight : C.dangerLight,
-            borderColor:     item.is_active ? `${C.cashIn}55` : `${C.danger}55`,
-          }]}>
-            <View style={[s.userStatusDot, { backgroundColor: item.is_active ? C.cashIn : C.danger }]} />
-            <Text style={[s.userStatusText, { color: item.is_active ? C.cashIn : C.danger }]}>
-              {item.is_active ? 'Active' : 'Inactive'}
-            </Text>
-          </View>
+          {item.isAdmin ? (
+            <View style={[s.userStatusPill, { backgroundColor: 'rgba(251,191,36,0.18)', borderColor: 'rgba(251,191,36,0.5)' }]}>
+              <View style={[s.userStatusDot, { backgroundColor: '#FCD34D' }]} />
+              <Text style={[s.userStatusText, { color: '#D97706' }]}>Super Admin</Text>
+            </View>
+          ) : (
+            <View style={[s.userStatusPill, {
+              backgroundColor: item.is_active ? C.cashInLight : C.dangerLight,
+              borderColor:     item.is_active ? `${C.cashIn}55` : `${C.danger}55`,
+            }]}>
+              <View style={[s.userStatusDot, { backgroundColor: item.is_active ? C.cashIn : C.danger }]} />
+              <Text style={[s.userStatusText, { color: item.is_active ? C.cashIn : C.danger }]}>
+                {item.is_active ? 'Active' : 'Inactive'}
+              </Text>
+            </View>
+          )}
         </View>
         <Text style={s.userEmail} numberOfLines={1}>{item.email}</Text>
       </View>
@@ -285,11 +296,6 @@ export default function AdminUsersScreen() {
     onSuccess:  () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
-  const selectedUser = useMemo(
-    () => allUsers.find(u => u.id === selectedUserId) ?? null,
-    [allUsers, selectedUserId],
-  );
-
   const filteredUsers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let users = !q ? allUsers : allUsers.filter(
@@ -313,6 +319,27 @@ export default function AdminUsersScreen() {
     return users;
   }, [allUsers, searchQuery, activeFilter, dateFilter]);
 
+  const adminItem = useMemo(() => ({
+    id:          user?.id ?? '__admin__',
+    full_name:   adminProfile?.full_name ?? user?.full_name ?? 'Admin',
+    email:       adminProfile?.email     ?? user?.email     ?? '',
+    avatar_url:  adminProfile?.avatar_url ?? null,
+    is_active:   true,
+    isAdmin:     true,
+    book_count:  books.length,
+    storage_mb:  adminProfile?.storage_mb ?? 0,
+    entry_count: 0,
+    created_at:  null,
+  }), [user, adminProfile, books.length]);
+
+  const listData = useMemo(() => [adminItem, ...filteredUsers], [adminItem, filteredUsers]);
+
+  const selectedUser = useMemo(() => {
+    if (!selectedUserId) return null;
+    if (adminItem.id === selectedUserId) return adminItem;
+    return allUsers.find(u => u.id === selectedUserId) ?? null;
+  }, [allUsers, selectedUserId, adminItem]);
+
   const handleViewBooks = useCallback((userId) => {
     setSelectedUserId(userId);
   }, []);
@@ -333,12 +360,13 @@ export default function AdminUsersScreen() {
   }, [router]);
 
   const stats = useMemo(() => {
-    const totalUsers   = allUsers.length;
-    const activeUsers  = allUsers.filter(u => u.is_active).length;
-    const totalBooks   = allUsers.reduce((acc, u) => acc + u.book_count, 0) + books.length;
-    const totalStorage = allUsers.reduce((acc, u) => acc + u.storage_mb, 0);
-    return { totalUsers, activeUsers, totalBooks, totalStorage };
-  }, [allUsers, books]);
+    const isAll = activeFilter === 'all' && dateFilter === 'all' && !searchQuery.trim();
+    const totalUsers   = filteredUsers.length;
+    const activeUsers  = filteredUsers.filter(u => u.is_active).length;
+    const totalBooks   = filteredUsers.reduce((acc, u) => acc + u.book_count, 0) + (isAll ? books.length : 0);
+    const totalStorage = filteredUsers.reduce((acc, u) => acc + u.storage_mb, 0);
+    return { totalUsers, activeUsers, totalBooks, totalStorage, isAll };
+  }, [filteredUsers, books, activeFilter, dateFilter, searchQuery]);
 
   const adminInitials = useMemo(() => getInitials(user?.full_name ?? 'AD'), [user]);
 
@@ -470,13 +498,13 @@ export default function AdminUsersScreen() {
           <View style={s.statDivider} />
           <StatCard label="Total Books"  value={stats.totalBooks}               sub={null} s={s} />
           <View style={s.statDivider} />
-          <StatCard label="Storage"      value={fmtStorage(stats.totalStorage)} sub="all users" s={s} />
+          <StatCard label="Storage"      value={fmtStorage(stats.totalStorage)} sub={stats.isAll ? 'all users' : 'filtered'} s={s} />
         </View>
       </View>
 
       {/* ── Users List ───────────────────────────────────────────────────── */}
       <FlatList
-        data={filteredUsers}
+        data={listData}
         keyExtractor={item => item.id}
         renderItem={renderUser}
         showsVerticalScrollIndicator={false}
@@ -536,16 +564,16 @@ export default function AdminUsersScreen() {
                 <Text style={s.modalUserEmail}>{selectedUser.email}</Text>
 
                 <View style={[s.modalStatusPill, {
-                  backgroundColor: selectedUser.is_active ? C.cashInLight : C.dangerLight,
-                  borderColor: selectedUser.is_active ? C.cashIn : C.danger,
+                  backgroundColor: selectedUser.isAdmin ? 'rgba(251,191,36,0.18)' : selectedUser.is_active ? C.cashInLight : C.dangerLight,
+                  borderColor:     selectedUser.isAdmin ? 'rgba(251,191,36,0.5)'  : selectedUser.is_active ? C.cashIn      : C.danger,
                 }]}>
                   <View style={[s.modalStatusDot, {
-                    backgroundColor: selectedUser.is_active ? C.cashIn : C.danger,
+                    backgroundColor: selectedUser.isAdmin ? '#FCD34D' : selectedUser.is_active ? C.cashIn : C.danger,
                   }]} />
                   <Text style={[s.modalStatusPillText, {
-                    color: selectedUser.is_active ? C.cashIn : C.danger,
+                    color: selectedUser.isAdmin ? '#D97706' : selectedUser.is_active ? C.cashIn : C.danger,
                   }]}>
-                    {selectedUser.is_active ? 'Active' : 'Inactive'}
+                    {selectedUser.isAdmin ? 'Super Admin' : selectedUser.is_active ? 'Active' : 'Inactive'}
                   </Text>
                 </View>
               </View>
@@ -568,45 +596,66 @@ export default function AdminUsersScreen() {
                 </View>
               </View>
 
-              {/* ─ Account status toggle ─ */}
-              <View style={[s.modalToggleCard, {
-                backgroundColor: selectedUser.is_active ? C.cashInLight : C.dangerLight,
-                borderColor: selectedUser.is_active
-                  ? `${C.cashIn}55`
-                  : `${C.danger}55`,
-              }]}>
-                <View style={s.modalToggleLeft}>
-                  <View style={[s.modalToggleIconBox, {
-                    backgroundColor: selectedUser.is_active
-                      ? `${C.cashIn}22`
-                      : `${C.danger}22`,
-                  }]}>
-                    <LockIcon
-                      color={selectedUser.is_active ? C.cashIn : C.danger}
-                      size={14}
-                    />
+              {/* ─ Account status toggle / locked ─ */}
+              {selectedUser.isAdmin ? (
+                <View style={[s.modalToggleCard, {
+                  backgroundColor: 'rgba(251,191,36,0.12)',
+                  borderColor: 'rgba(251,191,36,0.4)',
+                }]}>
+                  <View style={s.modalToggleLeft}>
+                    <View style={[s.modalToggleIconBox, { backgroundColor: 'rgba(251,191,36,0.18)' }]}>
+                      <LockIcon color="#D97706" size={14} />
+                    </View>
+                    <View>
+                      <Text style={[s.modalToggleTitle, { color: '#D97706' }]}>Account Status</Text>
+                      <Text style={s.modalToggleSub}>Super Admin — always active</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={[s.modalToggleTitle, {
-                      color: selectedUser.is_active ? C.cashIn : C.danger,
-                    }]}>
-                      Account Status
-                    </Text>
-                    <Text style={s.modalToggleSub}>
-                      {selectedUser.is_active ? 'Can access the app' : 'Blocked from the app'}
-                    </Text>
+                  <View style={[s.userStatusPill, { backgroundColor: 'rgba(251,191,36,0.18)', borderColor: 'rgba(251,191,36,0.5)' }]}>
+                    <View style={[s.userStatusDot, { backgroundColor: '#FCD34D' }]} />
+                    <Text style={[s.userStatusText, { color: '#D97706' }]}>Active</Text>
                   </View>
                 </View>
-                <Switch
-                  value={selectedUser.is_active}
-                  onValueChange={(val) => handleToggleUser(selectedUser.id, val)}
-                  trackColor={{
-                    false: `${C.danger}55`,
-                    true:  `${C.cashIn}77`,
-                  }}
-                  thumbColor={selectedUser.is_active ? C.cashIn : C.danger}
-                />
-              </View>
+              ) : (
+                <View style={[s.modalToggleCard, {
+                  backgroundColor: selectedUser.is_active ? C.cashInLight : C.dangerLight,
+                  borderColor: selectedUser.is_active
+                    ? `${C.cashIn}55`
+                    : `${C.danger}55`,
+                }]}>
+                  <View style={s.modalToggleLeft}>
+                    <View style={[s.modalToggleIconBox, {
+                      backgroundColor: selectedUser.is_active
+                        ? `${C.cashIn}22`
+                        : `${C.danger}22`,
+                    }]}>
+                      <LockIcon
+                        color={selectedUser.is_active ? C.cashIn : C.danger}
+                        size={14}
+                      />
+                    </View>
+                    <View>
+                      <Text style={[s.modalToggleTitle, {
+                        color: selectedUser.is_active ? C.cashIn : C.danger,
+                      }]}>
+                        Account Status
+                      </Text>
+                      <Text style={s.modalToggleSub}>
+                        {selectedUser.is_active ? 'Can access the app' : 'Blocked from the app'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={selectedUser.is_active}
+                    onValueChange={(val) => handleToggleUser(selectedUser.id, val)}
+                    trackColor={{
+                      false: `${C.danger}55`,
+                      true:  `${C.cashIn}77`,
+                    }}
+                    thumbColor={selectedUser.is_active ? C.cashIn : C.danger}
+                  />
+                </View>
+              )}
 
             </Pressable>
           </Pressable>
