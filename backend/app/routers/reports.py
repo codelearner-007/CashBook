@@ -33,6 +33,7 @@ async def pdf_report(
     date_to: Optional[str] = Query(None),
     entry_type: Optional[str] = Query(None),
     contact_name: Optional[str] = Query(None),
+    contact_type: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     payment_mode: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user),
@@ -52,7 +53,8 @@ async def pdf_report(
         "category": category, "payment_mode": payment_mode,
     }
 
-    pdf_bytes = generate_pdf(book_res.data["name"], book_res.data["currency"], entries, summary, date_from, date_to, filters=active_filters)
+    pdf_bytes = generate_pdf(book_res.data["name"], book_res.data["currency"], entries, summary,
+                             date_from, date_to, filters=active_filters, contact_type=contact_type)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -67,6 +69,7 @@ async def excel_report(
     date_to: Optional[str] = Query(None),
     entry_type: Optional[str] = Query(None),
     contact_name: Optional[str] = Query(None),
+    contact_type: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     payment_mode: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user),
@@ -86,7 +89,8 @@ async def excel_report(
         "category": category, "payment_mode": payment_mode,
     }
 
-    excel_bytes = generate_excel(book_res.data["name"], book_res.data["currency"], entries, summary, date_from, date_to, filters=active_filters)
+    excel_bytes = generate_excel(book_res.data["name"], book_res.data["currency"], entries, summary,
+                                 date_from, date_to, filters=active_filters, contact_type=contact_type)
     return Response(
         content=excel_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

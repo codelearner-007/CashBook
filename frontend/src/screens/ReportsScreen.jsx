@@ -17,10 +17,26 @@ import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import SearchBar from '../components/ui/SearchBar';
 
 const PAYMENT_LABEL = { cash: 'Cash', online: 'Online', cheque: 'Cheque', other: 'Other' };
+const PAYMENT_ICON  = { cash: 'dollar-sign', online: 'wifi', cheque: 'file-text', check: 'file-text', other: 'more-horizontal' };
 const DATE_LABELS   = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month' };
 const BASE_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/$/, '');
 
-const fmtDate = (d) => d.toISOString().split('T')[0];
+function matchesDatePeriod(entryDate, period) {
+  const d = new Date(entryDate + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (period === 'today') return d.toDateString() === today.toDateString();
+  if (period === 'yesterday') { const y = new Date(today); y.setDate(today.getDate() - 1); return d.toDateString() === y.toDateString(); }
+  if (period === 'week') { const w = new Date(today); w.setDate(today.getDate() - 6); return d >= w; }
+  if (period === 'month') return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+  return true;
+}
+
+const fmtDate = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 function getDateRangeForFilter(filter) {
   if (!filter) return { from: null, to: null };
@@ -38,8 +54,7 @@ function getDateRangeForFilter(filter) {
   }
   if (filter === 'month') {
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    const lastDay  = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    return { from: fmtDate(firstDay), to: fmtDate(lastDay) };
+    return { from: fmtDate(firstDay), to: todayStr };
   }
   return { from: null, to: null };
 }
@@ -57,15 +72,17 @@ export default function ReportsScreen() {
   const {
     id, name,
     customFrom: paramFrom, customTo: paramTo,
+    initialDate,
     initialType, initialContact, initialCategory, initialPayment,
   } = useLocalSearchParams();
   const { C, Font } = useTheme();
 
-  const [filterDate,     setFilterDate]     = useState(null);
-  const [filterType,     setFilterType]     = useState(initialType     || null);
-  const [filterContact,  setFilterContact]  = useState(initialContact  || null);
-  const [filterCategory, setFilterCategory] = useState(initialCategory || null);
-  const [filterPayment,  setFilterPayment]  = useState(initialPayment  || null);
+  const [filterDate,        setFilterDate]        = useState(initialDate || null);
+  const [filterType,        setFilterType]        = useState(initialType     || null);
+  const [filterContact,     setFilterContact]     = useState(initialContact  || null);
+  const [filterContactType, setFilterContactType] = useState(null);
+  const [filterCategory,    setFilterCategory]    = useState(initialCategory || null);
+  const [filterPayment,     setFilterPayment]     = useState(initialPayment  || null);
   const [activePicker,   setActivePicker]   = useState(null);
   const [contactTab,     setContactTab]     = useState('customers');
   const [contactSearch,  setContactSearch]  = useState('');
@@ -106,7 +123,7 @@ export default function ReportsScreen() {
   const clearFilter = useCallback((key) => {
     if (key === 'date')     setFilterDate(null);
     if (key === 'type')     setFilterType(null);
-    if (key === 'contact')  setFilterContact(null);
+    if (key === 'contact')  { setFilterContact(null); setFilterContactType(null); }
     if (key === 'category') setFilterCategory(null);
     if (key === 'payment')  setFilterPayment(null);
   }, []);
@@ -131,12 +148,13 @@ export default function ReportsScreen() {
   }, [activePicker, customers.length]);
 
   const filtered = useMemo(() => entries.filter((e) => {
+    if (filterDate     && !matchesDatePeriod(e.entry_date, filterDate)) return false;
     if (filterType     && e.type         !== filterType)     return false;
     if (filterPayment  && e.payment_mode !== filterPayment)  return false;
     if (filterCategory && e.category     !== filterCategory) return false;
     if (filterContact  && e.contact_name !== filterContact)  return false;
     return true;
-  }), [entries, filterType, filterPayment, filterCategory, filterContact]);
+  }), [entries, filterDate, filterType, filterPayment, filterCategory, filterContact]);
 
   const summary = useMemo(() => {
     let total_in = 0, total_out = 0;
@@ -180,10 +198,11 @@ export default function ReportsScreen() {
       const params = new URLSearchParams();
       if (dateFrom)       params.append('date_from', dateFrom);
       if (dateTo)         params.append('date_to', dateTo);
-      if (filterType)     params.append('entry_type', filterType);
-      if (filterContact)  params.append('contact_name', filterContact);
-      if (filterCategory) params.append('category', filterCategory);
-      if (filterPayment)  params.append('payment_mode', filterPayment);
+      if (filterType)        params.append('entry_type', filterType);
+      if (filterContact)     params.append('contact_name', filterContact);
+      if (filterContactType) params.append('contact_type', filterContactType);
+      if (filterCategory)    params.append('category', filterCategory);
+      if (filterPayment)     params.append('payment_mode', filterPayment);
       const qs      = params.toString();
       const ext     = type === 'pdf' ? 'pdf' : 'xlsx';
       const safeName = (name || id || 'report').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -467,7 +486,7 @@ export default function ReportsScreen() {
                   ) : (
                     <ScrollView style={s.pickerList} showsVerticalScrollIndicator={false}>
                       {filteredList.map((item, idx) => (
-                        <TouchableOpacity key={item.id} style={[s.pickerRow, { borderBottomColor: C.border }, idx === filteredList.length - 1 && { borderBottomWidth: 0 }, filterContact === item.name && { backgroundColor: C.primaryLight }]} onPress={() => applyFilter('contact', item.name)} activeOpacity={0.75}>
+                        <TouchableOpacity key={item.id} style={[s.pickerRow, { borderBottomColor: C.border }, idx === filteredList.length - 1 && { borderBottomWidth: 0 }, filterContact === item.name && { backgroundColor: C.primaryLight }]} onPress={() => { applyFilter('contact', item.name); setFilterContactType(isCustomerTab ? 'customer' : 'supplier'); }} activeOpacity={0.75}>
                           <View style={[s.contactAvatar, { backgroundColor: accentLight }]}><Text style={[s.contactAvatarText, { color: accentColor, fontFamily: Font.bold }]}>{item.name.charAt(0).toUpperCase()}</Text></View>
                           <Text style={[s.pickerRowLabel, { color: C.text, fontFamily: filterContact === item.name ? Font.semiBold : Font.regular }]}>{item.name}</Text>
                           {filterContact === item.name && <Feather name="check" size={16} color={C.primary} />}
@@ -498,12 +517,11 @@ export default function ReportsScreen() {
               )
             )}
             {activePicker === 'payment' && (() => {
-              const payOpts = [
-                { value: 'cash', label: 'Cash', icon: 'dollar-sign' },
-                { value: 'online', label: 'Online', icon: 'wifi' },
-                { value: 'cheque', label: 'Cheque', icon: 'file-text' },
-                { value: 'other', label: 'Other', icon: 'more-horizontal' },
-              ].filter(p => bookPayments.includes(p.value));
+              const payOpts = bookPayments.map(value => ({
+                value,
+                label: PAYMENT_LABEL[value] || (value.charAt(0).toUpperCase() + value.slice(1)),
+                icon: PAYMENT_ICON[value?.toLowerCase()] || 'credit-card',
+              }));
               if (payOpts.length === 0) return (
                 <View style={s.pickerEmpty}>
                   <Feather name="credit-card" size={36} color={C.textSubtle} />
@@ -727,7 +745,7 @@ export default function ReportsScreen() {
         <View style={s.filterBar}>
           <TouchableOpacity
             style={[s.fChip, additionalFilterCount === 0 && s.fChipActive]}
-            onPress={() => { setFilterDate(null); setFilterType(null); setFilterContact(null); setFilterCategory(null); setFilterPayment(null); }}
+            onPress={() => { setFilterDate(null); setFilterType(null); setFilterContact(null); setFilterContactType(null); setFilterCategory(null); setFilterPayment(null); }}
             activeOpacity={0.8}
           >
             <Feather name="layers" size={12} color={additionalFilterCount === 0 ? '#fff' : C.textMuted} />
@@ -740,7 +758,7 @@ export default function ReportsScreen() {
               { key: 'type',     label: 'Entry Type',    icon: 'repeat',      display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
               { key: 'contact',  label: 'Cust. & Supp.', icon: 'users',       display: filterContact },
               { key: 'category', label: 'Category',      icon: 'tag',         display: filterCategory },
-              { key: 'payment',  label: 'Payment',       icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
+              { key: 'payment',  label: 'Payment',       icon: 'credit-card', display: filterPayment ? (PAYMENT_LABEL[filterPayment] || filterPayment) : null },
             ].map(({ key, label, icon, display }) => {
               const active = !!display;
               return (

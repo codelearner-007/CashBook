@@ -89,24 +89,26 @@ _PAYMENT_LABELS = {"cash": "Cash", "online": "Online", "cheque": "Cheque", "othe
 _TYPE_LABELS    = {"in": "Cash In", "out": "Cash Out"}
 
 
-def _build_filter_items(filters: dict) -> list:
-    if not filters:
-        return []
+def _build_filter_items(filters: dict, date_from=None, date_to=None, contact_type=None) -> list:
     items = []
-    if filters.get("entry_type"):
-        items.append(("Type", _TYPE_LABELS.get(filters["entry_type"], filters["entry_type"].title())))
-    if filters.get("contact_name"):
-        items.append(("Contact", filters["contact_name"]))
-    if filters.get("category"):
-        items.append(("Category", filters["category"]))
-    if filters.get("payment_mode"):
-        items.append(("Payment", _PAYMENT_LABELS.get(filters["payment_mode"], filters["payment_mode"].title())))
+    if date_from or date_to:
+        items.append(("Date Range", f"{date_from or 'Beginning'} → {date_to or 'Today'}"))
+    if filters:
+        if filters.get("entry_type"):
+            items.append(("Entry Type", _TYPE_LABELS.get(filters["entry_type"], filters["entry_type"].title())))
+        if filters.get("contact_name"):
+            _lbl = "Customer" if contact_type == "customer" else "Supplier" if contact_type == "supplier" else "Contact"
+            items.append((_lbl, filters["contact_name"]))
+        if filters.get("category"):
+            items.append(("Category", filters["category"]))
+        if filters.get("payment_mode"):
+            items.append(("Payment Mode", _PAYMENT_LABELS.get(filters["payment_mode"], filters["payment_mode"].title())))
     return items
 
 
 # ── Main generator ──────────────────────────────────────────────────────────
 def generate_pdf(book_name: str, currency: str, entries: list, summary: dict,
-                 date_from=None, date_to=None, filters: dict = None) -> bytes:
+                 date_from=None, date_to=None, filters: dict = None, contact_type=None) -> bytes:
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -134,23 +136,52 @@ def generate_pdf(book_name: str, currency: str, entries: list, summary: dict,
     elems.append(HRFlowable(width="100%", thickness=1, color=TEAL_MID, spaceAfter=3 * mm))
 
     # ── 1b. Active-filters block ──────────────────────────────────────────
-    filter_items = _build_filter_items(filters)
-    filter_text  = "  ·  ".join(f"{k}: {v}" for k, v in filter_items) if filter_items else "All entries (no additional filters)"
-    f_data = [[
-        _p("FILTERS", size=6.5, bold=True, color=TEAL_DARK, align="LEFT"),
-        _p(filter_text, size=8, color=SLATE_600 if filter_items else SLATE_400, align="LEFT"),
-    ]]
-    f_tbl = Table(f_data, colWidths=[0.75 * inch, USABLE_W - 0.75 * inch])
-    f_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), TEAL_LIGHT),
-        ("BOX",           (0, 0), (-1, -1), 0.6, TEAL_MID),
-        ("LINEAFTER",     (0, 0), (0, -1),  0.6, TEAL_MID),
-        ("TOPPADDING",    (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-    ]))
+    filter_items = _build_filter_items(filters, date_from, date_to, contact_type)
+    n_active = len(filter_items)
+    LABEL_W  = 1.05 * inch
+
+    if filter_items:
+        f_rows = [[
+            _p("APPLIED FILTERS", size=7, bold=True, color=WHITE, align="LEFT"),
+            _p(f"{n_active} filter{'s' if n_active != 1 else ''} active",
+               size=7, color=colors.HexColor("#B8DEDE"), align="RIGHT"),
+        ]]
+        for label, value in filter_items:
+            f_rows.append([
+                _p(label, size=7, bold=True, color=TEAL_DARK, align="LEFT"),
+                _p(value, size=8.5, color=SLATE_700, align="LEFT"),
+            ])
+        f_tbl = Table(f_rows, colWidths=[LABEL_W, USABLE_W - LABEL_W])
+        f_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, 0), TEAL),
+            ("LINEBELOW",     (0, 0), (-1, 0), 1.0, TEAL_DARK),
+            ("BACKGROUND",    (0, 1), (0, -1), TEAL_MID),
+            ("BACKGROUND",    (1, 1), (1, -1), TEAL_LIGHT),
+            ("BOX",           (0, 0), (-1, -1), 0.7, TEAL_MID),
+            ("LINEAFTER",     (0, 1), (0, -1), 0.4, TEAL_MID),
+            ("LINEBELOW",     (0, 1), (-1, -2), 0.3, TEAL_MID),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+    else:
+        f_tbl = Table([[
+            _p("FILTERS", size=6.5, bold=True, color=TEAL_DARK, align="LEFT"),
+            _p("All entries — no additional filters applied", size=8, color=SLATE_400, align="LEFT"),
+        ]], colWidths=[0.75 * inch, USABLE_W - 0.75 * inch])
+        f_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), TEAL_LIGHT),
+            ("BOX",           (0, 0), (-1, -1), 0.6, TEAL_MID),
+            ("LINEAFTER",     (0, 0), (0, -1),  0.5, TEAL_MID),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+
     elems.append(f_tbl)
     elems.append(Spacer(1, 4 * mm))
 

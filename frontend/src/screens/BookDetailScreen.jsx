@@ -46,12 +46,13 @@ function matchesDatePeriod(entryDate, period) {
   if (period === 'today') return d.toDateString() === today.toDateString();
   if (period === 'yesterday') { const y = new Date(today); y.setDate(today.getDate() - 1); return d.toDateString() === y.toDateString(); }
   if (period === 'week') { const w = new Date(today); w.setDate(today.getDate() - 6); return d >= w; }
-  if (period === 'month') return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+  if (period === 'month') return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() && d <= today;
   return true;
 }
 
 const DATE_LABELS = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month' };
 const PAYMENT_LABEL = { cash: 'Cash', online: 'Online', cheque: 'Cheque', other: 'Other' };
+const PAYMENT_ICON = { cash: 'dollar-sign', online: 'wifi', cheque: 'file-text', check: 'file-text', other: 'more-horizontal' };
 
 function formatDateHeader(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -448,34 +449,10 @@ export default function BookDetailScreen() {
     ]);
   }, [deleteEntry]);
 
-  const fmtDate = (d) => d.toISOString().split('T')[0];
-
   const goToReports = useCallback(() => {
     const params = { id, name };
 
-    if (filterDate === 'month') {
-      params.initialFilter = 'This Month';
-    } else if (filterDate === 'today') {
-      const today = new Date();
-      params.initialFilter = 'Custom';
-      params.customFrom = fmtDate(today);
-      params.customTo = fmtDate(today);
-    } else if (filterDate === 'yesterday') {
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(today.getDate() - 1);
-      params.initialFilter = 'Custom';
-      params.customFrom = fmtDate(yesterday);
-      params.customTo = fmtDate(yesterday);
-    } else if (filterDate === 'week') {
-      const today = new Date();
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - 6);
-      params.initialFilter = 'Custom';
-      params.customFrom = fmtDate(weekStart);
-      params.customTo = fmtDate(today);
-    }
-
+    if (filterDate) params.initialDate = filterDate;
     if (filterType) params.initialType = filterType;
     if (filterContact) params.initialContact = filterContact;
     if (filterCategory) params.initialCategory = filterCategory;
@@ -620,7 +597,7 @@ export default function BookDetailScreen() {
               { key: 'type', label: 'Entry Type', icon: 'repeat', display: filterType === 'in' ? 'Cash In' : filterType === 'out' ? 'Cash Out' : null },
               { key: 'contact', label: 'Cust. & Supp.', icon: 'users', display: filterContact },
               { key: 'category', label: 'Category', icon: 'tag', display: filterCategory },
-              { key: 'payment', label: 'Payment', icon: 'credit-card', display: filterPayment ? PAYMENT_LABEL[filterPayment] : null },
+              { key: 'payment', label: 'Payment', icon: 'credit-card', display: filterPayment ? (PAYMENT_LABEL[filterPayment] || filterPayment) : null },
             ].map(({ key, label, icon, display }) => {
               const active = !!display;
               return (
@@ -851,12 +828,11 @@ export default function BookDetailScreen() {
 
             {/* PAYMENT picker */}
             {activePicker === 'payment' && (() => {
-              const payOpts = [
-                { value: 'cash', label: 'Cash', icon: 'dollar-sign' },
-                { value: 'online', label: 'Online', icon: 'wifi' },
-                { value: 'cheque', label: 'Cheque', icon: 'file-text' },
-                { value: 'other', label: 'Other', icon: 'more-horizontal' },
-              ].filter(p => bookPayments.includes(p.value));
+              const payOpts = bookPayments.map(value => ({
+                value,
+                label: PAYMENT_LABEL[value] || (value.charAt(0).toUpperCase() + value.slice(1)),
+                icon: PAYMENT_ICON[value?.toLowerCase()] || 'credit-card',
+              }));
               if (payOpts.length === 0) return (
                 <View style={s.pickerEmpty}>
                   <Feather name="credit-card" size={36} color={C.textSubtle} />
