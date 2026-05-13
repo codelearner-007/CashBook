@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { Platform, Modal, View, Text, TouchableOpacity, StyleSheet, AppState } from 'react-native';
 import Toast from '../src/lib/toast';
 import { toastConfig } from '../src/components/ui/AppToast';
 import { Slot, useRouter, useSegments } from 'expo-router';
@@ -17,6 +17,19 @@ import { useAuthStore } from '../src/store/authStore';
 import { useThemeStore } from '../src/store/themeStore';
 import { supabase } from '../src/lib/supabase';
 import { apiGetProfile } from '../src/lib/api';
+import { useUnreadNotifications, useMarkNotificationRead } from '../src/hooks/useNotifications';
+import { useTheme } from '../src/hooks/useTheme';
+import { Font } from '../src/constants/fonts';
+import {
+  setupNotificationHandlers,
+  registerPushToken,
+  addNotificationTapListener,
+} from '../src/lib/pushNotifications';
+import { useNotificationPopupStore } from '../src/store/notificationPopupStore';
+import { useNotifications } from '../src/hooks/useNotifications';
+
+// Configure foreground notification display (native only; no-op on web)
+setupNotificationHandlers();
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -93,6 +106,8 @@ function SupabaseAuthListener() {
         const profile = await resolveProfile(session);
         setUser(profile, session);
         if (profile.is_dark_mode !== undefined) setIsDark(!!profile.is_dark_mode);
+        // Register push token after restoring session
+        registerPushToken();
       }
     });
 
@@ -103,6 +118,8 @@ function SupabaseAuthListener() {
           const profile = await resolveProfile(session);
           setUser(profile, session);
           if (profile.is_dark_mode !== undefined) setIsDark(!!profile.is_dark_mode);
+          // Register push token on every sign-in (token may have rotated)
+          registerPushToken();
         } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
           clearUser();
           setIsDark(false);
@@ -114,11 +131,142 @@ function SupabaseAuthListener() {
       },
     );
 
-    return () => subscription.unsubscribe();
+    // Handle taps on push notifications that opened the app
+    const tapSub = addNotificationTapListener((response) => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      const notifId = response?.notification?.request?.content?.data?.notification_id;
+      if (notifId) {
+        useNotificationPopupStore.getState().setTappedId(notifId);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      tapSub.remove();
+    };
   }, []);
 
   return null;
 }
+
+// ── Notification Pop-up (regular users only) ───────────────────────────────────
+//
+// Shows a centered modal card for each unread notification, one at a time.
+// Checks for new ones every time the app returns to foreground (AppState).
+
+function NotificationPopup() {
+  const user       = useAuthStore((s) => s.user);
+  const { C }      = useTheme();
+  const loggedIn   = !!user;
+  const isUser     = loggedIn && user.role === 'user';
+
+  // Tray-tap: any logged-in user (including admin)
+  const tappedId     = useNotificationPopupStore((s) => s.tappedId);
+  const clearTapped  = useNotificationPopupStore((s) => s.clearTappedId);
+
+  // Full inbox — needed to look up tapped notification (may already be read)
+  const { data: allNotifs = [], refetch: refetchAll } = useNotifications({
+    enabled: loggedIn && !!tappedId,
+  });
+
+  // Unread — only for regular users (auto popup on every unread)
+  const { data: unread = [], refetch } = useUnreadNotifications({ enabled: isUser });
+  const markRead = useMarkNotificationRead();
+
+  // Refetch when app returns to foreground
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (appState.current.match(/inactive|background/) && next === 'active') {
+        refetch();
+        if (tappedId) refetchAll();
+      }
+      appState.current = next;
+    });
+    return () => sub.remove();
+  }, [refetch, refetchAll, tappedId]);
+
+  // Resolve which notification to show
+  // Priority: tapped from tray > first unread (user only)
+  const tappedNotif = tappedId
+    ? allNotifs.find((n) => n.notification_id === tappedId)
+    : null;
+  const current = tappedNotif ?? (isUser ? unread[0] : null);
+
+  if (!current) return null;
+
+  const handleDismiss = () => {
+    if (!current.is_read) markRead.mutate(current.id);
+    if (tappedId) clearTapped();
+  };
+
+  const d    = current.created_at ? new Date(current.created_at) : null;
+  const date = d?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = d?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  return (
+    <Modal transparent animationType="fade" visible statusBarTranslucent>
+      <View style={popupStyles.overlay}>
+        <View style={[popupStyles.card, { backgroundColor: C.card }]}>
+          <View style={[popupStyles.iconWrap, { backgroundColor: C.primaryLight }]}>
+            <Text style={{ fontSize: 28 }}>🔔</Text>
+          </View>
+          <View style={[popupStyles.badge, { backgroundColor: C.primary }]}>
+            <Text style={[popupStyles.badgeText, { fontFamily: Font.bold }]}>New Notification</Text>
+          </View>
+          {!tappedId && unread.length > 1 && (
+            <Text style={[popupStyles.countText, { color: C.textSubtle, fontFamily: Font.regular }]}>
+              {unread.length - 1} more after this
+            </Text>
+          )}
+          <Text style={[popupStyles.title, { color: C.text, fontFamily: Font.bold }]}>
+            {current.title}
+          </Text>
+          <Text style={[popupStyles.body, { color: C.textMuted, fontFamily: Font.regular }]}>
+            {current.body}
+          </Text>
+          {d && (
+            <Text style={[popupStyles.dateTime, { color: C.textSubtle, fontFamily: Font.regular }]}>
+              {date}  •  {time}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={[popupStyles.btn, { backgroundColor: C.primary }]}
+            onPress={handleDismiss}
+            activeOpacity={0.85}
+          >
+            <Text style={[popupStyles.btnText, { fontFamily: Font.bold }]}>Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const popupStyles = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  card: {
+    width: '100%', borderRadius: 24, padding: 28,
+    alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18, shadowRadius: 24, elevation: 16,
+  },
+  iconWrap:  { width: 72, height: 72, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  badge:     { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, marginBottom: 8 },
+  badgeText: { fontSize: 12, color: '#fff' },
+  countText: { fontSize: 12, marginBottom: 14 },
+  title:     { fontSize: 18, textAlign: 'center', marginBottom: 10, lineHeight: 26 },
+  body:      { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  btn:       { width: '100%', paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  btnText:   { fontSize: 15, color: '#fff' },
+  dateTime:  { fontSize: 12, marginBottom: 20, textAlign: 'center' },
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -142,6 +290,7 @@ export default function RootLayout() {
       <SupabaseAuthListener />
       <AuthGuard />
       <Slot />
+      <NotificationPopup />
       <Toast config={toastConfig} />
     </QueryClientProvider>
   );

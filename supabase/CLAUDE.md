@@ -29,6 +29,8 @@ Supabase provides three things for CashBook:
 12. `supabase/migrations/014_attachment_metadata.sql` — attachment metadata columns on entries
 13. `supabase/migrations/015_book_field_settings.sql` — `field_settings JSONB` column on `books` (superseded by 016)
 14. `supabase/migrations/016_book_field_settings_normalized.sql` — replaces `field_settings` JSONB with 4 individual boolean columns (`show_customer`, `show_supplier`, `show_category`, `show_attachment`); migrates existing data; recreates `get_books_with_summary` RPC
+15. `supabase/migrations/017_payment_mode_balances.sql` — `total_in`, `total_out`, `net_balance` columns on `payment_modes`; `trg_update_payment_mode_balance` trigger keeps them in sync; backfills existing data
+16. `supabase/migrations/018_notifications.sql` — `notifications` and `user_notifications` tables; `target_type` ('all'|'specific') on notifications; RLS policies; indexes
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -140,6 +142,33 @@ Identical columns to `customers`, including `total_in`, `total_out`, `net_balanc
 | `created_at` | timestamptz | default `now()` |
 
 **Note:** `entries.user_id` is redundant (derivable via `book_id → books.user_id`) but is kept for RLS policies, performance, and defence-in-depth on the backend.
+
+---
+
+### `public.notifications`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | uuid | PK, default `gen_random_uuid()` |
+| `title` | text | NOT NULL |
+| `body` | text | NOT NULL |
+| `target_type` | text | NOT NULL, default `'all'`, CHECK IN (`'all'`, `'specific'`) |
+| `created_by` | uuid | FK → `profiles(id)` ON DELETE SET NULL, nullable |
+| `created_at` | timestamptz | default `now()` |
+
+### `public.user_notifications`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | uuid | PK, default `gen_random_uuid()` |
+| `user_id` | uuid | FK → `profiles(id)` ON DELETE CASCADE, NOT NULL |
+| `notification_id` | uuid | FK → `notifications(id)` ON DELETE CASCADE, NOT NULL |
+| `is_read` | boolean | NOT NULL, default `false` |
+| `read_at` | timestamptz | nullable |
+| `created_at` | timestamptz | default `now()` |
+| UNIQUE | `(user_id, notification_id)` | One row per user per notification |
+
+**Fan-out rule:** When admin sends a notification, the backend inserts 1 row into `notifications` + 1 row into `user_notifications` per recipient. The backend handles fan-out — there are no DB triggers involved.
 
 ---
 

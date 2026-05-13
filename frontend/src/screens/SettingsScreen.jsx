@@ -146,7 +146,7 @@ const APP_SECTIONS = [
   {
     title: 'App',
     items: [
-      { Icon: BellIcon,   label: 'Notifications',     sub: 'Manage alerts',   route: null, accent: 'primary' },
+      { Icon: BellIcon,   label: 'Notifications',     sub: 'Manage alerts',   route: '/(app)/settings/notifications', accent: 'primary' },
       { Icon: ShieldIcon, label: 'Privacy & Security', sub: 'PIN, biometric', route: null, accent: 'primary' },
       { Icon: CloudIcon,  label: 'Backup & Sync',     sub: 'Last synced: Now', route: null, accent: 'primary' },
       { Icon: GlobeIcon,  label: 'Language',          sub: 'English',          route: null, accent: 'primary' },

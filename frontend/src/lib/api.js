@@ -249,3 +249,58 @@ export const apiToggleUserStatus = async (userId, is_active) => {
 export const apiGetUserBooks = async (userId) => {
   return (await api.get(`/api/v1/admin/users/${userId}/books`)).data;
 };
+
+
+// ── Admin Notifications (superadmin only) ─────────────────────────────────────
+
+/**
+ * POST /api/v1/admin/notifications
+ * payload: { title, body, target_type: 'all'|'specific', user_ids?: string[] }
+ */
+export const apiSendNotification = async (payload) => {
+  return (await api.post('/api/v1/admin/notifications', payload)).data;
+};
+
+/** GET /api/v1/admin/notifications — all notifications sent by this admin */
+export const apiGetSentNotifications = async () => {
+  return (await api.get('/api/v1/admin/notifications')).data;
+};
+
+
+// ── User Notifications ────────────────────────────────────────────────────────
+
+/** GET /api/v1/notifications[?unread=true] */
+export const apiGetNotifications = async ({ unread } = {}) => {
+  const params = unread ? { unread: true } : {};
+  return (await api.get('/api/v1/notifications', { params })).data;
+};
+
+/** PATCH /api/v1/notifications/:id/read */
+export const apiMarkNotificationRead = async (id) => {
+  return (await api.patch(`/api/v1/notifications/${id}/read`)).data;
+};
+
+/** PATCH /api/v1/notifications/read-all */
+export const apiMarkAllNotificationsRead = async () => {
+  return (await api.patch('/api/v1/notifications/read-all')).data;
+};
+
+/** DELETE /api/v1/notifications/:id */
+export const apiDeleteNotification = async (id) => {
+  return (await api.delete(`/api/v1/notifications/${id}`)).data;
+};
+
+/** POST /api/v1/notifications/bulk-delete */
+export const apiBulkDeleteNotifications = async (ids) => {
+  return (await api.post('/api/v1/notifications/bulk-delete', { ids })).data;
+};
+
+/** POST /api/v1/notifications/bulk-read */
+export const apiBulkMarkNotificationsRead = async (ids) => {
+  return (await api.post('/api/v1/notifications/bulk-read', { ids })).data;
+};
+
+/** POST /api/v1/notifications/push-token — register or refresh device push token */
+export const apiSavePushToken = async (token, platform) => {
+  return (await api.post('/api/v1/notifications/push-token', { token, platform })).data;
+};

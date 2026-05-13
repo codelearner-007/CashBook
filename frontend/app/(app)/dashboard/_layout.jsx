@@ -30,10 +30,19 @@ const GearIcon = ({ color, size = 22 }) => (
   </View>
 );
 
+const BellIcon = ({ color, size = 22 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 0.62, height: size * 0.55, borderTopLeftRadius: size * 0.31, borderTopRightRadius: size * 0.31, borderWidth: 1.8, borderColor: color, borderBottomWidth: 0, marginTop: 2 }} />
+    <View style={{ width: size * 0.78, height: size * 0.14, borderWidth: 1.8, borderColor: color, marginTop: -1 }} />
+    <View style={{ width: size * 0.28, height: size * 0.14, borderBottomLeftRadius: size * 0.14, borderBottomRightRadius: size * 0.14, borderWidth: 1.8, borderColor: color, borderTopWidth: 0 }} />
+  </View>
+);
+
 const TAB_DEFS = [
-  { name: 'users',    label: 'Users',    Icon: PeopleIcon },
-  { name: 'books',    label: 'My Books', Icon: BookIcon   },
-  { name: 'settings', label: 'Settings', Icon: GearIcon   },
+  { name: 'users',         label: 'Users',    Icon: PeopleIcon },
+  { name: 'books',         label: 'My Books', Icon: BookIcon   },
+  { name: 'notifications', label: 'Notify',   Icon: BellIcon   },
+  { name: 'settings',      label: 'Settings', Icon: GearIcon   },
 ];
 
 function AdminTabBar({ state, navigation }) {
@@ -100,10 +109,11 @@ export default function DashboardLayout() {
         screenOptions={{ headerShown: false }}
         tabBar={(props) => <AdminTabBar {...props} />}
       >
-        <Tabs.Screen name="users" options={{ unmountOnBlur: true }} />
+        <Tabs.Screen name="users"         options={{ unmountOnBlur: true }} />
         <Tabs.Screen name="books" />
+        <Tabs.Screen name="notifications" options={{ unmountOnBlur: true }} />
         <Tabs.Screen name="settings" />
-        <Tabs.Screen name="index" options={{ href: null }} />
+        <Tabs.Screen name="index"         options={{ href: null }} />
       </Tabs>
     </View>
   );

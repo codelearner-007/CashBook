@@ -173,12 +173,39 @@ All endpoints require `require_superadmin` dependency (403 if not superadmin).
 | GET | `/users` | All non-superadmin profiles with computed stats (book_count, entry_count, storage_mb) |
 | PATCH | `/users/{user_id}/status` | Toggle `is_active`; cannot deactivate superadmin |
 | GET | `/users/{user_id}/books` | Any user's books (with net_balance and last_entry_at) |
+| POST | `/notifications` | Create notification + fan-out to target users |
+| GET | `/notifications` | All notifications sent by this admin (with recipient_count) |
 
 **GET /users** — N+1 pattern: one extra query per user for book count and entry count, plus two RPC calls (`get_user_data_bytes`, `get_user_storage_bytes`) for real storage. Each RPC has a try/except fallback to 0 if migration 013 hasn't run. Acceptable for admin dashboards at current scale.
 
 **GET /users/:id/books** — tries `get_books_with_summary` RPC first, falls back to direct table query. Same fallback pattern as `/books`.
 
 **PATCH /users/:id/status body:** `{ "is_active": true }`
+
+**POST /admin/notifications body:**
+```json
+{
+  "title": "string",
+  "body": "string",
+  "target_type": "all",
+  "user_ids": ["uuid", "..."]
+}
+```
+`target_type` must be `'all'` or `'specific'`. `user_ids` is required when `target_type='specific'`; ignored for `'all'`. All supplied `user_ids` must be real, non-superadmin profiles — returns 422 otherwise.
+Returns `NotificationResponse` with `recipient_count`.
+
+---
+
+### Notifications (`routers/notifications.py`) — prefix `/api/v1/notifications`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `` | User's notification inbox; `?unread=true` filters to unread only | ✅ |
+| POST | `/bulk-delete` | Delete multiple notifications `{ ids: [...] }` | ✅ |
+| POST | `/bulk-read` | Mark multiple notifications as read `{ ids: [...] }` | ✅ |
+| PATCH | `/read-all` | Mark every unread notification as read | ✅ |
+| DELETE | `/{id}` | Permanently delete one notification | ✅ |
+| PATCH | `/{id}/read` | Mark one notification as read | ✅ |
 
 ---
 

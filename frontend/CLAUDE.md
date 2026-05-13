@@ -57,6 +57,8 @@ frontend/
 │   │   ├── entry/
 │   │   │   ├── EntryForm.jsx         # Shared form for add/edit entry
 │   │   │   └── ContactPickerModal.jsx # Bottom sheet: search customers/suppliers, create new, import from phone
+│   │   ├── notifications/
+│   │   │   └── NotificationInbox.jsx # Shared inbox used by NotificationsScreen + AdminNotificationsInboxScreen
 │   │   └── ui/
 │   │       ├── Input.jsx
 │   │       ├── Icons.jsx
@@ -305,6 +307,14 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `apiGetAllUsers()` | GET | `/api/v1/admin/users` |
 | `apiToggleUserStatus(userId, is_active)` | PATCH | `/api/v1/admin/users/:id/status` |
 | `apiGetUserBooks(userId)` | GET | `/api/v1/admin/users/:id/books` |
+| `apiSendNotification(payload)` | POST | `/api/v1/admin/notifications` — `{ title, body, target_type, user_ids? }` |
+| `apiGetSentNotifications()` | GET | `/api/v1/admin/notifications` |
+| `apiGetNotifications({ unread? })` | GET | `/api/v1/notifications[?unread=true]` |
+| `apiMarkNotificationRead(id)` | PATCH | `/api/v1/notifications/:id/read` |
+| `apiMarkAllNotificationsRead()` | PATCH | `/api/v1/notifications/read-all` |
+| `apiDeleteNotification(id)` | DELETE | `/api/v1/notifications/:id` |
+| `apiBulkDeleteNotifications(ids)` | POST | `/api/v1/notifications/bulk-delete` |
+| `apiBulkMarkNotificationsRead(ids)` | POST | `/api/v1/notifications/bulk-read` |
 
 ---
 
@@ -420,6 +430,9 @@ Before writing any new screen or component, open a similar existing screen and m
 | `['supplier', bookId, id]` | 2 min | — | Single supplier with balance |
 | `['supplier-entries', bookId, id]` | 2 min | — | Entries linked to a supplier |
 | `['report-entries', bookId, dateFrom, dateTo]` | 2 min | — | Filtered entries for ReportsScreen; dateFrom/dateTo are YYYY-MM-DD strings or null |
+| `['notifications']` | 1 min | — | User's full notification inbox |
+| `['notifications', 'unread']` | 0 | 15 s | Unread-only; used by popup in `_layout.jsx`; polls so new notifications auto-show while app is open |
+| `['sent-notifications']` | 2 min | — | Admin's sent notification history |
 
 Mutations use `qc.setQueryData(...)` for optimistic updates + `qc.invalidateQueries(...)` on success to sync with DB.
 

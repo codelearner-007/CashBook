@@ -25,6 +25,11 @@
           "data": [{ "scheme": "cashbook" }],
           "category": ["BROWSABLE", "DEFAULT"]
         }
+      ],
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "ios": {
@@ -43,6 +48,14 @@
         {
           "photosPermission": "CashBook accesses your photos to set a profile photo.",
           "cameraPermission": "CashBook uses your camera to take a profile photo."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#3B5BDB",
+          "defaultChannel": "default"
         }
       ]
     ]

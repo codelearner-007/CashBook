@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import books, entries, reports, upload, profile, admin, contacts, categories, payment_modes
+from app.routers import books, entries, reports, upload, profile, admin, contacts, categories, payment_modes, notifications
 
 app = FastAPI(title="CashBook API", version="1.0.0")
 
@@ -12,10 +12,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ensure unhandled exceptions still go through CORS middleware as proper responses
+# Attach CORS headers manually — CORSMiddleware does not wrap the exception handler layer,
+# so a bare 500 would be returned without them, causing browser CORS errors.
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "*",
+    "Access-Control-Allow-Methods": "*",
+}
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(status_code=500, content={"detail": str(exc)})
+    return JSONResponse(status_code=500, content={"detail": str(exc)}, headers=CORS_HEADERS)
 
 app.include_router(profile.router, prefix="/api/v1/profile",  tags=["profile"])
 app.include_router(books.router,   prefix="/api/v1/books",    tags=["books"])
@@ -25,7 +32,8 @@ app.include_router(upload.router,  prefix="/api/v1/upload",   tags=["upload"])
 app.include_router(admin.router,    prefix="/api/v1/admin",    tags=["admin"])
 app.include_router(contacts.router,    prefix="/api/v1/books",    tags=["contacts"])
 app.include_router(categories.router,      prefix="/api/v1/books",    tags=["categories"])
-app.include_router(payment_modes.router,   prefix="/api/v1/books",    tags=["payment-modes"])
+app.include_router(payment_modes.router,   prefix="/api/v1/books",         tags=["payment-modes"])
+app.include_router(notifications.router,   prefix="/api/v1/notifications", tags=["notifications"])
 
 
 @app.get("/health")

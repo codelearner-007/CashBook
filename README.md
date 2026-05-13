@@ -45,6 +45,47 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
 EXPO_PUBLIC_API_URL=http://<your-local-ip>:8000
 ```
 
+### Frontend packages
+
+Core packages installed via `npm install` (see `package.json`). Notable additions beyond the default Expo SDK:
+
+| Package | Version | Purpose |
+|---|---|---|
+| `expo-router` | SDK-matched | File-based navigation |
+| `expo-secure-store` | SDK-matched | Encrypted session storage on device |
+| `expo-font` | SDK-matched | Custom Inter font loading |
+| `expo-image-picker` | SDK-matched | Profile photo + attachment upload |
+| `expo-image` | SDK-matched | Optimised image rendering (`<ExpoImage>`) |
+| `expo-file-system` | SDK-matched | Download PDF/Excel reports to device |
+| `expo-sharing` | SDK-matched | Share downloaded reports via OS sheet |
+| `expo-notifications` | `~0.32.x` | Device push notifications (iOS + Android) |
+| `expo-device` | `~8.x` | Detect physical device vs simulator |
+| `expo-constants` | `~18.x` | Read Expo project config / EAS project ID |
+| `@tanstack/react-query` | `^5.x` | Server state, caching, mutations |
+| `zustand` | `^4.x` | Auth state + UI preferences |
+| `axios` | `^1.x` | HTTP client (JWT interceptor) |
+| `@supabase/supabase-js` | `^2.x` | Auth session management |
+| `@expo-google-fonts/inter` | latest | Inter 400/500/600/700/800 |
+| `react-native-safe-area-context` | SDK-matched | Safe area insets |
+| `@expo/vector-icons` | SDK-matched | Feather icon set |
+| `react-native-modal-datetime-picker` | latest | Date & time picker modals |
+
+Install commands for the above packages (run inside `frontend/`):
+
+```bash
+# Expo-managed packages (use `npx expo install` to get SDK-matched versions)
+npx expo install expo-secure-store expo-font expo-image-picker expo-image \
+  expo-file-system expo-sharing expo-notifications expo-device expo-constants \
+  react-native-safe-area-context @expo/vector-icons
+
+# npm packages (version-pinned or latest)
+npm install @tanstack/react-query zustand axios @supabase/supabase-js \
+  @expo-google-fonts/inter react-native-modal-datetime-picker \
+  @react-native-community/datetimepicker
+```
+
+> **Push notifications note:** `expo-notifications`, `expo-device`, and `expo-constants` are native-only. They are wrapped in platform-specific files (`src/lib/pushNotifications.native.js` / `pushNotifications.js`) so web builds are unaffected. Physical device required — push tokens do not work on iOS Simulator.
+
 ---
 
 ## Backend
@@ -97,6 +138,14 @@ All migrations live in `supabase/migrations/`. Run them **in order** in the Supa
 | 007 | `008_contacts.sql` | customers and suppliers tables |
 | 008 | `009_clear_contact_name_on_delete.sql` | null out contact_name on contact delete |
 | 009 | `010_categories.sql` | categories table + balance trigger |
+| 010 | `012_payment_modes.sql` | payment_modes table; Cash + Cheque seeded on book create |
+| 011 | `013_storage_calc.sql` | DB functions for real admin storage stats |
+| 012 | `014_attachment_metadata.sql` | attachment metadata columns on entries |
+| 013 | `015_book_field_settings.sql` | field_settings JSONB on books (superseded by 016) |
+| 014 | `016_book_field_settings_normalized.sql` | 4 boolean field-visibility columns; recreates RPC |
+| 015 | `017_payment_mode_balances.sql` | total_in/out/net_balance on payment_modes + trigger |
+| 016 | `018_notifications.sql` | notifications + user_notifications tables; RLS |
+| 017 | `019_push_tokens.sql` | push_tokens table for Expo device tokens; RLS |
 
 ### One-time setup
 
