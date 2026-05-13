@@ -18,7 +18,8 @@ App Start
 /(app)/books/[id]/add-entry               AddEntryScreen
 /(app)/books/[id]/edit-entry              EditEntryScreen
 /(app)/books/[id]/entry-detail            EntryDetailScreen
-/(app)/books/[id]/category-detail         CategoryDetailScreen
+/(app)/books/[id]/category-detail         CategoryDetailScreen   (entries list)
+/(app)/books/[id]/category-profile        CategoryProfileScreen  (detail/rename/delete)
 /(app)/books/[id]/reports                 ReportsScreen
 /(app)/books/[id]/book-settings           BookSettingsScreen
 /(app)/settings                           SettingsScreen
@@ -529,6 +530,55 @@ Sections collapsed/expanded per date.
 
 ---
 
+## 9b. CategoryProfileScreen — `/(app)/books/[id]/category-profile`
+
+**Purpose:** View and manage a single category — balance, rename, view entries, delete.
+
+**Navigation in:** `CategoriesSettingsScreen` → tap any category card
+
+### Header
+| Element | Action | Result |
+|---|---|---|
+| Back (←) | Tap | Navigate back to Categories list |
+| "Category Details" | — | Display |
+
+### Avatar Card
+- Tag icon + category name + "Category" badge
+
+### Balance Section
+- Cash In total
+- Net Balance (colour: green if ≥ 0, red if < 0)
+- Cash Out total
+- Values read from `categories` list cache (no separate API call)
+
+### Category Info
+| Element | Action | Result |
+|---|---|---|
+| Name field (AppInput) | Edit | Marks form dirty; editable only if `canEdit` |
+
+### Save Changes Button
+- Visible only when `canEdit`
+- Active only when form is dirty and not already saving
+- On tap: `PUT /api/v1/books/:id/categories/:id` → invalidate `['categories', bookId]` → `SuccessDialog`
+
+### View All Entries Button
+| Element | Action | Result |
+|---|---|---|
+| "View All Entries" | Tap | Navigate to `CategoryDetailScreen` (entries list) |
+
+### Danger Zone
+- Visible only when `canDelete`
+- "Delete Category" row → opens `DeleteCategorySheet` (requires typing category name to confirm)
+- On confirm: `DELETE /api/v1/books/:id/categories/:id` → `router.back()`
+
+### States
+| State | Behaviour |
+|---|---|
+| Loading (first paint) | `ActivityIndicator` while categories fetch |
+| View-only collaborator | Name field read-only; Save button hidden; Danger Zone hidden |
+
+---
+
 ## 10. ReportsScreen — `/(app)/books/[id]/reports`
 
 **Status: Complete.**
@@ -631,10 +681,8 @@ BookSettingsScreen has multiple tabs:
 #### Categories Tab
 | Element | Action | Result |
 |---|---|---|
-| "+ Add Category" | Tap | Opens add-category modal |
-| Category row ⋮ | Tap | Opens `CategoryMenuSheet` (Rename / Delete) |
-| **Rename** | Tap | Inline rename input + save |
-| **Delete** | Tap | Opens `DeleteCategorySheet` confirm → `DELETE /api/v1/books/:id/categories/:id` |
+| "+ Add Category" (FAB) | Tap | Opens add-category modal → `POST /api/v1/books/:id/categories` |
+| Category row | Tap | Navigate to `CategoryProfileScreen` |
 
 #### Customers / Suppliers Tabs
 | Element | Action | Result |

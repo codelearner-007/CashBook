@@ -10,11 +10,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import {
-  useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory,
-} from '../hooks/useCategories';
-import CategoryMenuSheet from '../components/books/CategoryMenuSheet';
-import DeleteCategorySheet from '../components/ui/DeleteCategorySheet';
+import { useCategories, useCreateCategory } from '../hooks/useCategories';
 import { useBooks } from '../hooks/useBooks';
 import { useSharedBooks } from '../hooks/useSharing';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -72,10 +68,6 @@ export default function CategoriesSettingsScreen() {
     return () => { show.remove(); hide.remove(); };
   }, [addVisible]);
 
-  const [menuCategoryId, setMenuCategoryId] = useState(null);
-  const [deletingCategory, setDeletingCategory] = useState(null); // snapshot for delete sheet
-  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
-
   const qc = useQueryClient();
   const { data: books = [] } = useBooks();
   const { data: sharedBooks = [] } = useSharedBooks();
@@ -83,8 +75,7 @@ export default function CategoriesSettingsScreen() {
   const isOwner = !!currentBook;
   const sharedBook = !isOwner ? sharedBooks.find(b => b.id === bookId) : null;
   const rights = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
-  const canEdit   = rights !== 'view';
-  const canDelete = rights === 'view_create_edit_delete';
+  const canEdit = rights !== 'view';
 
   const bookData = currentBook ?? sharedBook;
   const showCategory = bookData?.show_category ?? false;
@@ -114,14 +105,6 @@ export default function CategoriesSettingsScreen() {
 
   const { data: categories = [], isLoading } = useCategories(bookId);
   const { mutate: createCategory, isPending: creating } = useCreateCategory(bookId);
-  const { mutate: deleteCategory, isPending: deleting } = useDeleteCategory(bookId);
-  const { mutate: updateCategory, isPending: renaming } = useUpdateCategory(bookId, menuCategoryId);
-
-  // Always derive from live query data — never use a frozen snapshot
-  const menuCategory = useMemo(
-    () => categories.find(c => c.id === menuCategoryId) ?? null,
-    [categories, menuCategoryId],
-  );
 
   const filtered = useMemo(() => {
     if (!search.trim()) return categories;
@@ -178,38 +161,10 @@ export default function CategoriesSettingsScreen() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const openDetail = (cat) => {
-    setMenuCategoryId(null);
+  const openProfile = (cat) => {
     router.push({
-      pathname: `${basePath}/[id]/category-detail`,
+      pathname: `${basePath}/[id]/category-profile`,
       params: { id: bookId, categoryId: cat.id, categoryName: cat.name },
-    });
-  };
-
-  const handleRename = (newName) => {
-    updateCategory({ name: newName }, {
-      onSuccess: () => setMenuCategoryId(null),
-      onError: (err) => {
-        const detail = err?.response?.data?.detail ?? '';
-        Alert.alert('Error', detail.includes('already exists') ? 'That name already exists.' : 'Failed to rename.');
-      },
-    });
-  };
-
-  const handleDelete = (cat) => {
-    setMenuCategoryId(null);             // close menu sheet
-    setDeletingCategory(cat);            // capture snapshot for the delete sheet
-    setTimeout(() => setShowDeleteSheet(true), 280); // wait for menu to slide out
-  };
-
-  const confirmDelete = () => {
-    if (!deletingCategory) return;
-    deleteCategory(deletingCategory.id, {
-      onSuccess: () => {
-        setShowDeleteSheet(false);
-        setDeletingCategory(null);
-      },
-      onError: () => Alert.alert('Error', 'Failed to delete category.'),
     });
   };
 
@@ -239,7 +194,7 @@ export default function CategoriesSettingsScreen() {
     return (
       <TouchableOpacity
         style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
-        onPress={() => canEdit ? setMenuCategoryId(item.id) : openDetail(item)}
+        onPress={() => openProfile(item)}
         activeOpacity={0.8}
       >
         <View style={[s.avatar, { backgroundColor: C.primaryLight }]}>
@@ -364,32 +319,6 @@ export default function CategoriesSettingsScreen() {
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Category Menu Sheet */}
-      <CategoryMenuSheet
-        visible={!!menuCategoryId}
-        category={menuCategory}
-        onClose={() => setMenuCategoryId(null)}
-        onViewEntries={() => openDetail(menuCategory)}
-        onRename={handleRename}
-        onDelete={() => handleDelete(menuCategory)}
-        renaming={renaming}
-        canEdit={canEdit}
-        canDelete={canDelete}
-        C={C}
-        Font={Font}
-      />
-
-      {/* Delete Category Sheet — matches DeleteContactSheet pattern */}
-      <DeleteCategorySheet
-        visible={showDeleteSheet}
-        onDismiss={() => { setShowDeleteSheet(false); setDeletingCategory(null); }}
-        onConfirm={confirmDelete}
-        categoryName={deletingCategory?.name}
-        isLoading={deleting}
-        C={C}
-        Font={Font}
-      />
 
       {/* Add Modal — bottom sheet */}
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => { setAddVisible(false); setNewName(''); }}>

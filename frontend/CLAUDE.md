@@ -28,7 +28,8 @@ frontend/
 │       │       ├── manage-shares.jsx             # → ManageSharesScreen
 │       │       ├── add-collaborator.jsx          # → AddCollaboratorScreen
 │       │       ├── categories-settings.jsx       # → CategoriesSettingsScreen
-│       │       ├── category-detail.jsx           # → CategoryDetailScreen
+│       │       ├── category-detail.jsx           # → CategoryDetailScreen (entries list)
+│       │       ├── category-profile.jsx          # → CategoryProfileScreen (detail/edit/delete)
 │       │       ├── contact-settings.jsx          # → ContactSettingsScreen
 │       │       ├── payment-mode-settings.jsx     # → PaymentModeSettingsScreen
 │       │       ├── customers.jsx                 # → ContactsListScreen (type=customer)
@@ -40,7 +41,23 @@ frontend/
 │       │   ├── users.jsx         # → AdminUsersScreen  (superadmin only)
 │       │   ├── books.jsx         # → AdminBooksScreen  (superadmin only)
 │       │   ├── settings.jsx      # → SettingsScreen    (reused)
-│       │   └── index.jsx         # href: null (redirected by _layout)
+│       │   ├── index.jsx         # href: null (redirected by _layout)
+│       │   └── books/
+│       │       ├── _layout.jsx                       # Stack (admin books sub-nav)
+│       │       ├── index.jsx                         # → AdminBooksScreen
+│       │       └── [id]/
+│       │           ├── _layout.jsx                   # Stack
+│       │           ├── add-entry.jsx                 # → AddEntryScreen
+│       │           ├── edit-entry.jsx                # → EditEntryScreen
+│       │           ├── entry-detail.jsx              # → EntryDetailScreen
+│       │           ├── reports.jsx                   # → ReportsScreen
+│       │           ├── book-settings.jsx             # → BookSettingsScreen
+│       │           ├── categories-settings.jsx       # → CategoriesSettingsScreen
+│       │           ├── category-detail.jsx           # → CategoryDetailScreen
+│       │           ├── contact-settings.jsx          # → ContactSettingsScreen
+│       │           ├── payment-mode-settings.jsx     # → PaymentModeSettingsScreen
+│       │           ├── payment-mode-detail.jsx       # → PaymentModeDetailScreen
+│       │           └── payment-mode-balance.jsx      # → PaymentModeBalanceScreen
 │       └── settings/
 │           ├── index.jsx         # → SettingsScreen
 │           ├── profile.jsx       # → ProfileScreen
