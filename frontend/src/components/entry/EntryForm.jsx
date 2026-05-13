@@ -35,7 +35,8 @@ const EntryForm = forwardRef(function EntryForm(
   const { C, Font } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();
-  const _book = qc.getQueryData(['books'])?.find(b => b.id === bookId);
+  const _book = qc.getQueryData(['books'])?.find(b => b.id === bookId)
+            ?? qc.getQueryData(['shared-books'])?.find(b => b.id === bookId);
   const showCustomer   = _book?.show_customer   ?? false;
   const showSupplier   = _book?.show_supplier   ?? false;
   const showCategory   = _book?.show_category   ?? false;
@@ -160,9 +161,9 @@ const EntryForm = forwardRef(function EntryForm(
     }),
     validate: () => {
       const parsed = parseFloat(amount);
-      if (!amount || isNaN(parsed) || parsed <= 0) return false;
-      if (!paymentModeId) return false;
-      return true;
+      if (!amount || isNaN(parsed) || parsed <= 0) return 'amount';
+      if (!paymentModeId) return 'payment_mode';
+      return null;
     },
   }));
 

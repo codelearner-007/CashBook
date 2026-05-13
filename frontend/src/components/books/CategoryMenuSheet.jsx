@@ -27,6 +27,8 @@ export default function CategoryMenuSheet({
   onRename,    // (newName) => void  — caller handles the mutation
   onDelete,    // () => void         — caller handles confirmation + mutation
   renaming,    // bool — mutation pending flag
+  canEdit  = true,
+  canDelete = true,
   C,
   Font,
 }) {
@@ -107,32 +109,38 @@ export default function CategoryMenuSheet({
                 <Text style={[s.viewBtnText, { color: C.primary, fontFamily: Font.semiBold }]}>View Entries</Text>
               </TouchableOpacity>
 
-              <View style={[s.dividerH, { backgroundColor: C.border }]} />
+              {(canEdit || canDelete) && (
+                <View style={[s.dividerH, { backgroundColor: C.border }]} />
+              )}
 
               {/* Rename */}
-              <TouchableOpacity
-                style={s.actionRow}
-                onPress={() => { setNewName(category.name); setView('rename'); }}
-                activeOpacity={0.75}
-              >
-                <View style={[s.actionIcon, { backgroundColor: C.primaryLight }]}>
-                  <Feather name="edit-2" size={16} color={C.primary} />
-                </View>
-                <Text style={[s.actionLabel, { color: C.text, fontFamily: Font.medium }]}>Rename Category</Text>
-                <Feather name="chevron-right" size={16} color={C.textMuted} />
-              </TouchableOpacity>
+              {canEdit && (
+                <TouchableOpacity
+                  style={s.actionRow}
+                  onPress={() => { setNewName(category.name); setView('rename'); }}
+                  activeOpacity={0.75}
+                >
+                  <View style={[s.actionIcon, { backgroundColor: C.primaryLight }]}>
+                    <Feather name="edit-2" size={16} color={C.primary} />
+                  </View>
+                  <Text style={[s.actionLabel, { color: C.text, fontFamily: Font.medium }]}>Rename Category</Text>
+                  <Feather name="chevron-right" size={16} color={C.textMuted} />
+                </TouchableOpacity>
+              )}
 
               {/* Delete */}
-              <TouchableOpacity
-                style={[s.actionRow, { marginBottom: 4 }]}
-                onPress={onDelete}
-                activeOpacity={0.75}
-              >
-                <View style={[s.actionIcon, { backgroundColor: C.dangerLight }]}>
-                  <Feather name="trash-2" size={16} color={C.danger} />
-                </View>
-                <Text style={[s.actionLabel, { color: C.danger, fontFamily: Font.medium }]}>Delete Category</Text>
-              </TouchableOpacity>
+              {canDelete && (
+                <TouchableOpacity
+                  style={[s.actionRow, { marginBottom: 4 }]}
+                  onPress={onDelete}
+                  activeOpacity={0.75}
+                >
+                  <View style={[s.actionIcon, { backgroundColor: C.dangerLight }]}>
+                    <Feather name="trash-2" size={16} color={C.danger} />
+                  </View>
+                  <Text style={[s.actionLabel, { color: C.danger, fontFamily: Font.medium }]}>Delete Category</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
 

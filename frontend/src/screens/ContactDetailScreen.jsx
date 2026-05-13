@@ -10,6 +10,8 @@ import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useContact, useUpdateContact, useDeleteContact } from '../hooks/useContacts';
+import { useBooks } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 import AppInput from '../components/ui/Input';
 import SuccessDialog from '../components/ui/SuccessDialog';
 
@@ -30,6 +32,15 @@ export default function ContactDetailScreen() {
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
 
   const cfg = TYPE_CONFIG[contactType] || TYPE_CONFIG.customer;
+
+  const { data: ownBooks = [] }    = useBooks();
+  const { data: sharedBooks = [] } = useSharedBooks();
+  const currentBook = ownBooks.find(b => b.id === bookId);
+  const isOwner    = !!currentBook;
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === bookId) : null;
+  const rights     = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
+  const canEdit    = rights !== 'view';
+  const canDelete  = rights === 'view_create_edit_delete';
 
   const { data: contact, isLoading } = useContact(bookId, contactId, contactType);
   const updateContact = useUpdateContact(bookId, contactId, contactType);
@@ -157,46 +168,52 @@ export default function ContactDetailScreen() {
                 <AppInput
                   label="Name"
                   value={name}
-                  onChangeText={markDirty(setName)}
+                  onChangeText={canEdit ? markDirty(setName) : undefined}
                   placeholder="Full name"
+                  editable={canEdit}
                 />
                 <AppInput
                   label="Phone"
                   value={phone}
-                  onChangeText={markDirty(setPhone)}
+                  onChangeText={canEdit ? markDirty(setPhone) : undefined}
                   placeholder="Phone number"
                   keyboardType="phone-pad"
+                  editable={canEdit}
                 />
                 <AppInput
                   label="Email"
                   value={email}
-                  onChangeText={markDirty(setEmail)}
+                  onChangeText={canEdit ? markDirty(setEmail) : undefined}
                   placeholder="Email address"
                   keyboardType="email-address"
+                  editable={canEdit}
                 />
                 <AppInput
                   label="Address"
                   value={address}
-                  onChangeText={markDirty(setAddress)}
+                  onChangeText={canEdit ? markDirty(setAddress) : undefined}
                   placeholder="Street, City, Country"
+                  editable={canEdit}
                   isLast
                 />
               </View>
             </View>
 
-            {/* Save button — always visible, faded when clean */}
-            <View style={s.btnWrap}>
-              <TouchableOpacity
-                style={[s.saveBtn, { backgroundColor: C.primary, opacity: dirty && !updateContact.isPending ? 1 : 0.4 }]}
-                onPress={handleSave}
-                disabled={!dirty || updateContact.isPending}
-                activeOpacity={0.85}
-              >
-                <Text style={[s.saveBtnText, { fontFamily: Font.bold }]}>
-                  {updateContact.isPending ? 'Saving…' : 'Save Changes'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Save button — hidden for view-only collaborators */}
+            {canEdit && (
+              <View style={s.btnWrap}>
+                <TouchableOpacity
+                  style={[s.saveBtn, { backgroundColor: C.primary, opacity: dirty && !updateContact.isPending ? 1 : 0.4 }]}
+                  onPress={handleSave}
+                  disabled={!dirty || updateContact.isPending}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[s.saveBtnText, { fontFamily: Font.bold }]}>
+                    {updateContact.isPending ? 'Saving…' : 'Save Changes'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* View entries */}
             <View style={s.sectionWrap}>
@@ -211,30 +228,32 @@ export default function ContactDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Danger zone */}
-            <View style={s.sectionWrap}>
-              <Text style={[s.sectionLabel, { color: C.textMuted }]}>DANGER ZONE</Text>
-              <View style={[s.card, { backgroundColor: C.card, borderColor: C.border, overflow: 'hidden' }]}>
-                <TouchableOpacity
-                  style={s.deleteRow}
-                  onPress={handleDelete}
-                  activeOpacity={0.75}
-                >
-                  <View style={s.deleteIconWrap}>
-                    <Feather name="trash-2" size={16} color={C.danger} />
-                  </View>
-                  <View style={s.deleteBody}>
-                    <Text style={[s.deleteTitle, { color: C.danger, fontFamily: Font.semiBold }]}>
-                      Delete {cfg.label}
-                    </Text>
-                    <Text style={[s.deleteSub, { color: C.textMuted, fontFamily: Font.regular }]}>
-                      Linked entries will not be deleted
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={16} color={C.danger} />
-                </TouchableOpacity>
+            {/* Danger zone — hidden for collaborators without delete permission */}
+            {canDelete && (
+              <View style={s.sectionWrap}>
+                <Text style={[s.sectionLabel, { color: C.textMuted }]}>DANGER ZONE</Text>
+                <View style={[s.card, { backgroundColor: C.card, borderColor: C.border, overflow: 'hidden' }]}>
+                  <TouchableOpacity
+                    style={s.deleteRow}
+                    onPress={handleDelete}
+                    activeOpacity={0.75}
+                  >
+                    <View style={s.deleteIconWrap}>
+                      <Feather name="trash-2" size={16} color={C.danger} />
+                    </View>
+                    <View style={s.deleteBody}>
+                      <Text style={[s.deleteTitle, { color: C.danger, fontFamily: Font.semiBold }]}>
+                        Delete {cfg.label}
+                      </Text>
+                      <Text style={[s.deleteSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+                        Linked entries will not be deleted
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={16} color={C.danger} />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
           </>
         )}
 

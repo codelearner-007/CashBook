@@ -9,6 +9,7 @@ import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useBooks, useRenameBook, useDeleteBook } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { useCategories } from '../hooks/useCategories';
 import { usePaymentModes } from '../hooks/usePaymentModes';
@@ -40,20 +41,26 @@ export default function BookSettingsScreen() {
 
   const qc = useQueryClient();
   const { data: books = [] } = useBooks();
+  const { data: sharedBooks = [] } = useSharedBooks();
   const currentBook = books.find(b => b.id === id);
+  const isOwner = !!currentBook;
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === id) : null;
+  const canEdit = isOwner || (sharedBook?.rights ?? 'view') !== 'view';
+  const bookData = currentBook ?? sharedBook;
   const fields = {
-    showCustomer:   currentBook?.show_customer   ?? false,
-    showSupplier:   currentBook?.show_supplier   ?? false,
-    showCategory:   currentBook?.show_category   ?? false,
-    showAttachment: currentBook?.show_attachment ?? false,
+    showCustomer:   bookData?.show_customer   ?? false,
+    showSupplier:   bookData?.show_supplier   ?? false,
+    showCategory:   bookData?.show_category   ?? false,
+    showAttachment: bookData?.show_attachment ?? false,
   };
 
   const saveFieldSettings = useMutation({
     mutationFn: (newFields) => apiUpdateBookFieldSettings(id, newFields),
     onMutate: async (newFields) => {
-      await qc.cancelQueries({ queryKey: ['books'] });
-      const snapshot = qc.getQueryData(['books']);
-      qc.setQueryData(['books'], (prev = []) =>
+      const cacheKey = isOwner ? ['books'] : ['shared-books'];
+      await qc.cancelQueries({ queryKey: cacheKey });
+      const snapshot = qc.getQueryData(cacheKey);
+      qc.setQueryData(cacheKey, (prev = []) =>
         prev.map(b => b.id === id ? {
           ...b,
           show_customer:   newFields.showCustomer,
@@ -65,10 +72,11 @@ export default function BookSettingsScreen() {
       return { snapshot };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.snapshot !== undefined) qc.setQueryData(['books'], ctx.snapshot);
+      const cacheKey = isOwner ? ['books'] : ['shared-books'];
+      if (ctx?.snapshot !== undefined) qc.setQueryData(cacheKey, ctx.snapshot);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['books'] });
+      qc.invalidateQueries({ queryKey: isOwner ? ['books'] : ['shared-books'] });
     },
   });
 
@@ -221,10 +229,12 @@ export default function BookSettingsScreen() {
               <Text style={s.nameValue}>{bookName}</Text>
               <Text style={s.nameSub}>Tap rename to change</Text>
             </View>
-            <TouchableOpacity style={s.renameBtn} onPress={openRename} activeOpacity={0.8}>
-              <Feather name="edit-2" size={13} color={C.primary} />
-              <Text style={s.renameBtnText}>Rename</Text>
-            </TouchableOpacity>
+            {isOwner && (
+              <TouchableOpacity style={s.renameBtn} onPress={openRename} activeOpacity={0.8}>
+                <Feather name="edit-2" size={13} color={C.primary} />
+                <Text style={s.renameBtnText}>Rename</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -244,7 +254,8 @@ export default function BookSettingsScreen() {
                   </View>
                   <Switch
                     value={fields[item.fieldKey] ?? false}
-                    onValueChange={(val) => handleSetField(id, item.fieldKey, val)}
+                    onValueChange={canEdit ? (val) => handleSetField(id, item.fieldKey, val) : undefined}
+                    disabled={!canEdit}
                     trackColor={{ false: C.border, true: C.primary }}
                     thumbColor="#fff"
                   />
@@ -283,39 +294,68 @@ export default function BookSettingsScreen() {
           ))}
         </View>
 
-        {/* Danger Zone */}
-        <Text style={[s.sectionLabel, { marginTop: 24 }]}>DANGER ZONE</Text>
-        <View style={[s.card, { backgroundColor: C.card, borderColor: C.danger }]}>
-          <TouchableOpacity
-            style={s.row}
-            onPress={() => setShowDeleteSheet(true)}
-            activeOpacity={0.75}
-          >
-            <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
-              <Feather name="trash-2" size={18} color={C.danger} />
+        {/* Sharing — only shown to the book owner */}
+        {isOwner && (
+          <>
+            <Text style={[s.sectionLabel, { marginTop: 24 }]}>COLLABORATION</Text>
+            <View style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}>
+              <TouchableOpacity
+                style={s.row}
+                onPress={() => router.push({ pathname: `${basePath}/[id]/manage-shares`, params: { id, name: bookName } })}
+                activeOpacity={0.75}
+              >
+                <View style={[s.iconBox, { backgroundColor: C.primaryLight }]}>
+                  <Feather name="users" size={18} color={C.primary} />
+                </View>
+                <View style={s.rowBody}>
+                  <Text style={s.rowLabel}>Manage Access</Text>
+                  <Text style={s.rowSub}>Share this book with other users</Text>
+                </View>
+                <View style={s.arrowActive}>
+                  <Feather name="chevron-right" size={15} color={C.primary} />
+                </View>
+              </TouchableOpacity>
             </View>
-            <View style={s.rowBody}>
-              <Text style={[s.rowLabel, { color: C.danger }]}>Delete All Entries</Text>
-              <Text style={s.rowSub}>Permanently removes all entries from this book</Text>
+          </>
+        )}
+
+        {/* Danger Zone — only shown to the book owner */}
+        {isOwner && (
+          <>
+            <Text style={[s.sectionLabel, { marginTop: 24 }]}>DANGER ZONE</Text>
+            <View style={[s.card, { backgroundColor: C.card, borderColor: C.danger }]}>
+              <TouchableOpacity
+                style={s.row}
+                onPress={() => setShowDeleteSheet(true)}
+                activeOpacity={0.75}
+              >
+                <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
+                  <Feather name="trash-2" size={18} color={C.danger} />
+                </View>
+                <View style={s.rowBody}>
+                  <Text style={[s.rowLabel, { color: C.danger }]}>Delete All Entries</Text>
+                  <Text style={s.rowSub}>Permanently removes all entries from this book</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={C.danger} />
+              </TouchableOpacity>
+              <View style={[s.divider, { backgroundColor: C.border }]} />
+              <TouchableOpacity
+                style={s.row}
+                onPress={() => setShowDeleteBookSheet(true)}
+                activeOpacity={0.75}
+              >
+                <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
+                  <Feather name="book" size={18} color={C.danger} />
+                </View>
+                <View style={s.rowBody}>
+                  <Text style={[s.rowLabel, { color: C.danger }]}>Delete Book</Text>
+                  <Text style={s.rowSub}>Permanently deletes this book and all its entries</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={C.danger} />
+              </TouchableOpacity>
             </View>
-            <Feather name="chevron-right" size={18} color={C.danger} />
-          </TouchableOpacity>
-          <View style={[s.divider, { backgroundColor: C.border }]} />
-          <TouchableOpacity
-            style={s.row}
-            onPress={() => setShowDeleteBookSheet(true)}
-            activeOpacity={0.75}
-          >
-            <View style={[s.iconBox, { backgroundColor: C.dangerLight }]}>
-              <Feather name="book" size={18} color={C.danger} />
-            </View>
-            <View style={s.rowBody}>
-              <Text style={[s.rowLabel, { color: C.danger }]}>Delete Book</Text>
-              <Text style={s.rowSub}>Permanently deletes this book and all its entries</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color={C.danger} />
-          </TouchableOpacity>
-        </View>
+          </>
+        )}
 
       </ScrollView>
 

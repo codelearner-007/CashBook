@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useCallback, memo, useRef } from 'react';
+import React, { useState, useMemo, useCallback, memo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable, Image,
+  StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable, Image, Dimensions,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import SafeAreaView from '../ui/AppSafeAreaView';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../hooks/useTheme';
@@ -10,6 +11,8 @@ import { useBooks, useCreateBook, useRenameBook, useDeleteBook } from '../../hoo
 import { useBookSort } from '../../hooks/useBookSort';
 import { useAuthStore } from '../../store/authStore';
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile';
+import { useSharedBooks, useLeaveSharedBook } from '../../hooks/useSharing';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import Toast from '../../lib/toast';
 import { shadow } from '../../constants/shadows';
 import { CARD_ACCENTS } from '../../constants/colors';
@@ -92,6 +95,21 @@ const DotsIcon = ({ color, size = 16 }) => (
   </View>
 );
 
+const SharedIcon = ({ color, size = 18 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 0.5, height: size * 0.5, borderRadius: size * 0.25, borderWidth: 1.5, borderColor: color, position: 'absolute', left: size * 0.05, top: size * 0.12 }} />
+    <View style={{ width: size * 0.5, height: size * 0.5, borderRadius: size * 0.25, borderWidth: 1.5, borderColor: color, position: 'absolute', right: size * 0.05, top: size * 0.12 }} />
+    <View style={{ position: 'absolute', bottom: size * 0.05, left: size * 0.04, right: size * 0.04, height: size * 0.32, borderRadius: 3, borderWidth: 1.5, borderColor: color }} />
+  </View>
+);
+
+const CheckIcon = ({ color, size = 16 }) => (
+  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 0.55, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }, { translateX: -size * 0.08 }, { translateY: size * 0.06 }] }} />
+    <View style={{ width: size * 0.9, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '45deg' }, { translateX: size * 0.08 }] }} />
+  </View>
+);
+
 const PlusIcon = ({ color, size = 16 }) => (
   <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
     <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1 }} />
@@ -159,6 +177,204 @@ const BookCard = memo(({ item, index, onPress, onMenuOpen, C, s }) => {
   );
 });
 
+const SharedBookCard = memo(({ item, index, onPress, onLeave, C, s }) => {
+  const balance  = item.net_balance ?? 0;
+  const accent   = CARD_ACCENTS[index % CARD_ACCENTS.length];
+  const initials = (item.owner_name || item.owner_email || '?')
+    .split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase();
+  const moreRef  = useRef(null);
+
+  const handleMorePress = () => {
+    moreRef.current?.measureInWindow((x, y, width, height) => {
+      onLeave({ pageX: x, pageY: y, width, height });
+    });
+  };
+
+  return (
+    <TouchableOpacity style={s.bookCard} onPress={onPress} activeOpacity={0.85}>
+      <View style={[s.bookIconBox, { backgroundColor: accent + '18' }]}>
+        <Text style={[s.bookInitials, { color: accent }]}>{initials}</Text>
+      </View>
+      <View style={s.bookInfo}>
+        <Text style={s.bookName} numberOfLines={1}>{item.name}</Text>
+        <Text style={[s.bookDate, { color: C.primary }]} numberOfLines={1}>
+          by {item.owner_name || item.owner_email}
+        </Text>
+      </View>
+      <View style={s.bookRight}>
+        <View style={[s.balancePill, { backgroundColor: C.cardAlt }]}>
+          <Text style={[s.balanceText, { color: C.text }]}>{fmt(balance)}</Text>
+        </View>
+        <TouchableOpacity
+          ref={moreRef}
+          onPress={handleMorePress}
+          style={s.moreBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <DotsIcon color={C.textSubtle} />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+// ── Workspace Switcher Sheet ──────────────────────────────────────────────────
+
+const WsOption = memo(({ icon, title, subtitle, count, active, onPress, C, Font, IconComponent }) => (
+  <TouchableOpacity
+    style={[
+      wss.option,
+      {
+        backgroundColor: active ? C.primaryLight : C.background,
+        borderColor:     active ? C.primary      : C.border,
+      },
+    ]}
+    onPress={onPress}
+    activeOpacity={0.8}
+  >
+    {/* Left accent bar */}
+    <View style={[wss.accentBar, { backgroundColor: active ? C.primary : 'transparent' }]} />
+
+    {/* Icon */}
+    <View style={[wss.optIcon, { backgroundColor: active ? C.primary : C.cardAlt }]}>
+      <IconComponent color={active ? '#fff' : C.textSubtle} size={18} />
+    </View>
+
+    {/* Text */}
+    <View style={wss.optBody}>
+      <Text style={[wss.optTitle, { color: C.text, fontFamily: active ? Font.bold : Font.semiBold }]}>
+        {title}
+      </Text>
+      <Text style={[wss.optSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+        {subtitle}
+      </Text>
+    </View>
+
+    {/* Count pill */}
+    <View style={[wss.countPill, { backgroundColor: active ? C.primary : C.cardAlt }]}>
+      <Text style={[wss.countText, { color: active ? '#fff' : C.textMuted, fontFamily: Font.bold }]}>
+        {count}
+      </Text>
+    </View>
+
+    {/* Active check */}
+    {active && (
+      <View style={[wss.checkCircle, { backgroundColor: C.primary }]}>
+        <Feather name="check" size={11} color="#fff" />
+      </View>
+    )}
+  </TouchableOpacity>
+));
+
+const WorkspaceSwitcherSheet = memo(({
+  visible, onClose, activeWorkspace, onSelect, personalCount, sharedCount, C, Font,
+}) => (
+  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Pressable
+      style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+      onPress={onClose}
+    >
+      <Pressable style={[wss.sheet, { backgroundColor: C.card }]} onPress={() => {}}>
+
+        {/* Handle */}
+        <View style={[wss.handle, { backgroundColor: C.border }]} />
+
+        {/* Header */}
+        <View style={wss.headerRow}>
+          <View>
+            <Text style={[wss.title, { color: C.text, fontFamily: Font.extraBold }]}>
+              Switch Workspace
+            </Text>
+            <Text style={[wss.titleSub, { color: C.textMuted, fontFamily: Font.regular }]}>
+              {sharedCount > 0 ? 'Tap a workspace to switch' : 'Your personal space'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[wss.closeBtn, { backgroundColor: C.cardAlt }]}
+            onPress={onClose}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="x" size={16} color={C.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Divider */}
+        <View style={[wss.divider, { backgroundColor: C.border }]} />
+
+        {/* Personal */}
+        <WsOption
+          icon="book-open"
+          IconComponent={BookIcon}
+          title="Personal Workspace"
+          subtitle="Your own books"
+          count={personalCount}
+          active={activeWorkspace === 'personal'}
+          onPress={() => { onSelect('personal'); onClose(); }}
+          C={C}
+          Font={Font}
+        />
+
+        {/* Shared — only rendered when the user actually has shared books */}
+        {sharedCount > 0 && (
+          <WsOption
+            icon="users"
+            IconComponent={SharedIcon}
+            title="Shared with Me"
+            subtitle="Access granted by others"
+            count={sharedCount}
+            active={activeWorkspace === 'shared'}
+            onPress={() => { onSelect('shared'); onClose(); }}
+            C={C}
+            Font={Font}
+          />
+        )}
+
+        <View style={{ height: 32 }} />
+      </Pressable>
+    </Pressable>
+  </Modal>
+));
+
+const wss = StyleSheet.create({
+  sheet: {
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingTop: 10, paddingHorizontal: 20, overflow: 'hidden',
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+
+  headerRow:  { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 },
+  title:      { fontSize: 20, lineHeight: 28 },
+  titleSub:   { fontSize: 13, lineHeight: 19, marginTop: 2 },
+  closeBtn:   { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+
+  divider: { height: 1, marginBottom: 14 },
+
+  option: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 18, borderWidth: 1.5,
+    marginBottom: 10, overflow: 'hidden',
+    paddingVertical: 14, paddingRight: 14,
+    gap: 0,
+  },
+  accentBar: { width: 4, alignSelf: 'stretch', marginRight: 14, borderRadius: 2 },
+  optIcon:   { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  optBody:   { flex: 1 },
+  optTitle:  { fontSize: 15, lineHeight: 22 },
+  optSub:    { fontSize: 12, lineHeight: 18, marginTop: 1 },
+
+  countPill: {
+    minWidth: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 8, marginRight: 8,
+  },
+  countText: { fontSize: 13 },
+
+  checkCircle: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+  },
+});
+
 // ── BooksView ─────────────────────────────────────────────────────────────────
 
 export default function BooksView({
@@ -182,6 +398,12 @@ export default function BooksView({
   const createBook = useCreateBook();
   const renameBook = useRenameBook();
   const deleteBook = useDeleteBook();
+
+  const { data: sharedBooks = [], isLoading: sharedLoading } = useSharedBooks();
+  const leaveSharedBook = useLeaveSharedBook();
+  const activeWorkspace    = useWorkspaceStore((s) => s.activeWorkspace);
+  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
+  const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
 
   const {
     sortMode, sortedBooks, showSort, setShowSort,
@@ -211,16 +433,54 @@ export default function BooksView({
 
   const currency = profile?.currency ?? 'PKR';
 
-  const stats = useMemo(() => ({
-    total:    books.reduce((acc, b) => acc + (b.net_balance ?? 0), 0),
-    personal: books.length,
-  }), [books]);
+  const stats = useMemo(() => {
+    if (activeWorkspace === 'shared') {
+      return {
+        total:    sharedBooks.reduce((acc, b) => acc + (b.net_balance ?? 0), 0),
+        personal: books.length,
+      };
+    }
+    return {
+      total:    books.reduce((acc, b) => acc + (b.net_balance ?? 0), 0),
+      personal: books.length,
+    };
+  }, [books, sharedBooks, activeWorkspace]);
 
   const filteredBooks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return sortedBooks;
     return sortedBooks.filter(b => b.name?.toLowerCase().includes(q));
   }, [sortedBooks, searchQuery]);
+
+  const filteredSharedBooks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sharedBooks;
+    return sharedBooks.filter(b => b.name?.toLowerCase().includes(q));
+  }, [sharedBooks, searchQuery]);
+
+  const handleLeaveBook = useCallback((book) => {
+    Alert.alert(
+      'Leave Book',
+      `You'll lose access to "${book.name}". This can only be undone by the owner.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: () => leaveSharedBook.mutate(book.id, {
+            onError: () => Alert.alert('Error', 'Could not leave this book. Please try again.'),
+          }),
+        },
+      ],
+    );
+  }, [leaveSharedBook]);
+
+  // Auto-reset to personal when the last shared book disappears
+  useEffect(() => {
+    if (sharedBooks.length === 0 && activeWorkspace === 'shared') {
+      setActiveWorkspace('personal');
+    }
+  }, [sharedBooks.length, activeWorkspace]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -305,7 +565,7 @@ export default function BooksView({
     <BookCard
       item={item} index={index} C={C} s={s}
       onPress={() => handleBookPress(item)}
-      onMenuOpen={(anchor) => setMenuState({ book: item, anchor })}
+      onMenuOpen={(anchor) => setMenuState({ book: item, anchor, isShared: false })}
     />
   ), [C, s, handleBookPress]);
 
@@ -313,7 +573,7 @@ export default function BooksView({
 
   const ListHeader = useMemo(() => (
     <View style={s.sectionHeader}>
-      <Text style={s.sectionTitle}>Your Books</Text>
+      <Text style={s.sectionTitle}>{activeWorkspace === 'shared' ? 'Shared Books' : 'Your Books'}</Text>
       {sortMode === 'custom' && !hasArranged ? (
         <TouchableOpacity
           style={s.doneArrangeBtn}
@@ -340,12 +600,19 @@ export default function BooksView({
   const ListEmpty = useMemo(() => (
     <View style={s.empty}>
       <View style={s.emptyIconBox}>
-        <BookIcon color={C.primary} size={36} />
+        {activeWorkspace === 'shared'
+          ? <SharedIcon color={C.primary} size={36} />
+          : <BookIcon   color={C.primary} size={36} />}
       </View>
       {searchQuery.trim() ? (
         <>
           <Text style={s.emptyTitle}>No results found</Text>
           <Text style={s.emptySub}>No books match "{searchQuery.trim()}"</Text>
+        </>
+      ) : activeWorkspace === 'shared' ? (
+        <>
+          <Text style={s.emptyTitle}>No shared books</Text>
+          <Text style={s.emptySub}>When someone shares a book{'\n'}with you, it'll appear here</Text>
         </>
       ) : (
         <>
@@ -354,7 +621,7 @@ export default function BooksView({
         </>
       )}
     </View>
-  ), [s, C, searchQuery]);
+  ), [s, C, searchQuery, activeWorkspace]);
 
   return (
     <SafeAreaView applyTop={applyTopSafeArea} style={s.safe}>
@@ -376,7 +643,15 @@ export default function BooksView({
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={s.bizName} numberOfLines={1}>{userName || 'My Account'}</Text>
-              <Text style={s.bizSub}>{workspaceLabel}</Text>
+              {sharedBooks.length > 0 ? (
+                <TouchableOpacity onPress={() => setShowWorkspaceSwitcher(true)} activeOpacity={0.7}>
+                  <Text style={s.bizSub}>
+                    {activeWorkspace === 'shared' ? 'Shared Books ▾' : 'Personal Workspace ▾'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={s.bizSub}>Personal Workspace</Text>
+              )}
             </View>
           </View>
           <View style={s.headerActions}>
@@ -402,9 +677,9 @@ export default function BooksView({
 
         {/* Stats */}
         <View style={s.statsRow}>
-          <StatItem label="My Books"     value={isLoading ? '—' : stats.personal} dotColor={C.onPrimary}      s={s} />
+          <StatItem label="My Books"     value={isLoading ? '—' : stats.personal}  dotColor={C.onPrimary}      s={s} />
           <View style={s.statDivider} />
-          <StatItem label="Shared Books" value={0}                                 dotColor={C.onPrimaryMuted} s={s} />
+          <StatItem label="Shared Books" value={sharedLoading ? '—' : sharedBooks.length} dotColor={C.onPrimaryMuted} s={s} />
         </View>
       </View>
 
@@ -419,7 +694,29 @@ export default function BooksView({
       />
 
       {/* ── Book list ───────────────────────────────────────────────────── */}
-      {isLoading ? (
+      {activeWorkspace === 'shared' ? (
+        sharedLoading ? (
+          <View style={s.loadingBox}>
+            <ActivityIndicator size="large" color={C.primary} />
+            <Text style={s.loadingText}>Loading shared books…</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredSharedBooks}
+            keyExtractor={item => item.id}
+            renderItem={({ item, index }) => (
+              <SharedBookCard
+                item={item} index={index} C={C} s={s}
+                onPress={() => router.push({ pathname: `${bookBasePath}/[id]`, params: { id: item.id, name: item.name } })}
+                onLeave={(anchor) => setMenuState({ book: item, anchor, isShared: true })}
+              />
+            )}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: listPaddingBottom }}
+            ListEmptyComponent={ListEmpty}
+          />
+        )
+      ) : isLoading ? (
         <View style={s.loadingBox}>
           <ActivityIndicator size="large" color={C.primary} />
           <Text style={s.loadingText}>Loading your books…</Text>
@@ -436,7 +733,7 @@ export default function BooksView({
           books={filteredBooks}
           onReorder={setCustomBooks}
           onBookPress={handleBookPress}
-          onBookMenu={(book, anchor) => setMenuState({ book, anchor })}
+          onBookMenu={(book, anchor) => setMenuState({ book, anchor, isShared: false })}
           listPaddingBottom={listPaddingBottom}
           C={C}
           Font={Font}
@@ -452,15 +749,17 @@ export default function BooksView({
         />
       )}
 
-      {/* ── FAB ─────────────────────────────────────────────────────────── */}
-      <TouchableOpacity
-        style={[s.fab, { bottom: fabBottom }]}
-        onPress={() => setShowModal(true)}
-        activeOpacity={0.85}
-      >
-        <PlusIcon color={C.onPrimary} size={16} />
-        <Text style={s.fabText}>ADD NEW BOOK</Text>
-      </TouchableOpacity>
+      {/* ── FAB (personal workspace only) ───────────────────────────────── */}
+      {activeWorkspace === 'personal' && (
+        <TouchableOpacity
+          style={[s.fab, { bottom: fabBottom }]}
+          onPress={() => setShowModal(true)}
+          activeOpacity={0.85}
+        >
+          <PlusIcon color={C.onPrimary} size={16} />
+          <Text style={s.fabText}>ADD NEW BOOK</Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── Bottom nav (regular user only) ──────────────────────────────── */}
       {showBottomNav && (
@@ -479,13 +778,59 @@ export default function BooksView({
       )}
 
       {/* ── Popup book menu ─────────────────────────────────────────────── */}
-      <BookMenu
-        book={menuState?.book}
-        anchor={menuState?.anchor}
+      {!menuState?.isShared && (
+        <BookMenu
+          book={menuState?.book}
+          anchor={menuState?.anchor}
+          C={C}
+          Font={Font}
+          onClose={() => setMenuState(null)}
+          onSelect={handleMenuSelect}
+        />
+      )}
+
+      {/* ── Shared-book action popup ─────────────────────────────────────── */}
+      {menuState?.isShared && (
+        <Modal visible transparent animationType="none" onRequestClose={() => setMenuState(null)}>
+          <Pressable style={{ flex: 1 }} onPress={() => setMenuState(null)}>
+            <Pressable
+              style={[s.leavePopup, {
+                position: 'absolute',
+                top:  (menuState.anchor?.pageY ?? 200) + (menuState.anchor?.height ?? 28) + 6,
+                left: Math.min(
+                  (menuState.anchor?.pageX ?? 300) - 180 + (menuState.anchor?.width ?? 28),
+                  Dimensions.get('window').width - 208,
+                ),
+                backgroundColor: C.card,
+                borderColor: C.border,
+              }]}
+              onPress={() => {}}
+            >
+              <TouchableOpacity
+                style={s.leaveBtn}
+                onPress={() => { setMenuState(null); handleLeaveBook(menuState.book); }}
+                activeOpacity={0.75}
+              >
+                <Feather name="log-out" size={15} color={C.danger} />
+                <Text style={[s.leaveBtnText, { color: C.danger, fontFamily: Font.medium }]}>
+                  Leave Book
+                </Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* ── Workspace switcher sheet ─────────────────────────────────────── */}
+      <WorkspaceSwitcherSheet
+        visible={showWorkspaceSwitcher}
+        onClose={() => setShowWorkspaceSwitcher(false)}
+        activeWorkspace={activeWorkspace}
+        onSelect={setActiveWorkspace}
+        personalCount={books.length}
+        sharedCount={sharedBooks.length}
         C={C}
         Font={Font}
-        onClose={() => setMenuState(null)}
-        onSelect={handleMenuSelect}
       />
 
       {/* ── Sort sheet ──────────────────────────────────────────────────── */}
@@ -693,6 +1038,16 @@ const makeStyles = (C, Font) => StyleSheet.create({
   dlgActionText: { fontFamily: Font.bold, fontSize: 14, color: C.onPrimary },
   dlgDanger:     { flex: 1, backgroundColor: '#E53935', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   dlgDangerText: { fontFamily: Font.bold, fontSize: 14, color: '#fff' },
+
+  // Shared book leave popup
+  leavePopup: {
+    width: 200, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18, shadowRadius: 16, elevation: 16,
+  },
+  leaveBtn:     { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13 },
+  leaveBtnText: { fontSize: 14, lineHeight: 20 },
 
   // Slide-up modal (add new book)
   modalOverlay:    { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },

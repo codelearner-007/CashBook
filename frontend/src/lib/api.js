@@ -61,6 +61,41 @@ export const apiUpdateBookFieldSettings = async (bookId, fieldSettings) => {
   return (await api.patch(`/api/v1/books/${bookId}/field-settings`, fieldSettings)).data;
 };
 
+/** GET /api/v1/books/shared */
+export const apiGetSharedBooks = async () => {
+  return (await api.get('/api/v1/books/shared')).data;
+};
+
+/** GET /api/v1/books/:bookId/shares */
+export const apiGetBookShares = async (bookId) => {
+  return (await api.get(`/api/v1/books/${bookId}/shares`)).data;
+};
+
+/** POST /api/v1/books/:bookId/shares */
+export const apiAddCollaborator = async (bookId, payload) => {
+  return (await api.post(`/api/v1/books/${bookId}/shares`, payload)).data;
+};
+
+/** PATCH /api/v1/books/:bookId/shares/:shareId */
+export const apiUpdateShare = async (bookId, shareId, payload) => {
+  return (await api.patch(`/api/v1/books/${bookId}/shares/${shareId}`, payload)).data;
+};
+
+/** DELETE /api/v1/books/:bookId/shares/:shareId */
+export const apiRemoveCollaborator = async (bookId, shareId) => {
+  await api.delete(`/api/v1/books/${bookId}/shares/${shareId}`);
+};
+
+/** DELETE /api/v1/books/:bookId/leave  (recipient removes themselves) */
+export const apiLeaveSharedBook = async (bookId) => {
+  await api.delete(`/api/v1/books/${bookId}/leave`);
+};
+
+/** GET /api/v1/profile/search?q=... */
+export const apiSearchUsers = async (q) => {
+  return (await api.get('/api/v1/profile/search', { params: { q } })).data;
+};
+
 
 // ── Profile ────────────────────────────────────────────────────────────────────
 

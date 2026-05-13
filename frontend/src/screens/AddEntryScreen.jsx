@@ -32,10 +32,16 @@ export default function AddEntryScreen() {
   });
 
   const handleSave = () => {
-    if (!formRef.current?.validate()) {
+    const err = formRef.current?.validate();
+    if (err === 'amount') {
       Toast.show({ type: 'error', text1: 'Invalid amount', text2: 'Please enter a valid amount.' });
       return;
     }
+    if (err === 'payment_mode') {
+      Toast.show({ type: 'error', text1: 'Payment mode required', text2: 'Please select a payment mode.' });
+      return;
+    }
+    if (err) return;
     createEntry.mutate(formRef.current.getValues());
   };
 

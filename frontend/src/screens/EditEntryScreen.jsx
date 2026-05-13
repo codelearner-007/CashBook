@@ -13,6 +13,8 @@ import EntryForm from '../components/entry/EntryForm';
 import { ChevronLeftIcon, TrashIcon } from '../components/ui/Icons';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
+import { useBooks } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 
 export default function EditEntryScreen() {
   const router   = useRouter();
@@ -22,6 +24,14 @@ export default function EditEntryScreen() {
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();
   const formRef = useRef();
+
+  const { data: books = [] } = useBooks();
+  const { data: sharedBooks = [] } = useSharedBooks();
+  const isOwner = books.some(b => b.id === id);
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === id) : null;
+  const rights = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
+  const canEdit   = rights === 'view_create_edit' || rights === 'view_create_edit_delete';
+  const canDelete = rights === 'view_create_edit_delete';
 
   const [showDeleteSheet,    setShowDeleteSheet]    = useState(false);
   const [isContactDeleted,  setIsContactDeleted]  = useState(false);
@@ -93,10 +103,16 @@ export default function EditEntryScreen() {
   });
 
   const handleUpdate = () => {
-    if (!formRef.current?.validate()) {
+    const err = formRef.current?.validate();
+    if (err === 'amount') {
       Toast.show({ type: 'error', text1: 'Invalid amount', text2: 'Please enter a valid amount.' });
       return;
     }
+    if (err === 'payment_mode') {
+      Toast.show({ type: 'error', text1: 'Payment mode required', text2: 'Please select a payment mode.' });
+      return;
+    }
+    if (err) return;
     updateEntry.mutate(formRef.current.getValues());
   };
 
@@ -123,29 +139,35 @@ export default function EditEntryScreen() {
           <ChevronLeftIcon color="#fff" size={22} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Edit Entry</Text>
-        <TouchableOpacity
-          onPress={handleDelete}
-          style={s.deleteBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          disabled={deleteEntry.isPending}
-          activeOpacity={0.75}
-        >
-          <TrashIcon color="#fff" size={16} />
-        </TouchableOpacity>
+        {canDelete ? (
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={s.deleteBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            disabled={deleteEntry.isPending}
+            activeOpacity={0.75}
+          >
+            <TrashIcon color="#fff" size={16} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 38 }} />
+        )}
       </View>
 
       <EntryForm ref={formRef} bookId={id} initialValues={entry} showTypeToggle onContactDeletedChange={setIsContactDeleted} onCategoryDeletedChange={setIsCategoryDeleted} />
 
-      <View style={s.saveContainer}>
-        <TouchableOpacity
-          style={[s.saveBtn, (updateEntry.isPending || deleteEntry.isPending || isContactDeleted || isCategoryDeleted) && { opacity: 0.45 }]}
-          onPress={handleUpdate}
-          disabled={updateEntry.isPending || deleteEntry.isPending || isContactDeleted || isCategoryDeleted}
-          activeOpacity={0.85}
-        >
-          <Text style={s.saveBtnText}>{updateEntry.isPending ? 'SAVING…' : 'UPDATE'}</Text>
-        </TouchableOpacity>
-      </View>
+      {canEdit && (
+        <View style={s.saveContainer}>
+          <TouchableOpacity
+            style={[s.saveBtn, (updateEntry.isPending || deleteEntry.isPending || isContactDeleted || isCategoryDeleted) && { opacity: 0.45 }]}
+            onPress={handleUpdate}
+            disabled={updateEntry.isPending || deleteEntry.isPending || isContactDeleted || isCategoryDeleted}
+            activeOpacity={0.85}
+          >
+            <Text style={s.saveBtnText}>{updateEntry.isPending ? 'SAVING…' : 'UPDATE'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {showDeleteSheet && (
         <Modal transparent visible animationType="none" onRequestClose={closeDeleteSheet} statusBarTranslucent>

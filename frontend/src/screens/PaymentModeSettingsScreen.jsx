@@ -15,6 +15,8 @@ import {
 } from '../hooks/usePaymentModes';
 import PaymentModeMenuSheet from '../components/books/PaymentModeMenuSheet';
 import DeleteContactSheet from '../components/ui/DeleteContactSheet';
+import { useBooks } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
@@ -71,6 +73,15 @@ export default function PaymentModeSettingsScreen() {
     );
     return () => { show.remove(); hide.remove(); };
   }, [addVisible]);
+
+  const { data: ownBooks = [] }    = useBooks();
+  const { data: sharedBooks = [] } = useSharedBooks();
+  const currentBook = ownBooks.find(b => b.id === bookId);
+  const isOwner  = !!currentBook;
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === bookId) : null;
+  const rights   = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
+  const canEdit   = rights !== 'view';
+  const canDelete = rights === 'view_create_edit_delete';
 
   const { data: modes = [], isLoading } = usePaymentModes(bookId);
   const createMode = useCreatePaymentMode(bookId);
@@ -201,7 +212,7 @@ export default function PaymentModeSettingsScreen() {
       <TouchableOpacity
         style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
         onPress={() => openDetail(item)}
-        onLongPress={() => setMenuModeId(item.id)}
+        onLongPress={canEdit ? () => setMenuModeId(item.id) : undefined}
         delayLongPress={350}
         activeOpacity={0.8}
       >
@@ -281,8 +292,8 @@ export default function PaymentModeSettingsScreen() {
         />
       )}
 
-      {/* Cascading arrows → FAB (only when empty) */}
-      {isEmpty && (
+      {/* Cascading arrows → FAB (only when empty + canEdit) */}
+      {isEmpty && canEdit && (
         <View style={s.fabArrow}>
           {arrowAnims.map((anim, i) => (
             <Animated.View key={i} style={{ opacity: anim }}>
@@ -292,21 +303,23 @@ export default function PaymentModeSettingsScreen() {
         </View>
       )}
 
-      {/* FAB */}
-      <View style={s.fabWrap}>
-        {isEmpty && (
-          <Animated.View
-            style={[s.fabGlow, { backgroundColor: C.primary, opacity: glowOpacity, transform: [{ scale: glowScale }] }]}
-          />
-        )}
-        <TouchableOpacity
-          style={[s.fab, { backgroundColor: C.primary }]}
-          onPress={() => setAddVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Feather name="plus" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      {/* FAB — hidden for view-only collaborators */}
+      {canEdit && (
+        <View style={s.fabWrap}>
+          {isEmpty && (
+            <Animated.View
+              style={[s.fabGlow, { backgroundColor: C.primary, opacity: glowOpacity, transform: [{ scale: glowScale }] }]}
+            />
+          )}
+          <TouchableOpacity
+            style={[s.fab, { backgroundColor: C.primary }]}
+            onPress={() => setAddVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Feather name="plus" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Payment Mode Menu Sheet — long-press */}
       <PaymentModeMenuSheet
@@ -320,6 +333,8 @@ export default function PaymentModeSettingsScreen() {
         onSaveEdit={handleSaveEdit}
         onDelete={handleDeletePress}
         saving={updateMode.isPending}
+        canEdit={canEdit}
+        canDelete={canDelete}
         C={C}
         Font={Font}
       />

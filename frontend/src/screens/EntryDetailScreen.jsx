@@ -11,6 +11,8 @@ import { useBookBasePath } from '../hooks/useBookBasePath';
 import { apiGetEntries, apiDeleteEntry } from '../lib/api';
 import { ChevronLeftIcon, PencilIcon, DotsVerticalIcon, TrashIcon, CloudIcon } from '../components/ui/Icons';
 import { Feather } from '@expo/vector-icons';
+import { useBooks } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -51,6 +53,14 @@ export default function EntryDetailScreen() {
 
   const [showMenu, setShowMenu] = useState(false);
   const [showAttachViewer, setShowAttachViewer] = useState(false);
+
+  const { data: books = [] } = useBooks();
+  const { data: sharedBooks = [] } = useSharedBooks();
+  const isOwner = books.some(b => b.id === id);
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === id) : null;
+  const rights = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
+  const canEdit   = rights === 'view_create_edit' || rights === 'view_create_edit_delete';
+  const canDelete = rights === 'view_create_edit_delete';
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['entries', id],
@@ -97,9 +107,13 @@ export default function EntryDetailScreen() {
           <ChevronLeftIcon color="#fff" size={22} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Entry Detail</Text>
-        <TouchableOpacity onPress={() => setShowMenu(true)} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <DotsVerticalIcon color="#fff" size={22} />
-        </TouchableOpacity>
+        {(canEdit || canDelete) ? (
+          <TouchableOpacity onPress={() => setShowMenu(true)} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <DotsVerticalIcon color="#fff" size={22} />
+          </TouchableOpacity>
+        ) : (
+          <View style={s.headerBtn} />
+        )}
       </View>
 
       {isLoading || !entry ? (
@@ -193,17 +207,19 @@ export default function EntryDetailScreen() {
             </Modal>
           )}
 
-          {/* Bottom bar — Edit only */}
-          <View style={s.bottomBar}>
-            <TouchableOpacity
-              style={[s.editBtn, { borderColor: typeColor }]}
-              onPress={() => router.push({ pathname: `${basePath}/[id]/edit-entry`, params: { id, eid } })}
-              activeOpacity={0.8}
-            >
-              <PencilIcon color={typeColor} size={16} />
-              <Text style={[s.actionBtnText, { color: typeColor }]}>Edit Entry</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Bottom bar — Edit only (hidden for view-only collaborators) */}
+          {canEdit && (
+            <View style={s.bottomBar}>
+              <TouchableOpacity
+                style={[s.editBtn, { borderColor: typeColor }]}
+                onPress={() => router.push({ pathname: `${basePath}/[id]/edit-entry`, params: { id, eid } })}
+                activeOpacity={0.8}
+              >
+                <PencilIcon color={typeColor} size={16} />
+                <Text style={[s.actionBtnText, { color: typeColor }]}>Edit Entry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </>
       )}
 
@@ -217,12 +233,15 @@ export default function EntryDetailScreen() {
               <Text style={[s.menuItemText, { color: C.text, fontFamily: Font.medium }]}>Backup Entry</Text>
             </TouchableOpacity>
 
-            <View style={[s.menuDivider, { backgroundColor: C.border }]} />
-
-            <TouchableOpacity style={s.menuItem} activeOpacity={0.7} onPress={handleDelete}>
-              <TrashIcon color={C.danger} size={18} />
-              <Text style={[s.menuItemText, { color: C.danger, fontFamily: Font.medium }]}>Delete Entry</Text>
-            </TouchableOpacity>
+            {canDelete && (
+              <>
+                <View style={[s.menuDivider, { backgroundColor: C.border }]} />
+                <TouchableOpacity style={s.menuItem} activeOpacity={0.7} onPress={handleDelete}>
+                  <TrashIcon color={C.danger} size={18} />
+                  <Text style={[s.menuItemText, { color: C.danger, fontFamily: Font.medium }]}>Delete Entry</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
           </Pressable>
         </Pressable>

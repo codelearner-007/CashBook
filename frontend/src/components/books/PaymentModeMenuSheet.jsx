@@ -20,7 +20,9 @@ function SummaryPill({ label, value, color, Font }) {
 }
 
 export default function PaymentModeMenuSheet({
-  visible, mode, onClose, onViewEntries, onSaveEdit, onDelete, saving, C, Font,
+  visible, mode, onClose, onViewEntries, onSaveEdit, onDelete, saving,
+  canEdit = true, canDelete = true,
+  C, Font,
 }) {
   const [view,     setView]     = useState('menu');
   const [name,     setName]     = useState('');
@@ -99,24 +101,30 @@ export default function PaymentModeMenuSheet({
                 <Text style={[s.viewBtnText, { color: C.primary, fontFamily: Font.semiBold }]}>View Entries</Text>
               </TouchableOpacity>
 
-              <View style={[s.dividerH, { backgroundColor: C.border }]} />
+              {(canEdit || canDelete) && (
+                <View style={[s.dividerH, { backgroundColor: C.border }]} />
+              )}
 
               {/* Rename */}
-              <TouchableOpacity style={s.actionRow} onPress={() => setView('edit')} activeOpacity={0.75}>
-                <View style={[s.actionIcon, { backgroundColor: C.primaryLight }]}>
-                  <Feather name="edit-2" size={16} color={C.primary} />
-                </View>
-                <Text style={[s.actionLabel, { color: C.text, fontFamily: Font.medium }]}>Rename Mode</Text>
-                <Feather name="chevron-right" size={16} color={C.textMuted} />
-              </TouchableOpacity>
+              {canEdit && (
+                <TouchableOpacity style={s.actionRow} onPress={() => setView('edit')} activeOpacity={0.75}>
+                  <View style={[s.actionIcon, { backgroundColor: C.primaryLight }]}>
+                    <Feather name="edit-2" size={16} color={C.primary} />
+                  </View>
+                  <Text style={[s.actionLabel, { color: C.text, fontFamily: Font.medium }]}>Rename Mode</Text>
+                  <Feather name="chevron-right" size={16} color={C.textMuted} />
+                </TouchableOpacity>
+              )}
 
               {/* Delete */}
-              <TouchableOpacity style={[s.actionRow, { marginBottom: 4 }]} onPress={onDelete} activeOpacity={0.75}>
-                <View style={[s.actionIcon, { backgroundColor: C.dangerLight }]}>
-                  <Feather name="trash-2" size={16} color={C.danger} />
-                </View>
-                <Text style={[s.actionLabel, { color: C.danger, fontFamily: Font.medium }]}>Delete Mode</Text>
-              </TouchableOpacity>
+              {canDelete && (
+                <TouchableOpacity style={[s.actionRow, { marginBottom: 4 }]} onPress={onDelete} activeOpacity={0.75}>
+                  <View style={[s.actionIcon, { backgroundColor: C.dangerLight }]}>
+                    <Feather name="trash-2" size={16} color={C.danger} />
+                  </View>
+                  <Text style={[s.actionLabel, { color: C.danger, fontFamily: Font.medium }]}>Delete Mode</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
 

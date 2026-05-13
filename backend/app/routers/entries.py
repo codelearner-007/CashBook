@@ -3,15 +3,9 @@ from typing import List, Optional
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 from app.models.entry import EntryCreate, EntryUpdate, EntryResponse, BookSummary
+from app.utils.book_access import get_book_owner_id
 
 router = APIRouter()
-
-
-def _verify_book(sb, book_id: str, user_id: str):
-    """Raise 404 if the book doesn't belong to this user."""
-    res = sb.table("books").select("id").eq("id", book_id).eq("user_id", user_id).limit(1).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Book not found")
 
 
 @router.get("/{book_id}/entries", response_model=List[EntryResponse])
@@ -23,13 +17,13 @@ async def get_entries(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    _verify_book(sb, book_id, user_id)
+    owner_id = get_book_owner_id(sb, book_id, user_id)
 
     q = (
         sb.table("entries")
         .select("*")
         .eq("book_id", book_id)
-        .eq("user_id", user_id)
+        .eq("user_id", owner_id)
     )
     if date_from:
         q = q.gte("entry_date", date_from)
@@ -49,29 +43,28 @@ async def create_entry(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    _verify_book(sb, book_id, user_id)
+    owner_id = get_book_owner_id(sb, book_id, user_id)
 
-    # Mutual exclusivity: a single entry can link to a customer OR a supplier, not both
     customer_id = payload.customer_id if not payload.supplier_id else None
     supplier_id = payload.supplier_id if not payload.customer_id else None
 
     result = sb.table("entries").insert({
-        "book_id": book_id,
-        "user_id": user_id,
-        "type": payload.type,
-        "amount": float(payload.amount),
-        "remark": payload.remark,
-        "category": payload.category,
-        "category_id": payload.category_id,
-        "payment_mode": payload.payment_mode,
-        "contact_name": payload.contact_name,
-        "customer_id": customer_id,
-        "supplier_id": supplier_id,
-        "attachment_url": payload.attachment_url,
-        "attachment_path": payload.attachment_path,
-        "attachment_provider": payload.attachment_provider,
-        "entry_date": payload.entry_date,
-        "entry_time": payload.entry_time,
+        "book_id":              book_id,
+        "user_id":              owner_id,
+        "type":                 payload.type,
+        "amount":               float(payload.amount),
+        "remark":               payload.remark,
+        "category":             payload.category,
+        "category_id":          payload.category_id,
+        "payment_mode":         payload.payment_mode,
+        "contact_name":         payload.contact_name,
+        "customer_id":          customer_id,
+        "supplier_id":          supplier_id,
+        "attachment_url":       payload.attachment_url,
+        "attachment_path":      payload.attachment_path,
+        "attachment_provider":  payload.attachment_provider,
+        "entry_date":           payload.entry_date,
+        "entry_time":           payload.entry_time,
     }).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create entry")
@@ -86,11 +79,12 @@ async def update_entry(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
+    owner_id = get_book_owner_id(sb, book_id, user_id)
+
     update_data = {k: v for k, v in payload.model_dump(exclude_unset=True).items()}
     if "amount" in update_data and update_data["amount"] is not None:
         update_data["amount"] = float(update_data["amount"])
 
-    # Mutual exclusivity: setting one contact must clear the other
     if update_data.get("customer_id"):
         update_data["supplier_id"] = None
     elif update_data.get("supplier_id"):
@@ -101,20 +95,20 @@ async def update_entry(
         .select("id")
         .eq("id", entry_id)
         .eq("book_id", book_id)
-        .eq("user_id", user_id)
+        .eq("user_id", owner_id)
         .limit(1)
         .execute()
     )
     if not check.data:
         raise HTTPException(status_code=404, detail="Entry not found")
 
-    sb.table("entries").update(update_data).eq("id", entry_id).eq("book_id", book_id).eq("user_id", user_id).execute()
+    sb.table("entries").update(update_data).eq("id", entry_id).eq("book_id", book_id).eq("user_id", owner_id).execute()
 
     result = (
         sb.table("entries")
         .select("*")
         .eq("id", entry_id)
-        .eq("user_id", user_id)
+        .eq("user_id", owner_id)
         .limit(1)
         .execute()
     )
@@ -127,8 +121,8 @@ async def delete_all_entries(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    _verify_book(sb, book_id, user_id)
-    sb.table("entries").delete().eq("book_id", book_id).eq("user_id", user_id).execute()
+    owner_id = get_book_owner_id(sb, book_id, user_id)
+    sb.table("entries").delete().eq("book_id", book_id).eq("user_id", owner_id).execute()
 
 
 @router.delete("/{book_id}/entries/{entry_id}", status_code=204)
@@ -138,34 +132,35 @@ async def delete_entry(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
+    owner_id = get_book_owner_id(sb, book_id, user_id)
+
     check = (
         sb.table("entries")
         .select("id")
         .eq("id", entry_id)
         .eq("book_id", book_id)
-        .eq("user_id", user_id)
+        .eq("user_id", owner_id)
         .limit(1)
         .execute()
     )
     if not check.data:
         raise HTTPException(status_code=404, detail="Entry not found")
-    sb.table("entries").delete().eq("id", entry_id).eq("book_id", book_id).eq("user_id", user_id).execute()
+    sb.table("entries").delete().eq("id", entry_id).eq("book_id", book_id).eq("user_id", owner_id).execute()
 
 
 @router.get("/{book_id}/summary", response_model=BookSummary)
 async def get_summary(book_id: str, user_id: str = Depends(get_current_user)):
     sb = get_supabase()
-    _verify_book(sb, book_id, user_id)
+    owner_id = get_book_owner_id(sb, book_id, user_id)
     try:
-        result = sb.rpc("get_book_summary", {"p_book_id": book_id, "p_user_id": user_id}).execute()
+        result = sb.rpc("get_book_summary", {"p_book_id": book_id, "p_user_id": owner_id}).execute()
         row = result.data[0] if result.data else {}
     except Exception:
-        # Fallback: compute directly if RPC not yet created (migration 002 not run)
         result = (
             sb.table("entries")
             .select("type, amount")
             .eq("book_id", book_id)
-            .eq("user_id", user_id)
+            .eq("user_id", owner_id)
             .execute()
         )
         rows = result.data or []

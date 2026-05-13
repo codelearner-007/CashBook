@@ -14,6 +14,7 @@ import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } fro
 import ContactMenuSheet from '../components/books/ContactMenuSheet';
 import DeleteContactSheet from '../components/ui/DeleteContactSheet';
 import { useBooks } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiUpdateBookFieldSettings } from '../lib/api';
 
@@ -57,22 +58,32 @@ export default function ContactsListScreen() {
 
   const qc = useQueryClient();
   const { data: books = [] } = useBooks();
+  const { data: sharedBooks = [] } = useSharedBooks();
   const currentBook = books.find(b => b.id === bookId);
+  const isOwner = !!currentBook;
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === bookId) : null;
+  const rights = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
+  const canEdit   = rights !== 'view';
+  const canDelete = rights === 'view_create_edit_delete';
+
+  const bookData = currentBook ?? sharedBook;
+
   const showField = type === 'supplier'
-    ? (currentBook?.show_supplier ?? false)
-    : (currentBook?.show_customer ?? false);
+    ? (bookData?.show_supplier ?? false)
+    : (bookData?.show_customer ?? false);
 
   const toggleField = useMutation({
     mutationFn: (newVal) => apiUpdateBookFieldSettings(bookId, {
-      showCustomer:   type === 'customer' ? newVal : (currentBook?.show_customer ?? false),
-      showSupplier:   type === 'supplier' ? newVal : (currentBook?.show_supplier ?? false),
-      showCategory:   currentBook?.show_category   ?? false,
-      showAttachment: currentBook?.show_attachment ?? false,
+      showCustomer:   type === 'customer' ? newVal : (bookData?.show_customer ?? false),
+      showSupplier:   type === 'supplier' ? newVal : (bookData?.show_supplier ?? false),
+      showCategory:   bookData?.show_category   ?? false,
+      showAttachment: bookData?.show_attachment ?? false,
     }),
     onMutate: async (newVal) => {
-      await qc.cancelQueries({ queryKey: ['books'] });
-      const snapshot = qc.getQueryData(['books']);
-      qc.setQueryData(['books'], (prev = []) =>
+      const cacheKey = isOwner ? ['books'] : ['shared-books'];
+      await qc.cancelQueries({ queryKey: cacheKey });
+      const snapshot = qc.getQueryData(cacheKey);
+      qc.setQueryData(cacheKey, (prev = []) =>
         prev.map(b => b.id === bookId ? {
           ...b,
           show_customer: type === 'customer' ? newVal : b.show_customer,
@@ -82,9 +93,10 @@ export default function ContactsListScreen() {
       return { snapshot };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.snapshot) qc.setQueryData(['books'], ctx.snapshot);
+      const cacheKey = isOwner ? ['books'] : ['shared-books'];
+      if (ctx?.snapshot !== undefined) qc.setQueryData(cacheKey, ctx.snapshot);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['books'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: isOwner ? ['books'] : ['shared-books'] }),
   });
 
   const [search, setSearch] = useState('');
@@ -237,7 +249,7 @@ export default function ContactsListScreen() {
       <TouchableOpacity
         style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
         onPress={() => openDetail(item)}
-        onLongPress={() => handleLongPress(item)}
+        onLongPress={canEdit ? () => handleLongPress(item) : undefined}
         delayLongPress={350}
         activeOpacity={0.8}
       >
@@ -302,7 +314,8 @@ export default function ContactsListScreen() {
         </View>
         <Switch
           value={showField}
-          onValueChange={(v) => toggleField.mutate(v)}
+          onValueChange={canEdit ? (v) => toggleField.mutate(v) : undefined}
+          disabled={!canEdit}
           trackColor={{ false: C.border, true: C.primary }}
           thumbColor="#fff"
         />
@@ -341,8 +354,8 @@ export default function ContactsListScreen() {
         />
       )}
 
-      {/* Cascading arrows at bottom pointing right → FAB (only when empty) */}
-      {isEmpty && (
+      {/* Cascading arrows at bottom pointing right → FAB (only when empty + canEdit) */}
+      {isEmpty && canEdit && (
         <View style={s.fabArrow}>
           {arrowAnims.map((anim, i) => (
             <Animated.View key={i} style={{ opacity: anim }}>
@@ -352,28 +365,30 @@ export default function ContactsListScreen() {
         </View>
       )}
 
-      {/* FAB — with pulsing glow ring when empty */}
-      <View style={s.fabWrap}>
-        {isEmpty && (
-          <Animated.View
-            style={[
-              s.fabGlow,
-              {
-                backgroundColor: C.primary,
-                opacity: glowOpacity,
-                transform: [{ scale: glowScale }],
-              },
-            ]}
-          />
-        )}
-        <TouchableOpacity
-          style={[s.fab, { backgroundColor: C.primary }]}
-          onPress={() => setAddVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Feather name="plus" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      {/* FAB — hidden for view-only collaborators */}
+      {canEdit && (
+        <View style={s.fabWrap}>
+          {isEmpty && (
+            <Animated.View
+              style={[
+                s.fabGlow,
+                {
+                  backgroundColor: C.primary,
+                  opacity: glowOpacity,
+                  transform: [{ scale: glowScale }],
+                },
+              ]}
+            />
+          )}
+          <TouchableOpacity
+            style={[s.fab, { backgroundColor: C.primary }]}
+            onPress={() => setAddVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Feather name="plus" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Contact Menu Sheet — long-press */}
       <ContactMenuSheet
@@ -391,6 +406,8 @@ export default function ContactsListScreen() {
         onSaveEdit={handleSaveEdit}
         onDelete={handleDeletePress}
         saving={updateContact.isPending}
+        canEdit={canEdit}
+        canDelete={canDelete}
         C={C}
         Font={Font}
       />

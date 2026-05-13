@@ -5,17 +5,18 @@ from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 from app.utils.pdf import generate_pdf
 from app.utils.excel import generate_excel
+from app.utils.book_access import get_book_owner_id
 
 router = APIRouter()
 
 
-def _fetch_entries(sb, book_id: str, user_id: str, date_from: str, date_to: str,
+def _fetch_entries(sb, book_id: str, owner_id: str, date_from: str, date_to: str,
                    entry_type=None, contact_name=None, category=None, payment_mode=None):
     q = (
         sb.table("entries")
         .select("*")
         .eq("book_id", book_id)
-        .eq("user_id", user_id)
+        .eq("user_id", owner_id)
     )
     if date_from:     q = q.gte("entry_date", date_from)
     if date_to:       q = q.lte("entry_date", date_to)
@@ -39,11 +40,13 @@ async def pdf_report(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    book_res = sb.table("books").select("name, currency").eq("id", book_id).eq("user_id", user_id).single().execute()
+    owner_id = get_book_owner_id(sb, book_id, user_id)
+
+    book_res = sb.table("books").select("name, currency").eq("id", book_id).eq("user_id", owner_id).single().execute()
     if not book_res.data:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    entries = _fetch_entries(sb, book_id, user_id, date_from, date_to,
+    entries = _fetch_entries(sb, book_id, owner_id, date_from, date_to,
                              entry_type, contact_name, category, payment_mode)
     total_in  = sum(float(e["amount"]) for e in entries if e["type"] == "in")
     total_out = sum(float(e["amount"]) for e in entries if e["type"] == "out")
@@ -75,11 +78,13 @@ async def excel_report(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    book_res = sb.table("books").select("name, currency").eq("id", book_id).eq("user_id", user_id).single().execute()
+    owner_id = get_book_owner_id(sb, book_id, user_id)
+
+    book_res = sb.table("books").select("name, currency").eq("id", book_id).eq("user_id", owner_id).single().execute()
     if not book_res.data:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    entries = _fetch_entries(sb, book_id, user_id, date_from, date_to,
+    entries = _fetch_entries(sb, book_id, owner_id, date_from, date_to,
                              entry_type, contact_name, category, payment_mode)
     total_in  = sum(float(e["amount"]) for e in entries if e["type"] == "in")
     total_out = sum(float(e["amount"]) for e in entries if e["type"] == "out")

@@ -25,6 +25,8 @@ frontend/
 │       │       ├── entry-detail.jsx              # → EntryDetailScreen
 │       │       ├── reports.jsx                   # → ReportsScreen
 │       │       ├── book-settings.jsx             # → BookSettingsScreen
+│       │       ├── manage-shares.jsx             # → ManageSharesScreen
+│       │       ├── add-collaborator.jsx          # → AddCollaboratorScreen
 │       │       ├── categories-settings.jsx       # → CategoriesSettingsScreen
 │       │       ├── category-detail.jsx           # → CategoryDetailScreen
 │       │       ├── contact-settings.jsx          # → ContactSettingsScreen
@@ -70,6 +72,7 @@ frontend/
 │   │   ├── useCategories.js      # useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, useCategoryEntries
 │   │   ├── useContacts.js        # useCustomers/Suppliers, useCreateContact, useDeleteContact, etc.
 │   │   ├── useProfile.js         # useProfile, useUpdateProfile
+│   │   ├── useSharing.js         # useSharedBooks, useBookShares, useAddCollaborator, useUpdateShare, useRemoveCollaborator, useLeaveSharedBook
 │   │   └── useTheme.js           # Returns { C, Font, isDark, toggleTheme }
 │   ├── lib/
 │   │   ├── api.js                # All Axios API calls (real backend, no mocks)
@@ -277,6 +280,13 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `apiUpdateBook(bookId, payload)` | PUT | `/api/v1/books/:id` |
 | `apiDeleteBook(bookId)` | DELETE | `/api/v1/books/:id` |
 | `apiUpdateBookFieldSettings(bookId, fieldSettings)` | PATCH | `/api/v1/books/:id/field-settings` |
+| `apiGetSharedBooks()` | GET | `/api/v1/books/shared` — books shared with me |
+| `apiGetBookShares(bookId)` | GET | `/api/v1/books/:id/shares` — collaborators on my book |
+| `apiAddCollaborator(bookId, payload)` | POST | `/api/v1/books/:id/shares` — add collaborator by email |
+| `apiUpdateShare(bookId, shareId, payload)` | PATCH | `/api/v1/books/:id/shares/:shareId` |
+| `apiRemoveCollaborator(bookId, shareId)` | DELETE | `/api/v1/books/:id/shares/:shareId` |
+| `apiLeaveSharedBook(bookId)` | DELETE | `/api/v1/books/:id/leave` — recipient removes self |
+| `apiSearchUsers(q)` | GET | `/api/v1/profile/search?q=...` — find user by email |
 | `apiGetProfile()` | GET | `/api/v1/profile` |
 | `apiUpdateProfile(payload)` | PUT | `/api/v1/profile` |
 | `apiUploadAvatar(uri, mimeType)` | POST | `/api/v1/upload/avatar` — multipart, returns `{ avatar_url }` |

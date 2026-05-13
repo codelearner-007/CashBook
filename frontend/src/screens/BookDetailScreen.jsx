@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { apiGetEntries, apiGetSummary, apiDeleteEntry, apiDeleteAllEntries } from '../lib/api';
 import { useBooks } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import SuccessDialog from '../components/ui/SuccessDialog';
 import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
@@ -278,7 +279,14 @@ export default function BookDetailScreen() {
   const basePath = useBookBasePath();
   const { id, name: nameParam } = useLocalSearchParams();
   const { data: books } = useBooks();
-  const name = books?.find(b => b.id === id)?.name ?? nameParam;
+  const { data: sharedBooks = [] } = useSharedBooks();
+  const currentBook = books?.find(b => b.id === id);
+  const name = currentBook?.name ?? nameParam;
+  const isOwner = !!currentBook;
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === id) : null;
+  const rights = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
+  const canCreate = rights === 'view_create_edit' || rights === 'view_create_edit_delete';
+  const canDelete = rights === 'view_create_edit_delete';
   const { C, Font, isDark } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();
@@ -515,14 +523,14 @@ export default function BookDetailScreen() {
                   pathname: `${basePath}/[id]/entry-detail`,
                   params: { id, eid: entry.id },
                 })}
-                onLongPress={() => handleDelete(entry.id)}
+                onLongPress={canDelete ? () => handleDelete(entry.id) : undefined}
               />
             ))}
           </View>
         )}
       </View>
     );
-  }, [s, C, Font, isDark, id, router, handleDelete, collapsed, toggleDate]);
+  }, [s, C, Font, isDark, id, router, handleDelete, collapsed, toggleDate, canDelete]);
 
   const ListEmpty = useCallback(() => <EmptyState C={C} Font={Font} s={s} />, [C, Font, s]);
 
@@ -547,12 +555,15 @@ export default function BookDetailScreen() {
           <Text style={s.headerSub}>Add Member, Book Activity etc</Text>
         </View>
         <View style={s.headerRight}>
-          <TouchableOpacity
-            style={s.headerIconBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <UserPlusIcon color="rgba(255,255,255,0.8)" size={20} />
-          </TouchableOpacity>
+          {isOwner && (
+            <TouchableOpacity
+              style={s.headerIconBtn}
+              onPress={() => router.push({ pathname: `${basePath}/[id]/manage-shares`, params: { id, name } })}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <UserPlusIcon color="rgba(255,255,255,0.8)" size={20} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={s.headerIconBtn}
             onPress={() => setMenuVisible(true)}
@@ -916,7 +927,7 @@ export default function BookDetailScreen() {
             data={grouped}
             keyExtractor={(item) => item.date}
             renderItem={renderItem}
-            contentContainerStyle={s.listContent}
+            contentContainerStyle={[s.listContent, !canCreate && { paddingBottom: 20 }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={ListEmpty}
@@ -941,10 +952,10 @@ export default function BookDetailScreen() {
           <View style={[s.menuCard, { backgroundColor: C.card, borderColor: C.border }]}>
             {[
               { label: 'Book Settings', icon: 'settings', onPress: goToBookSettings },
-              {
+              ...(canDelete ? [{
                 label: 'Delete All Entries', icon: 'trash-2', danger: true,
                 onPress: () => { setMenuVisible(false); setTimeout(() => setShowDeleteAllSheet(true), 200); },
-              },
+              }] : []),
             ].map((item, idx, arr) => (
               <View key={item.label}>
                 <TouchableOpacity
@@ -985,31 +996,33 @@ export default function BookDetailScreen() {
         subtitle={`"${name}" has been cleared successfully`}
       />
 
-      {/* Action Buttons */}
-      <View style={s.actionRow}>
-        <TouchableOpacity
-          style={[s.actionBtn, { backgroundColor: C.cashIn }]}
-          onPress={() => router.push({
-            pathname: `${basePath}/[id]/add-entry`,
-            params: { id, type: 'in' },
-          })}
-          activeOpacity={0.85}
-        >
-          <PlusIcon color="#fff" size={13} />
-          <Text style={s.actionBtnText}>CASH IN</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.actionBtn, { backgroundColor: C.danger }]}
-          onPress={() => router.push({
-            pathname: `${basePath}/[id]/add-entry`,
-            params: { id, type: 'out' },
-          })}
-          activeOpacity={0.85}
-        >
-          <MinusIcon color="#fff" size={13} />
-          <Text style={s.actionBtnText}>CASH OUT</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Action Buttons — hidden for view-only collaborators */}
+      {canCreate && (
+        <View style={s.actionRow}>
+          <TouchableOpacity
+            style={[s.actionBtn, { backgroundColor: C.cashIn }]}
+            onPress={() => router.push({
+              pathname: `${basePath}/[id]/add-entry`,
+              params: { id, type: 'in' },
+            })}
+            activeOpacity={0.85}
+          >
+            <PlusIcon color="#fff" size={13} />
+            <Text style={s.actionBtnText}>CASH IN</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.actionBtn, { backgroundColor: C.danger }]}
+            onPress={() => router.push({
+              pathname: `${basePath}/[id]/add-entry`,
+              params: { id, type: 'out' },
+            })}
+            activeOpacity={0.85}
+          >
+            <MinusIcon color="#fff" size={13} />
+            <Text style={s.actionBtnText}>CASH OUT</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

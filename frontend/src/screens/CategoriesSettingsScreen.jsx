@@ -16,6 +16,7 @@ import {
 import CategoryMenuSheet from '../components/books/CategoryMenuSheet';
 import DeleteCategorySheet from '../components/ui/DeleteCategorySheet';
 import { useBooks } from '../hooks/useBooks';
+import { useSharedBooks } from '../hooks/useSharing';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiUpdateBookFieldSettings } from '../lib/api';
 
@@ -77,28 +78,38 @@ export default function CategoriesSettingsScreen() {
 
   const qc = useQueryClient();
   const { data: books = [] } = useBooks();
+  const { data: sharedBooks = [] } = useSharedBooks();
   const currentBook = books.find(b => b.id === bookId);
-  const showCategory = currentBook?.show_category ?? false;
+  const isOwner = !!currentBook;
+  const sharedBook = !isOwner ? sharedBooks.find(b => b.id === bookId) : null;
+  const rights = isOwner ? 'view_create_edit_delete' : (sharedBook?.rights ?? 'view');
+  const canEdit   = rights !== 'view';
+  const canDelete = rights === 'view_create_edit_delete';
+
+  const bookData = currentBook ?? sharedBook;
+  const showCategory = bookData?.show_category ?? false;
 
   const toggleCategory = useMutation({
     mutationFn: (newVal) => apiUpdateBookFieldSettings(bookId, {
-      showCustomer:   currentBook?.show_customer   ?? false,
-      showSupplier:   currentBook?.show_supplier   ?? false,
+      showCustomer:   bookData?.show_customer   ?? false,
+      showSupplier:   bookData?.show_supplier   ?? false,
       showCategory:   newVal,
-      showAttachment: currentBook?.show_attachment ?? false,
+      showAttachment: bookData?.show_attachment ?? false,
     }),
     onMutate: async (newVal) => {
-      await qc.cancelQueries({ queryKey: ['books'] });
-      const snapshot = qc.getQueryData(['books']);
-      qc.setQueryData(['books'], (prev = []) =>
+      const cacheKey = isOwner ? ['books'] : ['shared-books'];
+      await qc.cancelQueries({ queryKey: cacheKey });
+      const snapshot = qc.getQueryData(cacheKey);
+      qc.setQueryData(cacheKey, (prev = []) =>
         prev.map(b => b.id === bookId ? { ...b, show_category: newVal } : b)
       );
       return { snapshot };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.snapshot) qc.setQueryData(['books'], ctx.snapshot);
+      const cacheKey = isOwner ? ['books'] : ['shared-books'];
+      if (ctx?.snapshot !== undefined) qc.setQueryData(cacheKey, ctx.snapshot);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['books'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: isOwner ? ['books'] : ['shared-books'] }),
   });
 
   const { data: categories = [], isLoading } = useCategories(bookId);
@@ -228,7 +239,7 @@ export default function CategoriesSettingsScreen() {
     return (
       <TouchableOpacity
         style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
-        onPress={() => setMenuCategoryId(item.id)}
+        onPress={() => canEdit ? setMenuCategoryId(item.id) : openDetail(item)}
         activeOpacity={0.8}
       >
         <View style={[s.avatar, { backgroundColor: C.primaryLight }]}>
@@ -287,7 +298,8 @@ export default function CategoriesSettingsScreen() {
         </View>
         <Switch
           value={showCategory}
-          onValueChange={(v) => toggleCategory.mutate(v)}
+          onValueChange={canEdit ? (v) => toggleCategory.mutate(v) : undefined}
+          disabled={!canEdit}
           trackColor={{ false: C.border, true: C.primary }}
           thumbColor="#fff"
         />
@@ -324,8 +336,8 @@ export default function CategoriesSettingsScreen() {
         />
       )}
 
-      {/* Cascading arrows → FAB (only when empty) */}
-      {showFabAnim && (
+      {/* Cascading arrows → FAB (only when empty + canEdit) */}
+      {showFabAnim && canEdit && (
         <View style={s.fabArrow}>
           {arrowAnims.map((anim, i) => (
             <Animated.View key={i} style={{ opacity: anim }}>
@@ -335,21 +347,23 @@ export default function CategoriesSettingsScreen() {
         </View>
       )}
 
-      {/* FAB */}
-      <View style={s.fabWrap}>
-        {showFabAnim && (
-          <Animated.View
-            style={[s.fabGlow, { backgroundColor: C.primary, opacity: glowOpacity, transform: [{ scale: glowScale }] }]}
-          />
-        )}
-        <TouchableOpacity
-          style={[s.fab, { backgroundColor: C.primary }]}
-          onPress={() => setAddVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Feather name="plus" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      {/* FAB — hidden for view-only collaborators */}
+      {canEdit && (
+        <View style={s.fabWrap}>
+          {showFabAnim && (
+            <Animated.View
+              style={[s.fabGlow, { backgroundColor: C.primary, opacity: glowOpacity, transform: [{ scale: glowScale }] }]}
+            />
+          )}
+          <TouchableOpacity
+            style={[s.fab, { backgroundColor: C.primary }]}
+            onPress={() => setAddVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Feather name="plus" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Category Menu Sheet */}
       <CategoryMenuSheet
@@ -360,6 +374,8 @@ export default function CategoriesSettingsScreen() {
         onRename={handleRename}
         onDelete={() => handleDelete(menuCategory)}
         renaming={renaming}
+        canEdit={canEdit}
+        canDelete={canDelete}
         C={C}
         Font={Font}
       />

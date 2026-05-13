@@ -14,8 +14,9 @@ backend/
 │   ├── auth/
 │   │   └── jwt.py            # Supabase JWT validation, get_current_user dependency
 │   ├── routers/
-│   │   ├── profile.py        # GET/PUT /api/v1/profile
-│   │   ├── books.py          # GET/POST/PUT/DELETE /api/v1/books
+│   │   ├── profile.py        # GET/PUT /api/v1/profile + GET /api/v1/profile/search
+│   │   ├── books.py          # GET/POST/PUT/DELETE /api/v1/books + GET /api/v1/books/shared
+│   │   ├── sharing.py        # GET/POST/PATCH/DELETE /api/v1/books/{id}/shares + DELETE /leave
 │   │   ├── entries.py        # GET/POST/PUT/DELETE /api/v1/books/{id}/entries + summary
 │   │   ├── contacts.py       # GET/POST/PUT/DELETE /api/v1/books/{id}/customers + /suppliers
 │   │   ├── categories.py     # GET/POST/PUT/DELETE /api/v1/books/{id}/categories + /{id}/entries
@@ -32,7 +33,8 @@ backend/
 │   │   └── supabase.py       # Supabase service client singleton
 │   └── utils/
 │       ├── pdf.py            # generate_pdf(...) → bytes
-│       └── excel.py          # generate_excel(...) → bytes
+│       ├── excel.py          # generate_excel(...) → bytes
+│       └── book_access.py    # get_book_owner_id(sb, book_id, user_id) → owner_id
 ├── requirements.txt
 ├── Procfile                  # web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ├── .env                      # NEVER commit
@@ -83,6 +85,8 @@ async def get_current_user(authorization: str = Header(...)) -> str:
 
 **Rule:** Every protected endpoint must declare `user_id: str = Depends(get_current_user)` and filter all DB queries by that `user_id`. Never trust a `user_id` from the request body.
 
+**Shared-book rule:** Routers that handle book data (entries, categories, contacts, payment_modes, reports) must resolve the owner's user_id via `get_book_owner_id(sb, book_id, user_id)` and use the returned `owner_id` for every DB query — never use the raw `user_id` directly. This is what allows collaborators to transparently read and write the owner's data.
+
 ### Superadmin guard (`routers/admin.py`)
 
 ```python
@@ -120,6 +124,26 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 | PUT | `/{book_id}` | Rename or update book currency | ✅ |
 | DELETE | `/{book_id}` | Delete a book (cascades entries) | ✅ |
 | PATCH | `/{book_id}/field-settings` | Save entry field visibility toggles for a book | ✅ |
+| GET | `/shared` | List all books shared WITH the current user (recipient view) | ✅ |
+
+### Sharing (`routers/sharing.py`) — prefix `/api/v1/books`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/{book_id}/shares` | List collaborators for a book (owner only) | ✅ |
+| POST | `/{book_id}/shares` | Add collaborator by email — `{ email, screens, rights }` | ✅ |
+| PATCH | `/{book_id}/shares/{share_id}` | Update rights/screens for a collaborator | ✅ |
+| DELETE | `/{book_id}/shares/{share_id}` | Remove a collaborator (owner only) | ✅ |
+| DELETE | `/{book_id}/leave` | Recipient removes themselves from a shared book | ✅ |
+
+**Rights levels:** `view` | `view_create_edit` | `view_create_edit_delete`
+**Screens JSONB keys:** `entries`, `categories`, `contacts`, `payment_modes`, `reports`, `settings`
+
+### Profile search — prefix `/api/v1/profile`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/search?q=email` | Search active non-superadmin users by email (max 10) | ✅ |
 
 **GET /books** — tries `get_books_with_summary` RPC first (single round-trip, includes pre-computed `net_balance`, `last_entry_at`, and `field_settings`). Falls back to a direct table query if the RPC is not yet defined (migration 002 not run).
 

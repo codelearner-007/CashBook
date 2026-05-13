@@ -32,6 +32,9 @@ Supabase provides three things for CashBook:
 15. `supabase/migrations/017_payment_mode_balances.sql` — `total_in`, `total_out`, `net_balance` columns on `payment_modes`; `trg_update_payment_mode_balance` trigger keeps them in sync; backfills existing data
 16. `supabase/migrations/018_notifications.sql` — `notifications` and `user_notifications` tables; `target_type` ('all'|'specific') on notifications; RLS policies; indexes
 
+17. `supabase/migrations/019_push_tokens.sql` — Expo push tokens table, unique(user_id, token), RLS
+18. `supabase/migrations/020_book_sharing.sql` — `book_shares` table; owner shares a book with a recipient; configurable `screens` JSONB and `rights` level; unique(book_id, shared_with_id); two RLS policies (owner: ALL, recipient: SELECT)
+
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
 ---
@@ -142,6 +145,26 @@ Identical columns to `customers`, including `total_in`, `total_out`, `net_balanc
 | `created_at` | timestamptz | default `now()` |
 
 **Note:** `entries.user_id` is redundant (derivable via `book_id → books.user_id`) but is kept for RLS policies, performance, and defence-in-depth on the backend.
+
+---
+
+### `public.book_shares`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | uuid | PK, default `gen_random_uuid()` |
+| `book_id` | uuid | FK → `public.books(id)` ON DELETE CASCADE, NOT NULL |
+| `owner_id` | uuid | FK → `public.profiles(id)` ON DELETE CASCADE, NOT NULL |
+| `shared_with_id` | uuid | FK → `public.profiles(id)` ON DELETE CASCADE, NOT NULL |
+| `screens` | jsonb | NOT NULL, default `{"entries":true,"categories":false,"contacts":false,"payment_modes":false,"reports":false,"settings":false}` |
+| `rights` | text | NOT NULL, default `'view'`, CHECK IN (`'view'`,`'view_create_edit'`,`'view_create_edit_delete'`) |
+| `created_at` | timestamptz | default `now()` |
+| `updated_at` | timestamptz | default `now()` |
+| UNIQUE | `(book_id, shared_with_id)` | One share per book per recipient |
+| CHECK | `owner_id <> shared_with_id` | Cannot share with yourself |
+
+**Rights levels:** `view` = read-only; `view_create_edit` = add/edit entries; `view_create_edit_delete` = full access including delete.
+**Screens JSONB** controls which book sections are visible to the recipient.
 
 ---
 

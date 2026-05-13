@@ -3,8 +3,70 @@ from typing import List
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 from app.models.book import BookCreate, BookUpdate, BookResponse, FieldSettingsBody
+from app.models.sharing import SharedBookResponse
+from app.utils.book_access import get_book_owner_id
 
 router = APIRouter()
+
+
+@router.get("/shared", response_model=List[SharedBookResponse])
+async def get_shared_books(user_id: str = Depends(get_current_user)):
+    """Return all books shared WITH the current user (where they are a recipient)."""
+    sb = get_supabase()
+
+    shares = (
+        sb.table("book_shares")
+        .select("*")
+        .eq("shared_with_id", user_id)
+        .execute()
+    ).data or []
+
+    if not shares:
+        return []
+
+    book_ids  = [s["book_id"]  for s in shares]
+    owner_ids = list({s["owner_id"] for s in shares})
+
+    books_map = {
+        b["id"]: b
+        for b in (
+            sb.table("books").select("*").in_("id", book_ids).execute()
+        ).data or []
+    }
+    owners_map = {
+        p["id"]: p
+        for p in (
+            sb.table("profiles")
+            .select("id, full_name, email")
+            .in_("id", owner_ids)
+            .execute()
+        ).data or []
+    }
+
+    result = []
+    for share in shares:
+        book  = books_map.get(share["book_id"])
+        owner = owners_map.get(share["owner_id"])
+        if not book or not owner:
+            continue
+        result.append({
+            "id":              book["id"],
+            "name":            book["name"],
+            "currency":        book.get("currency", "PKR"),
+            "net_balance":     book.get("net_balance", 0),
+            "last_entry_at":   None,
+            "show_customer":   book.get("show_customer", False),
+            "show_supplier":   book.get("show_supplier", False),
+            "show_category":   book.get("show_category", False),
+            "show_attachment": book.get("show_attachment", False),
+            "share_id":        share["id"],
+            "rights":          share["rights"],
+            "screens":         share.get("screens", {}),
+            "owner_id":        share["owner_id"],
+            "owner_name":      owner.get("full_name"),
+            "owner_email":     owner.get("email", ""),
+        })
+    return result
 
 
 @router.get("", response_model=List[BookResponse])
@@ -101,29 +163,34 @@ async def update_field_settings(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    check = (
-        sb.table("books")
-        .select("id")
-        .eq("id", book_id)
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
-    if not check.data:
-        raise HTTPException(status_code=404, detail="Book not found")
+    # Resolves to owner_id for both owners and collaborators (raises 404 if no access)
+    owner_id = get_book_owner_id(sb, book_id, user_id)
+
+    # Collaborators need at least view_create_edit rights to change field settings
+    if owner_id != user_id:
+        share = (
+            sb.table("book_shares")
+            .select("rights")
+            .eq("book_id", book_id)
+            .eq("shared_with_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not share.data or share.data[0]["rights"] == "view":
+            raise HTTPException(status_code=403, detail="Edit access required to change field settings")
 
     sb.table("books").update({
         "show_customer":   payload.showCustomer,
         "show_supplier":   payload.showSupplier,
         "show_category":   payload.showCategory,
         "show_attachment": payload.showAttachment,
-    }).eq("id", book_id).eq("user_id", user_id).execute()
+    }).eq("id", book_id).eq("user_id", owner_id).execute()
 
     result = (
         sb.table("books")
         .select("*")
         .eq("id", book_id)
-        .eq("user_id", user_id)
+        .eq("user_id", owner_id)
         .limit(1)
         .execute()
     )

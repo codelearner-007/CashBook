@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 from app.models.profile import ProfileResponse, ProfileUpdate
+from app.models.sharing import CollaboratorProfile
 
 router = APIRouter()
 
@@ -34,3 +36,22 @@ async def update_profile(
     if not result.data:
         raise HTTPException(status_code=404, detail="Profile not found")
     return result.data[0]
+
+
+@router.get("/search", response_model=List[CollaboratorProfile])
+async def search_users(
+    q: str = Query(..., min_length=1),
+    user_id: str = Depends(get_current_user),
+):
+    """Search all active profiles by email (for share-book flow). Includes superadmin."""
+    sb = get_supabase()
+    results = (
+        sb.table("profiles")
+        .select("id, full_name, email, avatar_url")
+        .ilike("email", f"%{q.strip()}%")
+        .neq("id", user_id)
+        .eq("is_active", True)
+        .limit(10)
+        .execute()
+    ).data or []
+    return results
