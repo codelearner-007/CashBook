@@ -345,9 +345,15 @@ export default function AdminUsersScreen() {
   }, []);
 
   const handleToggleUser = useCallback((userId, isActive) => {
-    const target = allUsers.find(u => u.id === userId);
-    setConfirmState({ userId, isActive, userName: target?.full_name ?? '' });
-  }, [allUsers]);
+    if (!isActive) {
+      // Deactivating — require confirmation
+      const target = allUsers.find(u => u.id === userId);
+      setConfirmState({ userId, isActive, userName: target?.full_name ?? '' });
+    } else {
+      // Activating — proceed immediately
+      toggleUserMutation.mutate({ userId, isActive });
+    }
+  }, [allUsers, toggleUserMutation]);
 
   const handleConfirmToggle = useCallback(() => {
     if (!confirmState) return;
@@ -519,225 +525,203 @@ export default function AdminUsersScreen() {
           visible
           animationType="slide"
           transparent
-          onRequestClose={() => setSelectedUserId(null)}
+          onRequestClose={() => confirmState ? setConfirmState(null) : setSelectedUserId(null)}
         >
-          <Pressable style={s.modalOverlay} onPress={() => setSelectedUserId(null)}>
-            <Pressable style={s.modalBox} onPress={() => {}}>
-              <View style={s.modalHandle} />
+          {/* Wrapper fills the Modal so the confirm overlay can sit absolutely on top */}
+          <View style={{ flex: 1 }}>
+            <Pressable style={s.modalOverlay} onPress={() => setSelectedUserId(null)}>
+              <Pressable style={s.modalBox} onPress={() => {}}>
+                <View style={s.modalHandle} />
 
-              {/* Close */}
-              <TouchableOpacity
-                style={s.modalCloseBtn}
-                onPress={() => setSelectedUserId(null)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <XIcon color={C.textMuted} size={13} />
-              </TouchableOpacity>
+                {/* Close */}
+                <TouchableOpacity
+                  style={s.modalCloseBtn}
+                  onPress={() => setSelectedUserId(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <XIcon color={C.textMuted} size={13} />
+                </TouchableOpacity>
 
-              {/* ─ Avatar + identity ─ */}
-              <View style={s.modalAvatarSection}>
-                <View style={[s.modalAvatarRing, {
-                  borderColor: selectedUser.is_active ? C.cashIn : C.border,
-                }]}>
-                  <View style={[s.modalAvatarCircle, {
-                    backgroundColor: selectedUser.is_active ? C.cashInLight : C.cardAlt,
+                {/* ─ Avatar + identity ─ */}
+                <View style={s.modalAvatarSection}>
+                  <View style={[s.modalAvatarRing, {
+                    borderColor: selectedUser.is_active ? C.cashIn : C.border,
                   }]}>
-                    {selectedUser.avatar_url
-                      ? <ExpoImage
-                          source={{ uri: selectedUser.avatar_url }}
-                          style={{ width: '100%', height: '100%', borderRadius: 30 }}
-                          contentFit="cover"
-                        />
-                      : <Text style={[s.modalAvatarInitials, {
-                          color: selectedUser.is_active ? C.cashIn : C.textMuted,
-                        }]}>
-                          {getInitials(selectedUser.full_name)}
-                        </Text>
-                    }
-                  </View>
-                  <View style={[s.modalAvatarDot, {
-                    backgroundColor: selectedUser.is_active ? C.cashIn : C.textSubtle,
-                  }]} />
-                </View>
-
-                <Text style={s.modalUserName}>{selectedUser.full_name}</Text>
-                <Text style={s.modalUserEmail}>{selectedUser.email}</Text>
-
-                <View style={[s.modalStatusPill, {
-                  backgroundColor: selectedUser.isAdmin ? 'rgba(251,191,36,0.18)' : selectedUser.is_active ? C.cashInLight : C.dangerLight,
-                  borderColor:     selectedUser.isAdmin ? 'rgba(251,191,36,0.5)'  : selectedUser.is_active ? C.cashIn      : C.danger,
-                }]}>
-                  <View style={[s.modalStatusDot, {
-                    backgroundColor: selectedUser.isAdmin ? '#FCD34D' : selectedUser.is_active ? C.cashIn : C.danger,
-                  }]} />
-                  <Text style={[s.modalStatusPillText, {
-                    color: selectedUser.isAdmin ? '#D97706' : selectedUser.is_active ? C.cashIn : C.danger,
-                  }]}>
-                    {selectedUser.isAdmin ? 'Super Admin' : selectedUser.is_active ? 'Active' : 'Inactive'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* ─ Stats row ─ */}
-              <View style={s.modalStatsRow}>
-                <View style={s.modalStatItem}>
-                  <Text style={s.modalStatValue}>{selectedUser.book_count}</Text>
-                  <Text style={s.modalStatLabel}>Books</Text>
-                </View>
-                <View style={s.modalStatDivider} />
-                <View style={s.modalStatItem}>
-                  <Text style={s.modalStatValue}>{selectedUser.entry_count}</Text>
-                  <Text style={s.modalStatLabel}>Entries</Text>
-                </View>
-                <View style={s.modalStatDivider} />
-                <View style={s.modalStatItem}>
-                  <Text style={s.modalStatValue}>{fmtStorage(selectedUser.storage_mb)}</Text>
-                  <Text style={s.modalStatLabel}>Storage</Text>
-                </View>
-              </View>
-
-              {/* ─ Account status toggle / locked ─ */}
-              {selectedUser.isAdmin ? (
-                <View style={[s.modalToggleCard, {
-                  backgroundColor: 'rgba(251,191,36,0.12)',
-                  borderColor: 'rgba(251,191,36,0.4)',
-                }]}>
-                  <View style={s.modalToggleLeft}>
-                    <View style={[s.modalToggleIconBox, { backgroundColor: 'rgba(251,191,36,0.18)' }]}>
-                      <LockIcon color="#D97706" size={14} />
-                    </View>
-                    <View>
-                      <Text style={[s.modalToggleTitle, { color: '#D97706' }]}>Account Status</Text>
-                      <Text style={s.modalToggleSub}>Super Admin — always active</Text>
-                    </View>
-                  </View>
-                  <View style={[s.userStatusPill, { backgroundColor: 'rgba(251,191,36,0.18)', borderColor: 'rgba(251,191,36,0.5)' }]}>
-                    <View style={[s.userStatusDot, { backgroundColor: '#FCD34D' }]} />
-                    <Text style={[s.userStatusText, { color: '#D97706' }]}>Active</Text>
-                  </View>
-                </View>
-              ) : (
-                <View style={[s.modalToggleCard, {
-                  backgroundColor: selectedUser.is_active ? C.cashInLight : C.dangerLight,
-                  borderColor: selectedUser.is_active
-                    ? `${C.cashIn}55`
-                    : `${C.danger}55`,
-                }]}>
-                  <View style={s.modalToggleLeft}>
-                    <View style={[s.modalToggleIconBox, {
-                      backgroundColor: selectedUser.is_active
-                        ? `${C.cashIn}22`
-                        : `${C.danger}22`,
+                    <View style={[s.modalAvatarCircle, {
+                      backgroundColor: selectedUser.is_active ? C.cashInLight : C.cardAlt,
                     }]}>
-                      <LockIcon
-                        color={selectedUser.is_active ? C.cashIn : C.danger}
-                        size={14}
-                      />
+                      {selectedUser.avatar_url
+                        ? <ExpoImage
+                            source={{ uri: selectedUser.avatar_url }}
+                            style={{ width: '100%', height: '100%', borderRadius: 30 }}
+                            contentFit="cover"
+                          />
+                        : <Text style={[s.modalAvatarInitials, {
+                            color: selectedUser.is_active ? C.cashIn : C.textMuted,
+                          }]}>
+                            {getInitials(selectedUser.full_name)}
+                          </Text>
+                      }
                     </View>
-                    <View>
-                      <Text style={[s.modalToggleTitle, {
-                        color: selectedUser.is_active ? C.cashIn : C.danger,
-                      }]}>
-                        Account Status
-                      </Text>
-                      <Text style={s.modalToggleSub}>
-                        {selectedUser.is_active ? 'Can access the app' : 'Blocked from the app'}
-                      </Text>
+                    <View style={[s.modalAvatarDot, {
+                      backgroundColor: selectedUser.is_active ? C.cashIn : C.textSubtle,
+                    }]} />
+                  </View>
+
+                  <Text style={s.modalUserName}>{selectedUser.full_name}</Text>
+                  <Text style={s.modalUserEmail}>{selectedUser.email}</Text>
+
+                  <View style={[s.modalStatusPill, {
+                    backgroundColor: selectedUser.isAdmin ? 'rgba(251,191,36,0.18)' : selectedUser.is_active ? C.cashInLight : C.dangerLight,
+                    borderColor:     selectedUser.isAdmin ? 'rgba(251,191,36,0.5)'  : selectedUser.is_active ? C.cashIn      : C.danger,
+                  }]}>
+                    <View style={[s.modalStatusDot, {
+                      backgroundColor: selectedUser.isAdmin ? '#FCD34D' : selectedUser.is_active ? C.cashIn : C.danger,
+                    }]} />
+                    <Text style={[s.modalStatusPillText, {
+                      color: selectedUser.isAdmin ? '#D97706' : selectedUser.is_active ? C.cashIn : C.danger,
+                    }]}>
+                      {selectedUser.isAdmin ? 'Super Admin' : selectedUser.is_active ? 'Active' : 'Inactive'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* ─ Stats row ─ */}
+                <View style={s.modalStatsRow}>
+                  <View style={s.modalStatItem}>
+                    <Text style={s.modalStatValue}>{selectedUser.book_count}</Text>
+                    <Text style={s.modalStatLabel}>Books</Text>
+                  </View>
+                  <View style={s.modalStatDivider} />
+                  <View style={s.modalStatItem}>
+                    <Text style={s.modalStatValue}>{selectedUser.entry_count}</Text>
+                    <Text style={s.modalStatLabel}>Entries</Text>
+                  </View>
+                  <View style={s.modalStatDivider} />
+                  <View style={s.modalStatItem}>
+                    <Text style={s.modalStatValue}>{fmtStorage(selectedUser.storage_mb)}</Text>
+                    <Text style={s.modalStatLabel}>Storage</Text>
+                  </View>
+                </View>
+
+                {/* ─ Account status toggle / locked ─ */}
+                {selectedUser.isAdmin ? (
+                  <View style={[s.modalToggleCard, {
+                    backgroundColor: 'rgba(251,191,36,0.12)',
+                    borderColor: 'rgba(251,191,36,0.4)',
+                  }]}>
+                    <View style={s.modalToggleLeft}>
+                      <View style={[s.modalToggleIconBox, { backgroundColor: 'rgba(251,191,36,0.18)' }]}>
+                        <LockIcon color="#D97706" size={14} />
+                      </View>
+                      <View>
+                        <Text style={[s.modalToggleTitle, { color: '#D97706' }]}>Account Status</Text>
+                        <Text style={s.modalToggleSub}>Super Admin — always active</Text>
+                      </View>
+                    </View>
+                    <View style={[s.userStatusPill, { backgroundColor: 'rgba(251,191,36,0.18)', borderColor: 'rgba(251,191,36,0.5)' }]}>
+                      <View style={[s.userStatusDot, { backgroundColor: '#FCD34D' }]} />
+                      <Text style={[s.userStatusText, { color: '#D97706' }]}>Active</Text>
                     </View>
                   </View>
-                  <Switch
-                    value={selectedUser.is_active}
-                    onValueChange={(val) => handleToggleUser(selectedUser.id, val)}
-                    trackColor={{
-                      false: `${C.danger}55`,
-                      true:  `${C.cashIn}77`,
-                    }}
-                    thumbColor={selectedUser.is_active ? C.cashIn : C.danger}
-                  />
-                </View>
-              )}
+                ) : (
+                  <View style={[s.modalToggleCard, {
+                    backgroundColor: selectedUser.is_active ? C.cashInLight : C.dangerLight,
+                    borderColor: selectedUser.is_active
+                      ? `${C.cashIn}55`
+                      : `${C.danger}55`,
+                  }]}>
+                    <View style={s.modalToggleLeft}>
+                      <View style={[s.modalToggleIconBox, {
+                        backgroundColor: selectedUser.is_active
+                          ? `${C.cashIn}22`
+                          : `${C.danger}22`,
+                      }]}>
+                        <LockIcon
+                          color={selectedUser.is_active ? C.cashIn : C.danger}
+                          size={14}
+                        />
+                      </View>
+                      <View>
+                        <Text style={[s.modalToggleTitle, {
+                          color: selectedUser.is_active ? C.cashIn : C.danger,
+                        }]}>
+                          Account Status
+                        </Text>
+                        <Text style={s.modalToggleSub}>
+                          {selectedUser.is_active ? 'Can access the app' : 'Blocked from the app'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Switch
+                      value={selectedUser.is_active}
+                      onValueChange={(val) => handleToggleUser(selectedUser.id, val)}
+                      trackColor={{
+                        false: `${C.danger}55`,
+                        true:  `${C.cashIn}77`,
+                      }}
+                      thumbColor={selectedUser.is_active ? C.cashIn : C.danger}
+                    />
+                  </View>
+                )}
 
+              </Pressable>
             </Pressable>
-          </Pressable>
-        </Modal>
-      )}
 
-      {/* ── Confirm Activate / Deactivate Modal ──────────────────────────── */}
-      {confirmState && (
-        <Modal
-          visible
-          animationType="fade"
-          transparent
-          onRequestClose={() => setConfirmState(null)}
-        >
-          <Pressable style={s.confirmOverlay} onPress={() => setConfirmState(null)}>
-            <Pressable style={s.confirmBox} onPress={() => {}}>
+            {/* ── Confirm Deactivate — inline overlay (iOS-safe, no nested Modal) ── */}
+            {confirmState && (
+              <Pressable
+                style={[StyleSheet.absoluteFill, s.confirmOverlay]}
+                onPress={() => setConfirmState(null)}
+              >
+                <Pressable style={s.confirmBox} onPress={() => {}}>
 
-              {/* Icon circle */}
-              <View style={[s.confirmIconCircle, {
-                backgroundColor: confirmState.isActive ? C.cashInLight : C.dangerLight,
-              }]}>
-                <View style={[s.confirmIconInner, {
-                  backgroundColor: confirmState.isActive
-                    ? `${C.cashIn}22`
-                    : `${C.danger}22`,
-                }]}>
-                  {confirmState.isActive
-                    ? <CheckIcon color={C.cashIn} size={18} />
-                    : <LockIcon  color={C.danger} size={16} />
-                  }
-                </View>
-              </View>
+                  {/* Icon circle */}
+                  <View style={[s.confirmIconCircle, { backgroundColor: C.dangerLight }]}>
+                    <View style={[s.confirmIconInner, { backgroundColor: `${C.danger}22` }]}>
+                      <LockIcon color={C.danger} size={16} />
+                    </View>
+                  </View>
 
-              {/* Title */}
-              <Text style={s.confirmTitle}>
-                {confirmState.isActive ? 'Activate Account' : 'Deactivate Account'}
-              </Text>
+                  {/* Title */}
+                  <Text style={s.confirmTitle}>Deactivate Account</Text>
 
-              {/* User name pill */}
-              {confirmState.userName ? (
-                <View style={[s.confirmNamePill, {
-                  backgroundColor: confirmState.isActive ? C.cashInLight : C.dangerLight,
-                }]}>
-                  <Text style={[s.confirmNameText, {
-                    color: confirmState.isActive ? C.cashIn : C.danger,
-                  }]} numberOfLines={1}>
-                    {confirmState.userName}
+                  {/* User name pill */}
+                  {confirmState.userName ? (
+                    <View style={[s.confirmNamePill, { backgroundColor: C.dangerLight }]}>
+                      <Text style={[s.confirmNameText, { color: C.danger }]} numberOfLines={1}>
+                        {confirmState.userName}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Body */}
+                  <Text style={s.confirmBody}>
+                    This user will be blocked from the app until reactivated.
                   </Text>
-                </View>
-              ) : null}
 
-              {/* Body */}
-              <Text style={s.confirmBody}>
-                {confirmState.isActive
-                  ? 'This user will regain full access to the app immediately.'
-                  : 'This user will be blocked from the app until reactivated.'}
-              </Text>
+                  {/* Buttons */}
+                  <View style={s.confirmBtns}>
+                    <TouchableOpacity
+                      style={s.confirmCancelBtn}
+                      onPress={() => setConfirmState(null)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={s.confirmCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.confirmActionBtn, { backgroundColor: C.danger }]}
+                      onPress={handleConfirmToggle}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={s.confirmActionText}>Deactivate</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Buttons */}
-              <View style={s.confirmBtns}>
-                <TouchableOpacity
-                  style={s.confirmCancelBtn}
-                  onPress={() => setConfirmState(null)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.confirmCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.confirmActionBtn, {
-                    backgroundColor: confirmState.isActive ? C.cashIn : C.danger,
-                  }]}
-                  onPress={handleConfirmToggle}
-                  activeOpacity={0.85}
-                >
-                  <Text style={s.confirmActionText}>
-                    {confirmState.isActive ? 'Activate' : 'Deactivate'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-            </Pressable>
-          </Pressable>
+                </Pressable>
+              </Pressable>
+            )}
+          </View>
         </Modal>
       )}
       {/* ── Status Picker Modal ──────────────────────────────────────────── */}
