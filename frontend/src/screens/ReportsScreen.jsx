@@ -191,8 +191,13 @@ export default function ReportsScreen() {
     setExportType(type);
     setExportPhase('generating');
     try {
-      const { data: sd } = await supabase.auth.getSession();
-      const token = sd.session?.access_token;
+      // Refresh session first so the token is always valid on iOS
+      let { data: sd } = await supabase.auth.getSession();
+      let token = sd.session?.access_token;
+      if (!token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token;
+      }
       if (!token) throw new Error('Not authenticated');
 
       const params = new URLSearchParams();
@@ -214,13 +219,15 @@ export default function ReportsScreen() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (result.status !== 200) {
+      if (!result.uri) throw new Error('Download failed — no file received.');
+      if (result.status !== undefined && result.status !== 200) {
         throw new Error(`Server returned ${result.status}. Make sure the backend is running.`);
       }
 
       setFileName(`cashbook-${safeName}.${ext}`);
       setReadyUri(result.uri);
-      setExportPhase('ready');
+      // Use setTimeout so iOS doesn't try to change modal content mid-animation
+      setTimeout(() => setExportPhase('ready'), Platform.OS === 'ios' ? 50 : 0);
     } catch (err) {
       Alert.alert('Export Failed', err.message || 'Please check your connection and try again.');
       closeExportModal();
@@ -259,13 +266,21 @@ export default function ReportsScreen() {
         await FileSystem.writeAsStringAsync(newUri, base64, {
           encoding: FileSystem.EncodingType.Base64,
         });
+        closeExportModal();
+        setShowSaved(true);
       } else {
-        const destUri = `${FileSystem.documentDirectory}${final}`;
-        await FileSystem.copyAsync({ from: readyUri, to: destUri });
+        // iOS: documentDirectory is private; use share sheet so user can
+        // save to Files, AirDrop, email, etc.
+        const uri = await getRenamedUri();
+        await Sharing.shareAsync(uri, {
+          mimeType,
+          dialogTitle: 'Save CashBook Report',
+          UTI: exportType === 'pdf'
+            ? 'com.adobe.pdf'
+            : 'org.openxmlformats.spreadsheetml.sheet',
+        });
+        closeExportModal();
       }
-
-      closeExportModal();
-      setShowSaved(true);
     } catch (err) {
       if (err.message !== 'User cancelled document picker') {
         Alert.alert('Download Failed', err.message || 'Could not save the file.');
@@ -292,7 +307,18 @@ export default function ReportsScreen() {
   };
 
   const handleView = () => {
-    setShowPreview(true);
+    // Close the export bottom-sheet first; on iOS you cannot open a new modal
+    // while another is still visible — the second one is silently dropped.
+    setExportPhase(null);
+    setTimeout(() => setShowPreview(true), Platform.OS === 'ios' ? 350 : 0);
+  };
+
+  const handleClosePreview = () => {
+    setShowPreview(false);
+    // If the file was already generated, bring the ready sheet back after preview dismisses
+    if (readyUri) {
+      setTimeout(() => setExportPhase('ready'), Platform.OS === 'ios' ? 350 : 0);
+    }
   };
 
   const busy = exportPhase === 'generating';
@@ -302,98 +328,104 @@ export default function ReportsScreen() {
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
-      {/* ── Generating modal (centered overlay) ── */}
-      <Modal visible={exportPhase === 'generating'} transparent animationType="fade" statusBarTranslucent>
-        <View style={s.genOverlay}>
-          <View style={s.genCard}>
-            <View style={[s.genIconBadge, { backgroundColor: C.primaryLight }]}>
-              <Text style={s.genIcon}>{exportType === 'pdf' ? '📄' : '📊'}</Text>
+      {/* ── Export modal — single modal for generating + ready states ──
+           iOS cannot dismiss one Modal and immediately present another in the
+           same render cycle; using one modal with changing content avoids this. ── */}
+      <Modal
+        visible={exportPhase === 'generating' || exportPhase === 'ready'}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        {exportPhase === 'generating' ? (
+          <View style={s.genOverlay}>
+            <View style={s.genCard}>
+              <View style={[s.genIconBadge, { backgroundColor: C.primaryLight }]}>
+                <Text style={s.genIcon}>{exportType === 'pdf' ? '📄' : '📊'}</Text>
+              </View>
+              <Text style={s.genTitle}>
+                Building {exportType === 'pdf' ? 'PDF' : 'Excel'} Report
+              </Text>
+              {!!name && <Text style={s.genBook} numberOfLines={1}>{name}</Text>}
+              <Text style={s.genRange}>{rangeLabel}</Text>
+              <ActivityIndicator
+                size="large"
+                color={C.primary}
+                style={{ marginTop: 20, marginBottom: 8 }}
+              />
+              <Text style={s.genHint}>Please wait…</Text>
             </View>
-            <Text style={s.genTitle}>
-              Building {exportType === 'pdf' ? 'PDF' : 'Excel'} Report
-            </Text>
-            {!!name && <Text style={s.genBook} numberOfLines={1}>{name}</Text>}
-            <Text style={s.genRange}>{rangeLabel}</Text>
-            <ActivityIndicator
-              size="large"
-              color={C.primary}
-              style={{ marginTop: 20, marginBottom: 8 }}
-            />
-            <Text style={s.genHint}>Please wait…</Text>
           </View>
-        </View>
-      </Modal>
+        ) : (
+          <View style={s.readyOverlay}>
+            <TouchableOpacity style={s.readyDismissArea} onPress={closeExportModal} activeOpacity={1} />
+            <View style={s.readySheet}>
 
-      {/* ── Ready modal (compact bottom sheet) ── */}
-      <Modal visible={exportPhase === 'ready'} transparent animationType="slide" statusBarTranslucent>
-        <View style={s.readyOverlay}>
-          <TouchableOpacity style={s.readyDismissArea} onPress={closeExportModal} activeOpacity={1} />
-          <View style={s.readySheet}>
+              {/* Handle */}
+              <View style={s.readyHandle} />
 
-            {/* Handle */}
-            <View style={s.readyHandle} />
+              {/* File info row */}
+              <View style={s.readyInfoRow}>
+                <View style={[s.readyFileBadge, { backgroundColor: C.primaryLight }]}>
+                  <Feather
+                    name={exportType === 'pdf' ? 'file-text' : 'grid'}
+                    size={20}
+                    color={C.primary}
+                  />
+                </View>
+                <View style={s.readyInfoText}>
+                  <Text style={s.readyInfoTitle} numberOfLines={1}>
+                    {exportType === 'pdf' ? 'PDF' : 'Excel'} Report — {name || 'CashBook'}
+                  </Text>
+                  <Text style={s.readyInfoSub}>{rangeLabel}</Text>
+                </View>
+                <View style={[s.readyCheckBadge, { backgroundColor: C.primaryLight }]}>
+                  <Feather name="check" size={14} color={C.primary} />
+                </View>
+              </View>
 
-            {/* File info row */}
-            <View style={s.readyInfoRow}>
-              <View style={[s.readyFileBadge, { backgroundColor: C.primaryLight }]}>
-                <Feather
-                  name={exportType === 'pdf' ? 'file-text' : 'grid'}
-                  size={20}
-                  color={C.primary}
+              {/* Filename input */}
+              <View style={s.fileNameRow}>
+                <Feather name="edit-2" size={13} color={C.textMuted} style={{ marginTop: 1 }} />
+                <TextInput
+                  style={s.fileNameInput}
+                  value={fileName}
+                  onChangeText={setFileName}
+                  placeholder="File name"
+                  placeholderTextColor={C.textSubtle}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  selectTextOnFocus
                 />
               </View>
-              <View style={s.readyInfoText}>
-                <Text style={s.readyInfoTitle} numberOfLines={1}>
-                  {exportType === 'pdf' ? 'PDF' : 'Excel'} Report — {name || 'CashBook'}
-                </Text>
-                <Text style={s.readyInfoSub}>{rangeLabel}</Text>
-              </View>
-              <View style={[s.readyCheckBadge, { backgroundColor: C.primaryLight }]}>
-                <Feather name="check" size={14} color={C.primary} />
-              </View>
-            </View>
 
-            {/* Filename input */}
-            <View style={s.fileNameRow}>
-              <Feather name="edit-2" size={13} color={C.textMuted} style={{ marginTop: 1 }} />
-              <TextInput
-                style={s.fileNameInput}
-                value={fileName}
-                onChangeText={setFileName}
-                placeholder="File name"
-                placeholderTextColor={C.textSubtle}
-                autoCorrect={false}
-                autoCapitalize="none"
-                returnKeyType="done"
-                selectTextOnFocus
-              />
-            </View>
-
-            {/* View button */}
-            <TouchableOpacity style={s.readyViewBtn} onPress={handleView} activeOpacity={0.85}>
-              <Feather name="eye" size={18} color={C.primary} />
-              <Text style={[s.readyViewBtnLabel, { color: C.primary }]}>View Report</Text>
-            </TouchableOpacity>
-
-            {/* Download + Share row */}
-            <View style={s.readyBtnRow}>
-              <TouchableOpacity style={[s.readyBtn, { backgroundColor: C.primary }]} onPress={handleDownload} activeOpacity={0.85}>
-                <Feather name="download" size={16} color="#fff" />
-                <Text style={s.readyBtnLabel}>Download</Text>
+              {/* View button */}
+              <TouchableOpacity style={s.readyViewBtn} onPress={handleView} activeOpacity={0.85}>
+                <Feather name="eye" size={18} color={C.primary} />
+                <Text style={[s.readyViewBtnLabel, { color: C.primary }]}>View Report</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[s.readyBtn, s.readyBtnOutline]} onPress={handleShare} activeOpacity={0.85}>
-                <Feather name="share-2" size={16} color={C.primary} />
-                <Text style={[s.readyBtnLabel, { color: C.primary }]}>Share</Text>
+              {/* Download + Share row */}
+              <View style={s.readyBtnRow}>
+                <TouchableOpacity style={[s.readyBtn, { backgroundColor: C.primary }]} onPress={handleDownload} activeOpacity={0.85}>
+                  <Feather name="download" size={16} color="#fff" />
+                  <Text style={s.readyBtnLabel}>Download</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[s.readyBtn, s.readyBtnOutline]} onPress={handleShare} activeOpacity={0.85}>
+                  <Feather name="share-2" size={16} color={C.primary} />
+                  <Text style={[s.readyBtnLabel, { color: C.primary }]}>Share</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={closeExportModal} style={s.readyClose}>
+                <Text style={s.readyCloseText}>Close</Text>
               </TouchableOpacity>
+
             </View>
-
-            <TouchableOpacity onPress={closeExportModal} style={s.readyClose}>
-              <Text style={s.readyCloseText}>Close</Text>
-            </TouchableOpacity>
-
           </View>
-        </View>
+        )}
       </Modal>
 
       {/* ── Saved success dialog ── */}
@@ -545,13 +577,13 @@ export default function ReportsScreen() {
       </Modal>
 
       {/* ── Report Preview Modal ── */}
-      <Modal visible={showPreview} animationType="slide" statusBarTranslucent onRequestClose={() => setShowPreview(false)}>
+      <Modal visible={showPreview} animationType="slide" statusBarTranslucent onRequestClose={handleClosePreview}>
         <SafeAreaView style={[s.safe, { backgroundColor: C.background }]}>
           <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
           {/* Preview header */}
           <View style={s.header}>
-            <TouchableOpacity onPress={() => setShowPreview(false)} style={s.backBtn}>
+            <TouchableOpacity onPress={handleClosePreview} style={s.backBtn}>
               <Feather name="x" size={22} color={C.onPrimary} />
             </TouchableOpacity>
             <View style={s.headerCenter}>
@@ -690,7 +722,10 @@ export default function ReportsScreen() {
               <>
                 <TouchableOpacity
                   style={[s.pvBottomBtn, { borderWidth: 1.5, borderColor: C.cashOut }, busy && { opacity: 0.5 }]}
-                  onPress={() => { setShowPreview(false); handleExport('pdf'); }}
+                  onPress={() => {
+                    setShowPreview(false);
+                    setTimeout(() => handleExport('pdf'), Platform.OS === 'ios' ? 350 : 0);
+                  }}
                   disabled={busy}
                   activeOpacity={0.75}
                 >
@@ -699,7 +734,10 @@ export default function ReportsScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.pvBottomBtn, { borderWidth: 1.5, borderColor: C.cashIn }, busy && { opacity: 0.5 }]}
-                  onPress={() => { setShowPreview(false); handleExport('excel'); }}
+                  onPress={() => {
+                    setShowPreview(false);
+                    setTimeout(() => handleExport('excel'), Platform.OS === 'ios' ? 350 : 0);
+                  }}
                   disabled={busy}
                   activeOpacity={0.75}
                 >
