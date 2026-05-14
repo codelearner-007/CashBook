@@ -28,8 +28,8 @@
 | Plan | Monthly | Yearly | Yearly Savings |
 |---|---|---|---|
 | Free | $0 | $0 | — |
-| Pro | $4.99 / mo | $44.99 / yr | ~25% off |
-| Business | $9.99 / mo | $89.99 / yr | ~25% off |
+| Pro | $4.99 / mo | $41.99 / yr | 30% off |
+| Business | $9.99 / mo | $83.99 / yr | 30% off |
 
 ### Guest Access Permission Levels (Business only)
 
@@ -115,9 +115,9 @@ RevenueCat handles all billing for both App Store (iOS) and Google Play (Android
   - `business` entitlement → Business plan
 - [ ] Set up products in **App Store Connect**:
   - `cashbook_pro_monthly` — $4.99 / month
-  - `cashbook_pro_yearly` — $44.99 / year
+  - `cashbook_pro_yearly` — $41.99 / year
   - `cashbook_business_monthly` — $9.99 / month
-  - `cashbook_business_yearly` — $89.99 / year
+  - `cashbook_business_yearly` — $83.99 / year
 - [ ] Mirror the same 4 products in **Google Play Console**
 - [ ] Install `react-native-purchases` (RevenueCat SDK) in the frontend
 - [ ] On login: identify the user in RevenueCat with their Supabase user ID
@@ -201,7 +201,7 @@ RevenueCat's own dashboard lets you simulate subscription renewals, cancellation
 ### Phase 5 — Plans & Upgrade Screen
 
 - [ ] Build `PlansScreen` (accessible from `PaywallSheet` and Settings):
-  - Toggle: Monthly / Yearly (yearly shows "25% off" badge)
+  - Toggle: Monthly / Yearly (yearly shows "30% off" badge)
   - 3 plan cards: Free · Pro · Business with feature list per plan
   - "Current plan" badge on active plan
   - "Subscribe" / "Upgrade" button per plan → triggers RevenueCat purchase flow

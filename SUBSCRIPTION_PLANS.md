@@ -21,8 +21,8 @@
 | Plan | Monthly | Yearly | Yearly Savings |
 |---|---|---|---|
 | Free | $0 | $0 | — |
-| Pro | $4.99 / mo | $44.99 / yr | ~25% off |
-| Business | $9.99 / mo | $89.99 / yr | ~25% off |
+| Pro | $4.99 / mo | $41.99 / yr | 30% off |
+| Business | $9.99 / mo | $83.99 / yr | 30% off |
 
 ## Plan Rules
 
