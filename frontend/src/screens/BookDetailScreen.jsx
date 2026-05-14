@@ -15,6 +15,7 @@ import { useTheme } from '../hooks/useTheme';
 import { apiGetEntries, apiGetSummary, apiDeleteEntry, apiDeleteAllEntries } from '../lib/api';
 import { useBooks } from '../hooks/useBooks';
 import { useSharedBooks } from '../hooks/useSharing';
+import { useRealtimeEntries } from '../hooks/useRealtimeSync';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import SuccessDialog from '../components/ui/SuccessDialog';
 import DeleteAllEntriesSheet from '../components/ui/DeleteAllEntriesSheet';
@@ -290,6 +291,7 @@ export default function BookDetailScreen() {
   const { C, Font, isDark } = useTheme();
   const s = useMemo(() => makeStyles(C, Font), [C, Font]);
   const qc = useQueryClient();
+  useRealtimeEntries(id);
 
   const [search, setSearch] = useState('');
   const [filterDate, setFilterDate] = useState(null);
@@ -342,11 +344,13 @@ export default function BookDetailScreen() {
     isError: entriesError,
     refetch,
   } = useQuery({
-    queryKey: ['entries', id],
-    queryFn: () => apiGetEntries(id),
-    staleTime: 1000 * 60 * 2,
-    enabled: !!id,
-    retry: 1,
+    queryKey:        ['entries', id],
+    queryFn:         () => apiGetEntries(id),
+    staleTime:       0,
+    refetchInterval: 5000,  // fallback poll — realtime handles it instantly when available
+    refetchOnFocus:  true,
+    enabled:         !!id,
+    retry:           1,
   });
 
   const {
@@ -355,11 +359,13 @@ export default function BookDetailScreen() {
     isError: summaryError,
     refetch: refetchSummary,
   } = useQuery({
-    queryKey: ['summary', id],
-    queryFn: () => apiGetSummary(id),
-    staleTime: 1000 * 60 * 2,
-    enabled: !!id,
-    retry: 1,
+    queryKey:        ['summary', id],
+    queryFn:         () => apiGetSummary(id),
+    staleTime:       0,
+    refetchInterval: 5000,  // fallback poll — realtime handles it instantly when available
+    refetchOnFocus:  true,
+    enabled:         !!id,
+    retry:           1,
   });
 
   const deleteEntry = useMutation({

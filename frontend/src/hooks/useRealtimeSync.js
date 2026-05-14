@@ -2,6 +2,33 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
+// Subscribes to the books table for balance updates.
+// When any collaborator adds/edits/deletes an entry, the DB trigger updates books.net_balance.
+// Subscribing to books (UPDATE only) gives the owner live balance refreshes on the books list.
+// Apply this hook on BooksView.
+export function useRealtimeBooks() {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    let channel;
+    try {
+      channel = supabase
+        .channel('books-updates')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'books',
+        }, () => {
+          qc.invalidateQueries({ queryKey: ['books'] });
+          qc.invalidateQueries({ queryKey: ['shared-books'] });
+        })
+        .subscribe();
+    } catch (_) {}
+
+    return () => { try { if (channel) supabase.removeChannel(channel); } catch (_) {} };
+  }, [qc]);
+}
+
 // Subscribes to book_shares rows where the current user is the recipient.
 // Any INSERT/UPDATE/DELETE instantly invalidates invitation and shared-books caches.
 // Apply this hook on any screen that shows pending invite counts or shared-books lists.

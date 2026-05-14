@@ -12,7 +12,7 @@ import { useBookSort } from '../../hooks/useBookSort';
 import { useAuthStore } from '../../store/authStore';
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile';
 import { useSharedBooks, useLeaveSharedBook, useReceivedInvitations } from '../../hooks/useSharing';
-import { useRealtimeInvitations } from '../../hooks/useRealtimeSync';
+import { useRealtimeInvitations, useRealtimeBooks } from '../../hooks/useRealtimeSync';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import Toast from '../../lib/toast';
 import { shadow } from '../../constants/shadows';
@@ -423,6 +423,7 @@ export default function BooksView({
   const leaveSharedBook = useLeaveSharedBook();
   const { data: receivedInvitations = [] } = useReceivedInvitations();
   useRealtimeInvitations(user?.id);
+  useRealtimeBooks();
   const pendingInviteCount = useMemo(
     () => receivedInvitations.filter(i => i.status === 'pending').length,
     [receivedInvitations]

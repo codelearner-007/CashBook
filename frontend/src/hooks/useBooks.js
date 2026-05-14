@@ -5,9 +5,11 @@ const BOOKS_KEY = ['books'];
 
 export function useBooks() {
   return useQuery({
-    queryKey: BOOKS_KEY,
-    queryFn: apiGetBooks,
-    staleTime: 1000 * 60 * 2,
+    queryKey:        BOOKS_KEY,
+    queryFn:         apiGetBooks,
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 5000,  // fallback poll — realtime handles balance updates instantly when available
   });
 }
 

@@ -1,0 +1,3 @@
+-- Migration 022: placeholder
+-- This migration was applied directly via the Supabase SQL editor.
+-- File created so the CLI migration history can be repaired.
