@@ -188,6 +188,7 @@ export default function NotificationInbox({
   emptySubtitle = 'No notifications yet.',
   fabLabel,
   onFab,
+  applyTopInset = true,
 }) {
   const { C } = useTheme();
 
@@ -248,7 +249,7 @@ export default function NotificationInbox({
   const s = useMemo(() => makeStyles(C), [C]);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView applyTop={applyTopInset} style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.primary} />
 
       {/* Header */}

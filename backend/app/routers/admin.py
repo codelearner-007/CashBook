@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 import httpx
+import logging
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 from app.models.profile import UserWithStats, StatusUpdate
 from app.models.book import BookResponse
 from app.models.notification import NotificationCreate, NotificationResponse
+
+logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = "https://exp.host/push/send"
 EXPO_PUSH_BATCH = 100   # Expo max per request
@@ -41,8 +44,8 @@ async def _send_expo_push(tokens: list[str], title: str, body: str, notification
                         "Content-Type": "application/json",
                     },
                 )
-            except Exception:
-                pass  # push delivery is best-effort; DB record is the source of truth
+            except Exception as exc:
+                logger.warning("Push batch failed (tokens %d–%d): %s", i, i + EXPO_PUSH_BATCH, exc)
 
 router = APIRouter()
 
@@ -308,15 +311,21 @@ async def list_sent_notifications(admin_id: str = Depends(require_superadmin)):
         .execute()
     )
     notifications = result.data or []
+    if not notifications:
+        return []
 
-    # Attach recipient counts
-    output = []
-    for n in notifications:
-        count_res = (
-            sb.table("user_notifications")
-            .select("id", count="exact")
-            .eq("notification_id", n["id"])
-            .execute()
-        )
-        output.append({**n, "recipient_count": count_res.count or 0})
-    return output
+    # Fetch all recipient counts in a single query instead of N+1 per notification
+    notif_ids = [n["id"] for n in notifications]
+    counts_res = (
+        sb.table("user_notifications")
+        .select("notification_id", count="exact")
+        .in_("notification_id", notif_ids)
+        .execute()
+    )
+    # Build a map: notification_id → count using the raw data rows
+    count_map: dict[str, int] = {}
+    for row in (counts_res.data or []):
+        nid = row["notification_id"]
+        count_map[nid] = count_map.get(nid, 0) + 1
+
+    return [{**n, "recipient_count": count_map.get(n["id"], 0)} for n in notifications]

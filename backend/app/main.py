@@ -2,20 +2,22 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.routers import books, entries, reports, upload, profile, admin, contacts, categories, payment_modes, notifications, sharing
+from app.config import settings
 
 app = FastAPI(title="CashBook API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Attach CORS headers manually — CORSMiddleware does not wrap the exception handler layer,
 # so a bare 500 would be returned without them, causing browser CORS errors.
+_origin_header = settings.ALLOWED_ORIGINS if settings.ALLOWED_ORIGINS == "*" else settings.cors_origins[0]
 CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": _origin_header,
     "Access-Control-Allow-Headers": "*",
     "Access-Control-Allow-Methods": "*",
 }

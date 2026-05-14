@@ -329,13 +329,6 @@ export default function BookDetailScreen() {
     setActivePicker(null);
   }, [clearFilter]);
 
-  useEffect(() => {
-    if (activePicker === 'contact') {
-      setContactTab(customers.length > 0 ? 'customers' : 'suppliers');
-      setContactSearch('');
-    }
-  }, [activePicker]);
-
   const activeFilterCount = [filterDate, filterType, filterContact, filterCategory, filterPayment]
     .filter(Boolean).length;
 
@@ -423,6 +416,13 @@ export default function BookDetailScreen() {
 
   const { data: customers = [] } = useCustomers(id);
   const { data: suppliers = [] } = useSuppliers(id);
+
+  useEffect(() => {
+    if (activePicker === 'contact') {
+      setContactTab(customers.length > 0 ? 'customers' : 'suppliers');
+      setContactSearch('');
+    }
+  }, [activePicker, customers, suppliers]);
 
   const bookContacts = useMemo(() =>
     [...new Set(entries.map(e => e.contact_name).filter(Boolean))],

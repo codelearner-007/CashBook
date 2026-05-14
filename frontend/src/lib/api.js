@@ -188,7 +188,7 @@ export const apiUpdateCustomer = async (bookId, contactId, payload) =>
 
 /** DELETE /api/v1/books/:bookId/customers/:id */
 export const apiDeleteCustomer = async (bookId, contactId) =>
-  api.delete(`/api/v1/books/${bookId}/customers/${contactId}`);
+  (await api.delete(`/api/v1/books/${bookId}/customers/${contactId}`)).data;
 
 /** GET /api/v1/books/:bookId/customers/:id/entries */
 export const apiGetCustomerEntries = async (bookId, contactId) =>
@@ -215,7 +215,7 @@ export const apiUpdateSupplier = async (bookId, contactId, payload) =>
 
 /** DELETE /api/v1/books/:bookId/suppliers/:id */
 export const apiDeleteSupplier = async (bookId, contactId) =>
-  api.delete(`/api/v1/books/${bookId}/suppliers/${contactId}`);
+  (await api.delete(`/api/v1/books/${bookId}/suppliers/${contactId}`)).data;
 
 /** GET /api/v1/books/:bookId/suppliers/:id/entries */
 export const apiGetSupplierEntries = async (bookId, contactId) =>
@@ -238,7 +238,7 @@ export const apiUpdateCategory = async (bookId, categoryId, payload) =>
 
 /** DELETE /api/v1/books/:bookId/categories/:categoryId */
 export const apiDeleteCategory = async (bookId, categoryId) =>
-  api.delete(`/api/v1/books/${bookId}/categories/${categoryId}`);
+  (await api.delete(`/api/v1/books/${bookId}/categories/${categoryId}`)).data;
 
 /** GET /api/v1/books/:bookId/categories/:categoryId/entries */
 export const apiGetCategoryEntries = async (bookId, categoryId) =>
@@ -261,7 +261,7 @@ export const apiUpdatePaymentMode = async (bookId, modeId, payload) =>
 
 /** DELETE /api/v1/books/:bookId/payment-modes/:modeId */
 export const apiDeletePaymentMode = async (bookId, modeId) =>
-  api.delete(`/api/v1/books/${bookId}/payment-modes/${modeId}`);
+  (await api.delete(`/api/v1/books/${bookId}/payment-modes/${modeId}`)).data;
 
 /** GET /api/v1/books/:bookId/payment-modes/:modeId/entries */
 export const apiGetPaymentModeEntries = async (bookId, modeId) =>

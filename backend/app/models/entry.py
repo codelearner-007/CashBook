@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional, Literal
 from decimal import Decimal
@@ -61,14 +61,16 @@ class EntryResponse(BaseModel):
     entry_time: str
     created_at: datetime
 
-    @validator("entry_time", pre=True)
+    @field_validator("entry_time", mode="before")
+    @classmethod
     def strip_seconds(cls, v: str) -> str:
         """Normalize HH:MM:SS -> HH:MM (Postgres time columns include seconds)."""
         if v and len(v) == 8:
             return v[:5]
         return v
 
-    @validator("entry_date", pre=True)
+    @field_validator("entry_date", mode="before")
+    @classmethod
     def normalize_date(cls, v) -> str:
         """Accept both date objects and ISO strings."""
         return str(v)[:10]

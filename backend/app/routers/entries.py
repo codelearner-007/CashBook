@@ -3,7 +3,7 @@ from typing import List, Optional
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
 from app.models.entry import EntryCreate, EntryUpdate, EntryResponse, BookSummary
-from app.utils.book_access import get_book_owner_id
+from app.utils.book_access import get_book_owner_id, get_book_access, require_rights
 
 router = APIRouter()
 
@@ -43,7 +43,8 @@ async def create_entry(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    owner_id = get_book_owner_id(sb, book_id, user_id)
+    owner_id, rights = get_book_access(sb, book_id, user_id)
+    require_rights(rights, "view_create_edit")
 
     customer_id = payload.customer_id if not payload.supplier_id else None
     supplier_id = payload.supplier_id if not payload.customer_id else None
@@ -79,7 +80,8 @@ async def update_entry(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    owner_id = get_book_owner_id(sb, book_id, user_id)
+    owner_id, rights = get_book_access(sb, book_id, user_id)
+    require_rights(rights, "view_create_edit")
 
     update_data = {k: v for k, v in payload.model_dump(exclude_unset=True).items()}
     if "amount" in update_data and update_data["amount"] is not None:
@@ -121,7 +123,8 @@ async def delete_all_entries(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    owner_id = get_book_owner_id(sb, book_id, user_id)
+    owner_id, rights = get_book_access(sb, book_id, user_id)
+    require_rights(rights, "view_create_edit_delete")
     sb.table("entries").delete().eq("book_id", book_id).eq("user_id", owner_id).execute()
 
 
@@ -132,7 +135,8 @@ async def delete_entry(
     user_id: str = Depends(get_current_user),
 ):
     sb = get_supabase()
-    owner_id = get_book_owner_id(sb, book_id, user_id)
+    owner_id, rights = get_book_access(sb, book_id, user_id)
+    require_rights(rights, "view_create_edit_delete")
 
     check = (
         sb.table("entries")

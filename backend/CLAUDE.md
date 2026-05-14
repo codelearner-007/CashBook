@@ -34,7 +34,7 @@ backend/
 │   └── utils/
 │       ├── pdf.py            # generate_pdf(...) → bytes
 │       ├── excel.py          # generate_excel(...) → bytes
-│       └── book_access.py    # get_book_owner_id(sb, book_id, user_id) → owner_id
+│       └── book_access.py    # get_book_owner_id / get_book_access / require_rights
 ├── requirements.txt
 ├── Procfile                  # web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ├── .env                      # NEVER commit
@@ -64,6 +64,8 @@ backend/
 SUPABASE_URL=          # Project URL (https://xxx.supabase.co)
 SUPABASE_SERVICE_KEY=  # service_role key (NOT the anon key)
 SUPABASE_JWT_SECRET=   # JWT secret from Project Settings → API
+ALLOWED_ORIGINS=       # Optional: comma-separated CORS origins, e.g. "https://app.example.com"
+                       # Defaults to "*" (allow all) when not set — fine for mobile-only apps
 ```
 
 **Never use the anon key on the backend.** The service key bypasses RLS — always add `user_id` filters manually in every query (defence in depth).
@@ -72,11 +74,14 @@ SUPABASE_JWT_SECRET=   # JWT secret from Project Settings → API
 
 ## Auth Middleware (`app/auth/jwt.py`)
 
+- Supports HS256 (secret-based) and ES256/RS256 (JWKS-based) Supabase tokens
+- JWKS cache has a 1-hour TTL; on unknown `kid`, the cache is cleared and re-fetched once before failing
+- All JWKS fetches use `httpx.AsyncClient` (non-blocking)
+
 ```python
 async def get_current_user(authorization: str = Header(...)) -> str:
     token = authorization.removeprefix("Bearer ").strip()
-    payload = jwt.decode(token, settings.SUPABASE_JWT_SECRET,
-                         algorithms=["HS256"], options={"verify_aud": False})
+    # HS256 path uses SUPABASE_JWT_SECRET; ES256/RS256 fetches JWKS asynchronously
     user_id = payload.get("sub")   # UUID of the authenticated user
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -85,7 +90,7 @@ async def get_current_user(authorization: str = Header(...)) -> str:
 
 **Rule:** Every protected endpoint must declare `user_id: str = Depends(get_current_user)` and filter all DB queries by that `user_id`. Never trust a `user_id` from the request body.
 
-**Shared-book rule:** Routers that handle book data (entries, categories, contacts, payment_modes, reports) must resolve the owner's user_id via `get_book_owner_id(sb, book_id, user_id)` and use the returned `owner_id` for every DB query — never use the raw `user_id` directly. This is what allows collaborators to transparently read and write the owner's data.
+**Shared-book rule:** Routers that handle book data (entries, categories, contacts, payment_modes, reports) must resolve the owner's user_id via `get_book_access(sb, book_id, user_id)` and use the returned `owner_id` for every DB query. Mutating endpoints must also call `require_rights(rights, required_level)` to enforce the collaborator's access level.
 
 ### Superadmin guard (`routers/admin.py`)
 
@@ -347,6 +352,24 @@ sb.table("entries").select("*").eq("book_id", book_id).eq("user_id", user_id).ex
 # ❌ Wrong — missing user_id filter
 sb.table("entries").select("*").eq("book_id", book_id).execute()
 ```
+
+**Shared-book access pattern** (entries, categories, contacts, payment_modes):
+```python
+from app.utils.book_access import get_book_access, require_rights
+
+# Read-only endpoint — any access level is fine
+owner_id, rights = get_book_access(sb, book_id, user_id)
+
+# Create / edit endpoint — requires view_create_edit or higher
+owner_id, rights = get_book_access(sb, book_id, user_id)
+require_rights(rights, "view_create_edit")
+
+# Delete endpoint — requires view_create_edit_delete or owner
+owner_id, rights = get_book_access(sb, book_id, user_id)
+require_rights(rights, "view_create_edit_delete")
+```
+
+`get_book_owner_id` still exists for read-only endpoints that only need the `owner_id`.
 
 **Use DB functions for aggregation:**
 ```python

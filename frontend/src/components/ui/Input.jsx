@@ -30,6 +30,8 @@ export default function AppInput({
   secureText = false,
   multiline = false,
   autoFocus = false,
+  autoCapitalize = 'sentences',
+  autoCorrect = true,
   error,
   style,
   labelColor,
@@ -72,6 +74,8 @@ export default function AppInput({
                 returnKeyType={multiline ? 'default' : 'done'}
                 multiline={multiline}
                 autoFocus={autoFocus}
+                autoCapitalize={autoCapitalize}
+                autoCorrect={autoCorrect}
                 editable={editable}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}

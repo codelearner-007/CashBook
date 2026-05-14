@@ -3,26 +3,32 @@ from jose import jwt, jwk, JWTError
 from app.config import settings
 import httpx
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
+_JWKS_TTL = 3600  # 1 hour — rotate cache after this many seconds
+
 _jwks_cache: dict | None = None
+_jwks_fetched_at: float = 0.0
 
 
-def _get_jwks() -> dict:
-    global _jwks_cache
-    if _jwks_cache is not None:
+async def _get_jwks() -> dict:
+    global _jwks_cache, _jwks_fetched_at
+    now = time.monotonic()
+    if _jwks_cache is not None and (now - _jwks_fetched_at) < _JWKS_TTL:
         return _jwks_cache
     try:
-        resp = httpx.get(
-            f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json",
-            timeout=5.0,
-        )
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+            )
         _jwks_cache = resp.json()
+        _jwks_fetched_at = now
         return _jwks_cache
     except Exception as exc:
         logger.error("Failed to fetch JWKS: %s", exc)
-        return {"keys": []}
+        return _jwks_cache or {"keys": []}
 
 
 async def get_current_user(authorization: str = Header(...)) -> str:
@@ -42,11 +48,20 @@ async def get_current_user(authorization: str = Header(...)) -> str:
         else:
             # ES256 / RS256 — verify via JWKS public key
             kid = header.get("kid")
-            jwks = _get_jwks()
+            jwks = await _get_jwks()
             key_data = next(
                 (k for k in jwks.get("keys", []) if not kid or k.get("kid") == kid),
                 None,
             )
+            if not key_data:
+                # Key not found — JWKS may be stale, force a refresh and retry once
+                global _jwks_cache
+                _jwks_cache = None
+                jwks = await _get_jwks()
+                key_data = next(
+                    (k for k in jwks.get("keys", []) if not kid or k.get("kid") == kid),
+                    None,
+                )
             if not key_data:
                 logger.error("No JWKS key for kid=%s, keys=%s", kid, jwks)
                 raise HTTPException(status_code=401, detail="Unknown signing key")

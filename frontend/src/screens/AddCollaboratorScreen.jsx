@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, TouchableOpacity,
   StatusBar, ScrollView, Switch, ActivityIndicator, Alert, Keyboard,
 } from 'react-native';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
+import SearchBar from '../components/ui/SearchBar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
@@ -75,7 +76,6 @@ export default function AddCollaboratorScreen() {
   }, [selectedUser, rights, screens, addCollaborator, name]);
 
   const canSubmit = !!selectedUser && !addCollaborator.isPending;
-  const [focused, setFocused] = useState(false);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: C.background }]}>
@@ -110,33 +110,13 @@ export default function AddCollaboratorScreen() {
           FIND PERSON
         </Text>
 
-        <View style={[
-          styles.searchBox,
-          { backgroundColor: C.card, borderColor: focused ? C.borderFocus : C.border },
-        ]}>
-          <Feather name="search" size={17} color={C.textSubtle} />
-          <TextInput
-            style={[styles.searchInput, { color: C.text, fontFamily: Font.regular }]}
-            placeholder="Search by email address…"
-            placeholderTextColor={C.textSubtle}
-            value={searchInput}
-            onChangeText={handleSearchChange}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoCorrect={false}
-          />
-          {isSearching && <ActivityIndicator size="small" color={C.primary} />}
-          {searchInput.length > 0 && !isSearching && (
-            <TouchableOpacity
-              onPress={() => { setSearchInput(''); setDebouncedQ(''); setSelectedUser(null); }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="x" size={16} color={C.textSubtle} />
-            </TouchableOpacity>
-          )}
-        </View>
+        <SearchBar
+          placeholder="Search by name or email…"
+          value={searchInput}
+          onChangeText={handleSearchChange}
+          onClear={() => { setSearchInput(''); setDebouncedQ(''); setSelectedUser(null); }}
+          style={{ marginHorizontal: 0, marginBottom: 10 }}
+        />
 
         {/* Search results */}
         {debouncedQ.length >= 2 && !isSearching && searchResults.length === 0 && (
@@ -346,14 +326,6 @@ const styles = StyleSheet.create({
   headerSub:   { fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 18, marginTop: 1 },
 
   stepLabel: { fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, marginLeft: 2 },
-
-  // Search
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1.5, borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 13, marginBottom: 10,
-  },
-  searchInput: { flex: 1, fontSize: 15, lineHeight: 22 },
 
   noResult: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

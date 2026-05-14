@@ -56,7 +56,7 @@ async def update_customer(book_id: str, contact_id: str, payload: ContactUpdate,
     update_data = {k: v for k, v in payload.model_dump(exclude_unset=True).items()}
     if update_data:
         sb.table("customers").update(update_data).eq("id", contact_id).eq("user_id", owner_id).execute()
-    return sb.table("customers").select("*").eq("id", contact_id).limit(1).execute().data[0]
+    return sb.table("customers").select("*").eq("id", contact_id).eq("book_id", book_id).eq("user_id", owner_id).limit(1).execute().data[0]
 
 
 @router.delete("/{book_id}/customers/{contact_id}", status_code=204)
@@ -120,7 +120,7 @@ async def update_supplier(book_id: str, contact_id: str, payload: ContactUpdate,
     update_data = {k: v for k, v in payload.model_dump(exclude_unset=True).items()}
     if update_data:
         sb.table("suppliers").update(update_data).eq("id", contact_id).eq("user_id", owner_id).execute()
-    return sb.table("suppliers").select("*").eq("id", contact_id).limit(1).execute().data[0]
+    return sb.table("suppliers").select("*").eq("id", contact_id).eq("book_id", book_id).eq("user_id", owner_id).limit(1).execute().data[0]
 
 
 @router.delete("/{book_id}/suppliers/{contact_id}", status_code=204)

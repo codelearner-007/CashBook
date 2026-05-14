@@ -81,14 +81,17 @@ async function resolveProfile(session) {
       .eq('id', session.user.id)
       .single();
     if (data) return data;
-    // profiles table not set up yet — build minimal profile from Google session
+    // profiles table not set up yet — build minimal profile from Google session.
+    // Preserve role from session metadata so superadmin is not downgraded to 'user'
+    // when the backend is temporarily unreachable.
     const u = session.user;
+    const role = u.user_metadata?.role || u.app_metadata?.role || 'user';
     return {
       id: u.id,
       email: u.email,
       full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email,
       avatar_url: u.user_metadata?.avatar_url || null,
-      role: 'user',
+      role,
       is_active: true,
     };
   }
