@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, memo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable, Image, Dimensions,
+  StatusBar, TextInput, Modal, Alert, ActivityIndicator, Pressable, Image, Dimensions, Animated,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import SafeAreaView from '../ui/AppSafeAreaView';
@@ -123,6 +123,25 @@ const XIcon = ({ color, size = 16 }) => (
     <View style={{ position: 'absolute', width: size, height: 2, backgroundColor: color, borderRadius: 1, transform: [{ rotate: '-45deg' }] }} />
   </View>
 );
+
+const AnimatedChevron = memo(({ color }) => {
+  const bounce = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounce, { toValue: 3, duration: 600, useNativeDriver: true }),
+        Animated.timing(bounce, { toValue: 0, duration: 600, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [bounce]);
+  return (
+    <Animated.View style={{ transform: [{ translateY: bounce }] }}>
+      <Feather name="chevron-down" size={12} color={color} />
+    </Animated.View>
+  );
+});
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -645,9 +664,12 @@ export default function BooksView({
               <Text style={s.bizName} numberOfLines={1}>{userName || 'My Account'}</Text>
               {sharedBooks.length > 0 ? (
                 <TouchableOpacity onPress={() => setShowWorkspaceSwitcher(true)} activeOpacity={0.7}>
-                  <Text style={s.bizSub}>
-                    {activeWorkspace === 'shared' ? 'Shared Books ▾' : 'Personal Workspace ▾'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Text style={s.bizSub}>
+                      {activeWorkspace === 'shared' ? 'Shared Books' : 'Personal Workspace'}
+                    </Text>
+                    <AnimatedChevron color={C.onPrimaryMuted} />
+                  </View>
                 </TouchableOpacity>
               ) : (
                 <Text style={s.bizSub}>Personal Workspace</Text>
