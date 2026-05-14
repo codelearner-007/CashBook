@@ -12,19 +12,23 @@ export const categoryKeys = {
 
 export function useCategories(bookId) {
   return useQuery({
-    queryKey: categoryKeys.all(bookId),
-    queryFn:  () => apiGetCategories(bookId),
-    staleTime: 1000 * 60 * 2,
-    enabled:  !!bookId,
+    queryKey:        categoryKeys.all(bookId),
+    queryFn:         () => apiGetCategories(bookId),
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,
+    enabled:         !!bookId,
   });
 }
 
 export function useCategoryEntries(bookId, categoryId) {
   return useQuery({
-    queryKey: categoryKeys.entries(bookId, categoryId),
-    queryFn:  () => apiGetCategoryEntries(bookId, categoryId),
-    staleTime: 1000 * 60 * 2,
-    enabled:  !!bookId && !!categoryId,
+    queryKey:        categoryKeys.entries(bookId, categoryId),
+    queryFn:         () => apiGetCategoryEntries(bookId, categoryId),
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,
+    enabled:         !!bookId && !!categoryId,
   });
 }
 

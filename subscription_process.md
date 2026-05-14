@@ -1,282 +1,331 @@
-# CashBook — Subscription & Offline/Online Plan
+# CashBook — Subscription Plan & Remaining Development Roadmap
 
-> **Purpose:** Defines subscription tiers, what each user type can do, and how offline vs online data is handled.
-> No code changes yet — this is the planning foundation before any implementation begins.
-
----
-
-## Table of Contents
-
-1. [App Distribution](#1-app-distribution)
-2. [Tier Comparison at a Glance](#2-tier-comparison-at-a-glance)
-3. [Tier Details](#3-tier-details)
-4. [Offline User — How It Works](#4-offline-user--how-it-works)
-5. [Online User — How It Works](#5-online-user--how-it-works)
-6. [Onboarding Flow](#6-onboarding-flow)
-7. [Feature Gates & Paywalls](#7-feature-gates--paywalls)
-8. [Subscription Data Model](#8-subscription-data-model)
-9. [Code Changes Required (Summary)](#9-code-changes-required-summary)
-10. [Open Questions](#10-open-questions)
+> **This is the single source of truth** for what the subscription system looks like and what remains to be built before launch.
+> Plans are finalized. Sequence below is the order of implementation.
 
 ---
 
-## 1. App Distribution
+## Finalized Subscription Plans
 
-- Free to download on **Google Play Store** and **Apple App Store**
-- No credit card required — works immediately after install
-- Offline mode is available from the first launch with no account needed
+### Feature Matrix
 
----
+| Feature | Free | Pro | Business |
+|---|---|---|---|
+| Books | 3 | 15 | Unlimited |
+| Entries | Unlimited | Unlimited | Unlimited |
+| Storage | Local only | Cloud sync | Cloud sync |
+| Multi-device | No | Yes | Yes |
+| PDF / Excel Export | No | Yes | Yes |
+| Customers & Suppliers | View only | Full access | Full access |
+| Categories | View only | Full access | Full access |
+| Reports | View only (no download / share) | Full access | Full access |
+| Shared Books (Team) | No | Yes | Yes |
+| Backup History | No | 7 days | 30 days |
+| Guest Access | No | No | Up to 10 guests (View / Edit / Full — owner sets per guest) |
 
-## 2. Tier Comparison at a Glance
+### Pricing
 
-| Feature                        | Free (Offline) |   Starter    |     Pro      |   Business   |
-| ------------------------------ | :------------: | :----------: | :----------: | :----------: |
-| **Price**                      |      $0        |  ~$2–3/mo    |  ~$5–6/mo    | ~$10–15/mo   |
-| **Account required**           |      No        |     Yes      |     Yes      |     Yes      |
-| **Data storage**               |  Device only   |    Cloud     |    Cloud     |    Cloud     |
-| **Cashbooks**                  |       1        |      3       |  Unlimited   |  Unlimited   |
-| **Entries per book**           |   Unlimited    |  Unlimited   |  Unlimited   |  Unlimited   |
-| **Categories**                 |       5        |  Unlimited   |  Unlimited   |  Unlimited   |
-| **Cloud sync & backup**        |       ❌        |      ✅       |      ✅       |      ✅       |
-| **Multi-device access**        |       ❌        |      ✅       |      ✅       |      ✅       |
-| **Customers & suppliers**      |       ❌        |    Basic     |     Full     |     Full     |
-| **Reports (on screen)**        |       ❌        |      ✅       |      ✅       |      ✅       |
-| **PDF / Excel export**         |       ❌        |      ❌       |      ✅       |      ✅       |
-| **Photo attachments**          |       ❌        |      ❌       |      ✅       |      ✅       |
-| **Advanced filters & search**  |       ❌        |      ❌       |      ✅       |      ✅       |
-| **Team members**               |       ❌        |      ❌       |      ❌       |   Up to 5    |
-| **Shared cashbooks**           |       ❌        |      ❌       |      ❌       | ✅ (future)  |
-| **Business profile on reports**|       ❌        |      ❌       |      ❌       |      ✅       |
-| **Priority support**           |       ❌        |      ❌       |      ✅       |      ✅       |
+| Plan | Monthly | Yearly | Yearly Savings |
+|---|---|---|---|
+| Free | $0 | $0 | — |
+| Pro | $4.99 / mo | $44.99 / yr | ~25% off |
+| Business | $9.99 / mo | $89.99 / yr | ~25% off |
 
-> **Business tier** is planned for a later release. Design for it now, but do not build it in v1.
+### Guest Access Permission Levels (Business only)
 
----
-
-## 3. Tier Details
-
-### Tier 0 — Free (Offline)
-
-**Price:**       $0 forever
-**Target user:** Anyone who just installed the app and hasn't committed yet
-
-**What they get:**
-- 1 cashbook stored entirely on their device
-- Unlimited entries, cash in / cash out, net balance view
-- Up to 5 categories
-- No login, no internet required
-
-**The catch:**
-- If the app is uninstalled or the device is lost → **all data is permanently gone**
-- A persistent banner reminds them: *"Your data exists only on this device. Subscribe to back it up."*
+| Permission | View entries | Add entries | Edit / Delete | Manage books & categories |
+|---|---|---|---|---|
+| View only | Yes | No | No | No |
+| Edit | Yes | Yes | Yes | No |
+| Full | Yes | Yes | Yes | Yes |
 
 ---
 
-### Tier 1 — Starter
+## What Is Already Complete
 
-**Price:**       ~$2–3 / month  or  ~$20 / year
-**Target user:** Individuals who want a safety net and use 2–3 books
-
-**What they get (on top of Free):**
-- Account (Google login or Email OTP)
-- Up to 3 cashbooks synced to the cloud
-- Cloud backup — restore on any device
-- Basic customers & suppliers list
-- Unlimited categories
-- View reports on screen (no export)
-
-**Still locked:**
-- PDF / Excel export
-- Photo attachments on entries
-
----
-
-### Tier 2 — Pro
-
-**Price:**       ~$5–6 / month  or  ~$50 / year
-**Target user:** Freelancers, shop owners, anyone managing finances seriously
-
-**What they get (on top of Starter):**
-- Unlimited cashbooks
-- PDF export and Excel export
-- Photo attachments on entries (receipts, invoices)
-- Full customers & suppliers management
-- Advanced filters and date-range search
-- Priority support
+| Area | Status |
+|---|---|
+| Login (Google OAuth + Email OTP) | Done |
+| Books CRUD (create, rename, delete, sort, drag reorder) | Done |
+| Book Detail Screen (entries list, filters, balance) | Done |
+| Add / Edit / Delete Entry | Done |
+| Entry Detail Screen | Done |
+| Category system (CRUD, profile, balance) | Done |
+| Customers & Suppliers (CRUD, contact picker) | Done |
+| Reports (view, bar chart, PDF export, Excel export) | Done |
+| Book Settings (field visibility, categories, contacts, payment modes) | Done |
+| Settings Screen | Done |
+| Profile Screen (name, avatar, phone) | Done |
+| Admin Dashboard (users, books, status toggle) | Done |
+| Real-time sync for collaborator sharing (hooks) | Done |
+| Theme (dark / light toggle) | Done |
 
 ---
 
-### Tier 3 — Business *(v2, not in first release)*
+## What Remains — In Sequence
 
-**Price:**       ~$10–15 / month
-**Target user:** Small businesses with multiple staff members
-
-**What they get (on top of Pro):**
-- Up to 5 team members per account
-- Shared cashbooks (collaborative editing)
-- Business profile and logo shown on exported reports
-- Admin dashboard with usage overview
+Work through these phases **in order**. Do not start a later phase before the previous is complete.
 
 ---
 
-## 4. Offline User — How It Works
+### Phase 1 — Local SQLite Database (Free Tier Foundation)
 
-### Where data lives
-All data is stored in **SQLite on the device** using `expo-sqlite`. No backend calls are made. The app runs fully without internet access.
+The free tier stores all data on-device only. This requires a local database layer.
 
-### When they uninstall
-Data is permanently deleted. The app must make this risk visible at all times — not buried in settings, but shown as a soft warning on the main screen.
-
-### When they decide to subscribe (Offline → Cloud migration)
-
-1. User taps "Subscribe" or hits a feature gate
-2. They complete account creation (Google or Email OTP)
-3. App checks: does local SQLite data exist?
-4. If yes → prompt: *"We found data on this device. Upload it to your new cloud account?"*
-5. User confirms → app calls a **bulk migration API endpoint**
-6. Endpoint inserts all local books and entries into Supabase under their new `user_id`
-7. Local SQLite data is **kept** (not deleted) and becomes the offline cache going forward
-8. From this point on, **Supabase is the source of truth**
+- [ ] Install `expo-sqlite` and create a local DB schema mirroring the Supabase tables:
+  `books`, `entries`, `categories`, `customers`, `suppliers`
+- [ ] Build a **data source abstraction layer**: every read/write call goes through a router that checks the user's tier — free users hit SQLite, paid users hit the API
+- [ ] Implement local CRUD for: books, entries, categories, customers, suppliers
+- [ ] Net balance calculation done locally (no trigger — computed from entries sum)
+- [ ] Show a persistent banner on the Books screen for free users:
+  *"Your data is stored only on this device. Upgrade to back it up to the cloud."*
+- [ ] When a free user upgrades, **migrate local data to cloud** automatically:
+  - Prompt: *"We found data on this device. Upload it to your new account?"*
+  - On confirm: call `POST /api/v1/migrate/offline` with all local books + entries
+  - On success: local SQLite becomes read-only cache; Supabase becomes source of truth
 
 ---
 
-## 5. Online User — How It Works
+### Phase 2 — Subscription Data Model
 
-### Where data lives
-- **Primary:**   Supabase (PostgreSQL) via the FastAPI backend
-- **Secondary:** Local SQLite cache for when there is no internet
+- [ ] **Supabase migration:** add these columns to `profiles`:
 
-### Sync behavior
+  | Column | Type | Values |
+  |---|---|---|
+  | `subscription_tier` | text | `FREE` / `PRO` / `BUSINESS` |
+  | `subscription_status` | text | `active` / `expired` / `cancelled` |
+  | `billing_cycle` | text | `monthly` / `yearly` / `none` |
+  | `subscribed_at` | timestamp | Date of first paid subscription |
+  | `expires_at` | timestamp | End of current billing period |
+  | `revenuecat_user_id` | text | Links profile to RevenueCat |
 
-| State        | Read from          | Write to                  |
-| ------------ | ------------------ | ------------------------- |
-| Online       | API (Supabase)     | API directly              |
-| Offline      | Local SQLite cache | Local queue               |
-| Back online  | —                  | Flush local queue to API  |
-
-**Conflict resolution (v1):** Last write wins. Sufficient for a personal finance app used by one person across devices.
-
-### Multi-device
-Every device syncs through the backend. No peer-to-peer sync. Both devices stay in sync as long as they are online.
+- [ ] **Backend:** add `subscription_tier` and `subscription_status` to the profile response model
+- [ ] **Frontend:** add `subscription_tier`, `subscription_status`, `expires_at` to `authStore`
+- [ ] Store `subscription_tier` in `expo-secure-store` locally so gates work offline
 
 ---
 
-## 6. Onboarding Flow
+### Phase 3 — RevenueCat Integration
 
-```
-App installed
-      │
-      ▼
-Onboarding slides  (2–3 screens explaining CashBook)
-      │
-      ▼
-┌──────────────────────────────────────────────┐
-│           How do you want to start?          │
-│                                              │
-│   [ Start for Free ]     [ Sign Up / Log In ]│
-└──────────┬───────────────────────┬───────────┘
-           │                       │
-           ▼                       ▼
-     Offline mode             Auth screen
-     (1 book,                 (Google / Email OTP)
-      device only)                  │
-                                    ▼
-                          7-day free Pro trial offered
-                                    │
-                                    ▼
-                             Home screen (Books)
-```
+RevenueCat handles all billing for both App Store (iOS) and Google Play (Android).
 
-**Trial note:** After the 7-day trial, users are downgraded to Starter unless they subscribe to a paid plan.
+- [ ] Create RevenueCat account and project
+- [ ] Configure entitlements in RevenueCat dashboard:
+  - `pro` entitlement → Pro plan
+  - `business` entitlement → Business plan
+- [ ] Set up products in **App Store Connect**:
+  - `cashbook_pro_monthly` — $4.99 / month
+  - `cashbook_pro_yearly` — $44.99 / year
+  - `cashbook_business_monthly` — $9.99 / month
+  - `cashbook_business_yearly` — $89.99 / year
+- [ ] Mirror the same 4 products in **Google Play Console**
+- [ ] Install `react-native-purchases` (RevenueCat SDK) in the frontend
+- [ ] On login: identify the user in RevenueCat with their Supabase user ID
+- [ ] **Backend webhook:** `POST /api/v1/webhooks/revenuecat`
+  - On `INITIAL_PURCHASE` or `RENEWAL` → update `subscription_tier`, `subscription_status`, `expires_at` in Supabase
+  - On `CANCELLATION` or `EXPIRATION` → downgrade tier to `FREE`
+- [ ] Add migration: `POST /api/v1/migrate/offline` endpoint for local→cloud data upload
 
 ---
 
-## 7. Feature Gates & Paywalls
+### Phase 3b — Testing Strategy (Local vs Cloud)
 
-### How gates work
-The app reads `subscription_tier` from local storage (synced from the Supabase profile). When a user attempts a gated action, a **paywall bottom sheet** slides up explaining what they get if they upgrade.
+Use this throughout all phases to test both tiers without real purchases.
 
-### Gate rules
+#### During Development (no RevenueCat needed)
 
-```
-FREE      →  offline only  |  1 book        |  5 categories  |  no export  |  no attachments
-STARTER   →  cloud         |  3 books       |  unlimited cat  |  no export  |  no attachments
-PRO       →  cloud         |  unlimited     |  unlimited cat  |  export     |  attachments
-BUSINESS  →  everything    |  + team (future)
-```
+Add a **dev-only tier switcher** row to SettingsScreen, visible only when `__DEV__ === true`:
 
-### Paywall triggers
+- Renders a row: *"Dev: Switch Tier → Free / Pro / Business"*
+- Tapping an option writes `subscription_tier` to `authStore` and `expo-secure-store`
+- `canAccess()` reads from `authStore` → all gates and paywalls reflect the change instantly
+- No backend call, no purchase, works fully offline
+- Automatically hidden in production builds (`__DEV__` is `false` in EAS production)
 
-| User action                    | Blocked for    | Message shown                                         |
-| ------------------------------ | -------------- | ----------------------------------------------------- |
-| Add a 2nd book                 | Free           | "Upgrade to Starter — 3 books + cloud backup"         |
-| Add a 4th book                 | Starter        | "Upgrade to Pro — unlimited cashbooks"                |
-| Export to PDF or Excel         | Free + Starter | "Upgrade to Pro to export reports"                    |
-| Add a photo to an entry        | Free + Starter | "Upgrade to Pro to attach receipts and invoices"      |
-| Open app on a second device    | Free           | "Upgrade to Starter for multi-device access"          |
-| Add a 6th category             | Free           | "Upgrade to Starter for unlimited categories"         |
+This lets you flip between all 3 tiers in seconds to test every gate and paywall screen during Phases 4–7.
 
-### Purchase handling
-- **iOS:**     Apple In-App Purchase via **RevenueCat SDK**
-- **Android:** Google Play Billing via **RevenueCat SDK**
-- RevenueCat manages entitlements across both platforms. The app reads the entitlement — it never handles raw store receipts directly.
+#### During Store Testing (after RevenueCat is integrated)
 
----
+| Platform | How to test purchases for free |
+|---|---|
+| iOS | Create a **Sandbox Apple ID** in App Store Connect — makes real purchases for $0 in TestFlight / Simulator |
+| Android | Add your account as a **License Tester** in Google Play Console — purchases go through with no real charge |
 
-## 8. Subscription Data Model
+RevenueCat's own dashboard lets you simulate subscription renewals, cancellations, and expirations on any sandbox purchase — use this to test the webhook and tier downgrade flows.
 
-Fields added to the `profiles` table:
+#### Recommended Testing Order
 
-| Field                  | Type      | Values / Notes                              |
-| ---------------------- | --------- | ------------------------------------------- |
-| `subscription_tier`    | text      | `FREE` / `STARTER` / `PRO` / `BUSINESS`     |
-| `subscription_status`  | text      | `active` / `expired` / `cancelled` / `trial`|
-| `trial_ends_at`        | timestamp | Set on first account creation               |
-| `subscribed_at`        | timestamp | Date of first paid subscription             |
-| `expires_at`           | timestamp | When the current billing period ends        |
-| `revenuecat_user_id`   | text      | Links the profile to RevenueCat             |
-
-`subscription_tier` is also stored locally so gates work without an internet connection.
+1. Dev tier switcher → test all gates and paywall UI (Phases 4–7)
+2. RevenueCat sandbox → test the actual purchase and webhook flow (Phase 3)
+3. TestFlight / Play Internal Testing → full end-to-end before public release (Phase 9)
 
 ---
 
-## 9. Code Changes Required (Summary)
+### Phase 4 — Feature Gates & Paywall UI
 
-### Frontend
-- [ ] Add `expo-sqlite` for local data layer (offline mode)
-- [ ] Add `subscription_tier` and `subscription_status` to `authStore`
-- [ ] Build `canAccess(feature, tier)` utility for feature gate checks
-- [ ] Build reusable `PaywallSheet` bottom sheet component
-- [ ] Integrate RevenueCat SDK (`react-native-purchases`)
-- [ ] Build offline write queue + reconnect sync logic
-- [ ] Build offline → cloud migration screen (shown after first login when local data exists)
+- [ ] Build `canAccess(feature)` utility — reads `subscription_tier` from `authStore` and returns `true` / `false`
 
-### Backend
-- [ ] Add subscription fields to `profiles` table
-- [ ] Add RevenueCat webhook endpoint (`POST /api/v1/webhooks/revenuecat`)
-- [ ] Add bulk-import migration endpoint (`POST /api/v1/migrate/offline`)
-- [ ] Enforce tier limits on book count at `POST /api/v1/books`
-- [ ] Enforce tier limits on export endpoints
+  | Feature key | Free | Pro | Business |
+  |---|---|---|---|
+  | `add_book` (beyond 3) | ❌ | ❌ (beyond 15) | ✅ |
+  | `cloud_sync` | ❌ | ✅ | ✅ |
+  | `multi_device` | ❌ | ✅ | ✅ |
+  | `export_pdf_excel` | ❌ | ✅ | ✅ |
+  | `customers_suppliers_write` | ❌ | ✅ | ✅ |
+  | `categories_write` | ❌ | ✅ | ✅ |
+  | `reports_download_share` | ❌ | ✅ | ✅ |
+  | `shared_books` | ❌ | ✅ | ✅ |
+  | `backup_history` | ❌ | ✅ (7 days) | ✅ (30 days) |
+  | `guest_access` | ❌ | ❌ | ✅ (up to 10) |
 
-### Supabase
-- [ ] New migration: add subscription columns to `profiles`
-- [ ] Review RLS policies if any need to reflect tier access
+- [ ] Build reusable `PaywallSheet` bottom sheet component:
+  - Shows what plan unlocks the feature
+  - "See Plans" button → navigates to Plans screen
+  - "Maybe Later" dismisses
 
-### Third-party setup
-- [ ] Create RevenueCat account and configure entitlements
-- [ ] Set up products in App Store Connect: `starter_monthly`, `starter_yearly`, `pro_monthly`, `pro_yearly`
-- [ ] Mirror products in Google Play Console
+- [ ] Wire gates at each touch point:
+  - FAB on BooksScreen: if free user has 3 books → `PaywallSheet` (Pro)
+  - Pro user has 15 books → `PaywallSheet` (Business)
+  - "+ Add" in Customers & Suppliers tab (free) → `PaywallSheet` (Pro)
+  - "+ Add" in Categories tab (free) → `PaywallSheet` (Pro)
+  - Export buttons in ReportsScreen (free) → `PaywallSheet` (Pro)
+  - Share button in ReportsScreen (free) → `PaywallSheet` (Pro)
+  - Invite Guest button (free + pro) → `PaywallSheet` (Business)
+
+- [ ] **Backend enforcement** (defence in depth — never trust client alone):
+  - `POST /api/v1/books` → check book count vs tier limit; return `403` if exceeded
+  - Export endpoints → check tier; return `403` if free
 
 ---
 
-## 10. Open Questions
+### Phase 5 — Plans & Upgrade Screen
 
-Decide these before any implementation starts:
+- [ ] Build `PlansScreen` (accessible from `PaywallSheet` and Settings):
+  - Toggle: Monthly / Yearly (yearly shows "25% off" badge)
+  - 3 plan cards: Free · Pro · Business with feature list per plan
+  - "Current plan" badge on active plan
+  - "Subscribe" / "Upgrade" button per plan → triggers RevenueCat purchase flow
+  - Restore Purchases link (required by App Store rules)
+- [ ] Add **Subscription row** to SettingsScreen under Account section:
+  - Shows: current plan + renewal date
+  - Tap → `PlansScreen`
+- [ ] On successful purchase:
+  - RevenueCat webhook fires → backend updates Supabase
+  - Frontend polls or listens for `authStore` update → UI refreshes instantly
 
-- [ ] **Free trial:**        Offer 7-day Pro trial for all new accounts? *(Recommended: yes)*
-- [ ] **Pricing:**           Confirm exact USD prices and whether to localize for specific regions
-- [ ] **Lifetime deal:**     Offer a one-time purchase option for early adopters?
-- [ ] **Simplified v1:**     Launch with only Free + Pro (skip Starter) to reduce complexity?
-- [ ] **One-time export:**   Allow a single manual export for Free offline users as a goodwill feature?
-- [ ] **Trial after import:** If a Free user migrates local data then subscribes, do they still get the 7-day trial?
+---
+
+### Phase 6 — Guest Access (Business Feature)
+
+- [ ] **Database migration:** create `book_guests` table:
+
+  | Column | Type | Notes |
+  |---|---|---|
+  | `id` | uuid | PK |
+  | `book_id` | uuid | FK → books |
+  | `owner_id` | uuid | FK → profiles (the Business user) |
+  | `guest_user_id` | uuid | FK → profiles (the invitee) |
+  | `permission` | text | `view` / `edit` / `full` |
+  | `invited_at` | timestamp | |
+  | `accepted_at` | timestamp | null until accepted |
+
+- [ ] **Backend endpoints:**
+  - `POST /api/v1/books/:id/guests` — invite a guest by email
+  - `GET /api/v1/books/:id/guests` — list all guests for a book
+  - `PATCH /api/v1/books/:id/guests/:guest_id` — change permission level
+  - `DELETE /api/v1/books/:id/guests/:guest_id` — remove guest
+  - `GET /api/v1/me/shared-books` — list books shared with the logged-in user
+
+- [ ] **Frontend — Book Settings → Guests tab** (Business plan only):
+  - List of invited guests with their permission level
+  - Change permission dropdown per guest (View / Edit / Full)
+  - Remove guest button
+  - "+ Invite Guest" → enter email → send invite
+  - Shows remaining guest slots (e.g. "7 of 10 used")
+
+- [ ] **Guest experience:**
+  - Guest receives email invite (Supabase email or custom)
+  - On login, guest sees a "Shared Books" section on their BooksScreen
+  - Guest can access the owner's cloud books per their permission level
+  - Guest's own books remain local (Free tier) unless they have their own subscription
+
+- [ ] Enforce max 10 guests per Business account on both backend and frontend
+
+---
+
+### Phase 7 — Backup History
+
+- [ ] **Backend:**
+  - Pro: expose last 7 days of entry history with restore option
+  - Business: expose last 30 days
+  - `GET /api/v1/books/:id/backups` — list available restore points
+  - `POST /api/v1/books/:id/backups/restore` — restore to a specific point
+
+- [ ] **Frontend — Backup & Sync screen** (Settings → Backup & Sync):
+  - Currently a TODO row in SettingsScreen — implement it
+  - Shows last backup time
+  - List of restore points (7 or 30 days depending on plan)
+  - "Restore" button per restore point with confirmation sheet
+  - Free users see locked state + upgrade prompt
+
+---
+
+### Phase 8 — Remaining Incomplete Screens
+
+These screens exist but are skeleton / TODO:
+
+- [ ] **BusinessSettingsScreen** (`/(app)/settings/business`):
+  - Business name, address, logo, tax number
+  - Used for PDF report headers
+  - `PUT /api/v1/profile/business` endpoint
+
+- [ ] **CurrencyScreen** (`/(app)/settings/currency`):
+  - List of currencies with symbol and name
+  - Selected currency stored in profile
+  - Applied to all amount displays app-wide
+
+- [ ] **SettingsScreen — Support rows** (currently no-op):
+  - **Help & FAQ** → in-app FAQ screen or link to web page
+  - **Rate the App** → `expo-store-review` (native rating prompt)
+  - **Share App** → `expo-sharing` share sheet with store link
+
+- [ ] **EntryDetailScreen — Backup Entry** (currently TODO in ⋮ menu):
+  - Export single entry as PDF or share as text
+  - Gate: export requires Pro / Business
+
+---
+
+### Phase 9 — App Store & Play Store Launch Prep
+
+- [ ] Configure **EAS Build** (`eas.json`) for production builds
+- [ ] Set app version, bundle ID, package name
+- [ ] Create app icons (all required sizes for iOS + Android)
+- [ ] Create splash screens
+- [ ] Write **App Store listing**:
+  - App name, subtitle, description, keywords
+  - 6.7" and 5.5" iPhone screenshots
+  - iPad screenshots (if supporting iPad)
+- [ ] Write **Google Play listing**:
+  - Short + full description, feature graphic
+  - Phone screenshots (multiple aspect ratios)
+- [ ] Privacy Policy page (required by both stores) — describes what data is collected
+- [ ] Terms of Service page
+- [ ] Submit for **TestFlight** (iOS beta) before public release
+- [ ] Submit for **Google Play Internal Testing** before public release
+- [ ] Submit for App Store review + Google Play review
+
+---
+
+## Summary — Remaining Work at a Glance
+
+| Phase | What | Complexity |
+|---|---|---|
+| 1 | Local SQLite for free tier + offline → cloud migration | High |
+| 2 | Subscription data model (Supabase + backend + authStore) | Low |
+| 3 | RevenueCat setup + webhook + store products | Medium |
+| 4 | Feature gates + PaywallSheet | Medium |
+| 5 | Plans screen + upgrade flow + subscription in settings | Medium |
+| 6 | Guest access (DB, backend, frontend) | High |
+| 7 | Backup history (backend + UI) | Medium |
+| 8 | Remaining incomplete screens (Business, Currency, Help, Rate) | Low |
+| 9 | App Store + Play Store launch prep | Medium |

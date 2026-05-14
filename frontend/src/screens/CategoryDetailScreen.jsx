@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useCategoryEntries } from '../hooks/useCategories';
+import { useRealtimeEntries } from '../hooks/useRealtimeSync';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ export default function CategoryDetailScreen() {
     setCollapsed(prev => ({ ...prev, [date]: !prev[date] }));
   }, []);
 
+  useRealtimeEntries(bookId);
   const { data: entries = [], isLoading, refetch } = useCategoryEntries(bookId, categoryId);
 
   const totalIn  = entries.reduce((s, e) => s + (e.type === 'in'  ? e.amount : 0), 0);

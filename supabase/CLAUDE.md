@@ -35,6 +35,9 @@ Supabase provides three things for CashBook:
 17. `supabase/migrations/019_push_tokens.sql` — Expo push tokens table, unique(user_id, token), RLS
 18. `supabase/migrations/020_book_sharing.sql` — `book_shares` table; owner shares a book with a recipient; configurable `screens` JSONB and `rights` level; unique(book_id, shared_with_id); two RLS policies (owner: ALL, recipient: SELECT)
 19. `supabase/migrations/021_sharing_status.sql` — adds `status` column (`pending`|`accepted`) to `book_shares`; backfills existing rows to `accepted`; adds RLS UPDATE policy for recipients to respond to invitations. **Invitation flow:** accept → `status='accepted'`; decline → row is deleted (no rejected state stored)
+20. `supabase/migrations/023_collaborator_entries_rls.sql` — SELECT policy on `entries` for accepted collaborators; required for Supabase Realtime events
+21. `supabase/migrations/024_realtime_book_shares.sql` — adds `book_shares`, `entries`, and `books` tables to the `supabase_realtime` publication
+22. `supabase/migrations/025_collaborator_books_rls.sql` — SELECT policy on `books` for accepted collaborators; required so Supabase Realtime delivers `books` UPDATE events (field-settings toggles) to collaborators in real time
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -239,8 +242,28 @@ create policy "Users update own profile"
 create policy "Users own their books" on public.books
   for all using (auth.uid() = user_id);
 
+-- migration 025: collaborators can SELECT books shared with them (required for Realtime)
+create policy "collaborators can view books" on public.books
+  for select using (
+    auth.uid() = user_id
+    OR EXISTS (
+      SELECT 1 FROM public.book_shares bs
+      WHERE bs.book_id = books.id AND bs.shared_with_id = auth.uid() AND bs.status = 'accepted'
+    )
+  );
+
 create policy "Users own their entries" on public.entries
   for all using (auth.uid() = user_id);
+
+-- migration 023: collaborators can SELECT entries of shared books (required for Realtime)
+create policy "collaborators can view entries" on public.entries
+  for select using (
+    auth.uid() = user_id
+    OR EXISTS (
+      SELECT 1 FROM public.book_shares bs
+      WHERE bs.book_id = entries.book_id AND bs.shared_with_id = auth.uid() AND bs.status = 'accepted'
+    )
+  );
 ```
 
 ---

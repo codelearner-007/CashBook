@@ -21,28 +21,34 @@ export const contactKeys = {
 
 export function useCustomers(bookId) {
   return useQuery({
-    queryKey: contactKeys.customers(bookId),
-    queryFn:  () => apiGetCustomers(bookId),
-    staleTime: 0,
-    enabled:  !!bookId,
+    queryKey:        contactKeys.customers(bookId),
+    queryFn:         () => apiGetCustomers(bookId),
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,
+    enabled:         !!bookId,
   });
 }
 
 export function useCustomer(bookId, contactId) {
   return useQuery({
-    queryKey: contactKeys.customer(bookId, contactId),
-    queryFn:  () => apiGetCustomer(bookId, contactId),
-    staleTime: 0,
-    enabled:  !!bookId && !!contactId,
+    queryKey:        contactKeys.customer(bookId, contactId),
+    queryFn:         () => apiGetCustomer(bookId, contactId),
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,
+    enabled:         !!bookId && !!contactId,
   });
 }
 
 export function useCustomerEntries(bookId, contactId) {
   return useQuery({
-    queryKey: contactKeys.customerEntries(bookId, contactId),
-    queryFn:  () => apiGetCustomerEntries(bookId, contactId),
-    staleTime: 0,
-    enabled:  !!bookId && !!contactId,
+    queryKey:        contactKeys.customerEntries(bookId, contactId),
+    queryFn:         () => apiGetCustomerEntries(bookId, contactId),
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,
+    enabled:         !!bookId && !!contactId,
   });
 }
 
@@ -83,19 +89,23 @@ export function useDeleteCustomer(bookId) {
 
 export function useSuppliers(bookId) {
   return useQuery({
-    queryKey: contactKeys.suppliers(bookId),
-    queryFn:  () => apiGetSuppliers(bookId),
-    staleTime: 0,
-    enabled:  !!bookId,
+    queryKey:        contactKeys.suppliers(bookId),
+    queryFn:         () => apiGetSuppliers(bookId),
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,
+    enabled:         !!bookId,
   });
 }
 
 export function useSupplier(bookId, contactId) {
   return useQuery({
-    queryKey: contactKeys.supplier(bookId, contactId),
-    queryFn:  () => apiGetSupplier(bookId, contactId),
-    staleTime: 0,
-    enabled:  !!bookId && !!contactId,
+    queryKey:        contactKeys.supplier(bookId, contactId),
+    queryFn:         () => apiGetSupplier(bookId, contactId),
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,
+    enabled:         !!bookId && !!contactId,
   });
 }
 

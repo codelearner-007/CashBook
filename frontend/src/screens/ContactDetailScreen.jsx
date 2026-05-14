@@ -10,6 +10,7 @@ import { useBookBasePath } from '../hooks/useBookBasePath';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useContact, useUpdateContact, useDeleteContact } from '../hooks/useContacts';
+import { useRealtimeEntries } from '../hooks/useRealtimeSync';
 import { useBooks } from '../hooks/useBooks';
 import { useSharedBooks } from '../hooks/useSharing';
 import AppInput from '../components/ui/Input';
@@ -33,6 +34,7 @@ export default function ContactDetailScreen() {
 
   const cfg = TYPE_CONFIG[contactType] || TYPE_CONFIG.customer;
 
+  useRealtimeEntries(bookId);
   const { data: ownBooks = [] }    = useBooks();
   const { data: sharedBooks = [] } = useSharedBooks();
   const currentBook = ownBooks.find(b => b.id === bookId);

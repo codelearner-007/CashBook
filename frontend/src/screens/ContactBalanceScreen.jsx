@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useContactEntries, useContact } from '../hooks/useContacts';
+import { useRealtimeEntries } from '../hooks/useRealtimeSync';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,7 @@ export default function ContactBalanceScreen() {
     setCollapsed(prev => ({ ...prev, [date]: !prev[date] }));
   }, []);
 
+  useRealtimeEntries(bookId);
   const { data: entries = [], isLoading } = useContactEntries(bookId, contactId, contactType);
   const { data: contact } = useContact(bookId, contactId, contactType);
 

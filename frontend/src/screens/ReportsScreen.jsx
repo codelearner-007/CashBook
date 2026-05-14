@@ -12,6 +12,7 @@ import SafeAreaView from '../components/ui/AppSafeAreaView';
 import SuccessDialog from '../components/ui/SuccessDialog';
 import { useTheme } from '../hooks/useTheme';
 import { apiGetEntries } from '../lib/api';
+import { useRealtimeEntries } from '../hooks/useRealtimeSync';
 import { supabase } from '../lib/supabase';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import SearchBar from '../components/ui/SearchBar';
@@ -76,6 +77,7 @@ export default function ReportsScreen() {
     initialType, initialContact, initialCategory, initialPayment,
   } = useLocalSearchParams();
   const { C, Font } = useTheme();
+  useRealtimeEntries(id);
 
   const [filterDate,        setFilterDate]        = useState(initialDate || null);
   const [filterType,        setFilterType]        = useState(initialType     || null);

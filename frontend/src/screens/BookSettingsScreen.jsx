@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Switch,
   StatusBar, ScrollView, Modal, TextInput, Alert,
@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useBooks, useRenameBook, useDeleteBook } from '../hooks/useBooks';
 import { useSharedBooks } from '../hooks/useSharing';
+import { useRealtimeEntries, useRealtimeBookSettings } from '../hooks/useRealtimeSync';
 import { useCustomers, useSuppliers } from '../hooks/useContacts';
 import { useCategories } from '../hooks/useCategories';
 import { usePaymentModes } from '../hooks/usePaymentModes';
@@ -40,10 +41,20 @@ export default function BookSettingsScreen() {
   const deleteBookSheetCloseRef = useRef(null);
 
   const qc = useQueryClient();
+  useRealtimeEntries(id);
+  useRealtimeBookSettings(id);
   const { data: books = [] } = useBooks();
   const { data: sharedBooks = [] } = useSharedBooks();
   const currentBook = books.find(b => b.id === id);
   const isOwner = !!currentBook;
+
+  // Polling fallback for collaborators — Realtime nested-RLS can silently fail,
+  // so poll every 3 s to guarantee field-settings changes appear for all users.
+  useEffect(() => {
+    if (isOwner) return;
+    const t = setInterval(() => qc.invalidateQueries({ queryKey: ['shared-books'] }), 3000);
+    return () => clearInterval(t);
+  }, [isOwner, qc]);
   const sharedBook = !isOwner ? sharedBooks.find(b => b.id === id) : null;
   const canEdit = isOwner || (sharedBook?.rights ?? 'view') !== 'view';
   const bookData = currentBook ?? sharedBook;
