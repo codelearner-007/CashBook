@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useAuthStore } from '../store/authStore';
+import { useRealtimeInvitations, useRealtimeGivenInvitations } from '../hooks/useRealtimeSync';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   StatusBar, ActivityIndicator, Alert, Modal, Animated,
@@ -248,6 +250,146 @@ const ds = StyleSheet.create({
   btnText:    { fontSize: 14 },
 });
 
+// ── Leave book confirmation sheet ─────────────────────────────────────────────
+
+const LeaveBookSheet = ({ visible, item, isLoading, onConfirm, onDismiss, C, Font }) => {
+  const slideY    = useRef(new Animated.Value(500)).current;
+  const bgOpacity = useRef(new Animated.Value(0)).current;
+
+  const animateClose = useCallback((cb) => {
+    Animated.parallel([
+      Animated.timing(bgOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(slideY,    { toValue: 500, duration: 220, useNativeDriver: true }),
+    ]).start(() => cb?.());
+  }, [bgOpacity, slideY]);
+
+  useEffect(() => {
+    if (!visible) return;
+    slideY.setValue(500);
+    bgOpacity.setValue(0);
+    Animated.parallel([
+      Animated.timing(bgOpacity, { toValue: 1, duration: 240, useNativeDriver: true }),
+      Animated.spring(slideY, { toValue: 0, tension: 160, friction: 20, useNativeDriver: true }),
+    ]).start();
+  }, [visible]);
+
+  const close = useCallback(() => animateClose(onDismiss), [animateClose, onDismiss]);
+
+  if (!visible || !item) return null;
+
+  const ownerName = item.owner?.full_name || item.owner?.email || 'the owner';
+  const bookName  = item.book_name || 'this book';
+
+  return (
+    <Modal transparent visible animationType="none" onRequestClose={close} statusBarTranslucent>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: C.overlay, opacity: bgOpacity }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
+      </Animated.View>
+
+      <View style={ls.anchor} pointerEvents="box-none">
+        <Animated.View style={[ls.sheet, { backgroundColor: C.card, transform: [{ translateY: slideY }] }]}>
+          {/* Handle */}
+          <View style={[ls.handle, { backgroundColor: C.border }]} />
+
+          {/* Header */}
+          <View style={ls.headerRow}>
+            <View style={[ls.iconCircle, { backgroundColor: C.danger, shadowColor: C.danger }]}>
+              <Feather name="log-out" size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[ls.title, { color: C.text, fontFamily: Font.bold }]}>Leave Book</Text>
+              <Text style={[ls.subtitle, { color: C.danger, fontFamily: Font.medium }]}>
+                You'll lose access immediately
+              </Text>
+            </View>
+          </View>
+
+          {/* Book info card */}
+          <View style={[ls.infoCard, { backgroundColor: C.cardAlt, borderColor: C.border }]}>
+            <Feather name="book-open" size={15} color={C.textMuted} />
+            <View style={{ flex: 1 }}>
+              <Text style={[ls.infoBook, { color: C.text, fontFamily: Font.semiBold }]} numberOfLines={1}>
+                {bookName}
+              </Text>
+              <Text style={[ls.infoOwner, { color: C.textMuted, fontFamily: Font.regular }]} numberOfLines={1}>
+                Shared by {ownerName}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[ls.body, { color: C.textMuted, fontFamily: Font.regular }]}>
+            You will no longer be able to view or edit this book.{' '}
+            <Text style={{ color: C.text, fontFamily: Font.medium }}>{ownerName}</Text>
+            {' '}can re-invite you if needed.
+          </Text>
+
+          {/* Buttons */}
+          <View style={ls.btnRow}>
+            <TouchableOpacity
+              style={[ls.btn, { borderColor: C.border, backgroundColor: C.background }]}
+              onPress={close}
+              activeOpacity={0.8}
+              disabled={isLoading}
+            >
+              <Text style={[ls.btnText, { color: C.text, fontFamily: Font.semiBold }]}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[ls.btn, ls.btnLeave, { backgroundColor: C.danger, opacity: isLoading ? 0.7 : 1 }]}
+              onPress={onConfirm}
+              disabled={isLoading}
+              activeOpacity={0.85}
+            >
+              {isLoading
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Feather name="log-out" size={15} color="#fff" />
+              }
+              <Text style={[ls.btnText, { color: '#fff', fontFamily: Font.bold }]}>
+                {isLoading ? 'Leaving…' : 'Leave Book'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+const ls = StyleSheet.create({
+  anchor: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  sheet: {
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingBottom: 36, paddingTop: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15, shadowRadius: 20, elevation: 20,
+  },
+  handle:    { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  iconCircle: {
+    width: 44, height: 44, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+  },
+  title:    { fontSize: 16, lineHeight: 22 },
+  subtitle: { fontSize: 12, lineHeight: 17, marginTop: 1 },
+  infoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14,
+  },
+  infoBook:  { fontSize: 14, lineHeight: 20 },
+  infoOwner: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  body:      { fontSize: 13, lineHeight: 20, marginBottom: 22, paddingHorizontal: 2 },
+  btnRow:    { flexDirection: 'row', gap: 10 },
+  btn: {
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', gap: 7,
+  },
+  btnLeave: { borderWidth: 0 },
+  btnText:  { fontSize: 14 },
+});
+
 // ── Received invitation card ───────────────────────────────────────────────────
 
 const ReceivedCard = ({ item, onAccept, onDecline, onLeave, isResponding, C, Font, isDark }) => {
@@ -407,10 +549,14 @@ const es = StyleSheet.create({
 export default function ManageAccessScreen() {
   const router = useRouter();
   const { C, Font, isDark } = useTheme();
+  const user = useAuthStore((s) => s.user);
+  useRealtimeInvitations(user?.id);
+  useRealtimeGivenInvitations(user?.id);
 
   const [activeTab,    setActiveTab]    = useState('received');
   const [editShare,    setEditShare]    = useState(null);
-  const [declineItem,  setDeclineItem]  = useState(null);  // invitation being declined
+  const [declineItem,  setDeclineItem]  = useState(null);
+  const [leaveItem,    setLeaveItem]    = useState(null);
   const [respondingId, setRespondingId] = useState(null);
 
   const { data: received = [], isLoading: receivedLoading } = useReceivedInvitations();
@@ -457,21 +603,19 @@ export default function ManageAccessScreen() {
   }, [declineItem, respondMutation]);
 
   const handleLeave = useCallback((item) => {
-    Alert.alert(
-      'Leave Book',
-      `Stop accessing "${item.book_name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: () => leaveBook.mutate(item.book_id, {
-            onError: () => Alert.alert('Error', 'Could not leave this book.'),
-          }),
-        },
-      ]
-    );
-  }, [leaveBook]);
+    setLeaveItem(item);
+  }, []);
+
+  const handleConfirmLeave = useCallback(() => {
+    if (!leaveItem) return;
+    leaveBook.mutate(leaveItem.book_id, {
+      onSuccess: () => setLeaveItem(null),
+      onError:   () => {
+        setLeaveItem(null);
+        Alert.alert('Error', 'Could not leave this book. Please try again.');
+      },
+    });
+  }, [leaveItem, leaveBook]);
 
   const handleRemoveGiven = useCallback((item) => {
     const label = item.status === 'pending' ? 'Cancel Invitation' : 'Remove Access';
@@ -608,6 +752,17 @@ export default function ManageAccessScreen() {
         isLoading={isDeclining}
         onConfirm={handleConfirmDecline}
         onDismiss={() => setDeclineItem(null)}
+        C={C}
+        Font={Font}
+      />
+
+      {/* Leave book confirmation sheet */}
+      <LeaveBookSheet
+        visible={!!leaveItem}
+        item={leaveItem}
+        isLoading={leaveBook.isPending}
+        onConfirm={handleConfirmLeave}
+        onDismiss={() => setLeaveItem(null)}
         C={C}
         Font={Font}
       />

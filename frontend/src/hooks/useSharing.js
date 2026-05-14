@@ -38,7 +38,7 @@ export const useBookShares = (bookId) =>
     queryFn:         () => apiGetBookShares(bookId),
     staleTime:       0,
     refetchOnFocus:  true,
-    refetchInterval: 10000,   // poll every 10 s so accept/reject appear on owner's screen immediately
+    refetchInterval: 5000,  // fallback poll — realtime handles it instantly when available
     enabled:         !!bookId,
   });
 
@@ -49,17 +49,17 @@ export const useReceivedInvitations = () =>
     queryFn:         apiGetReceivedInvitations,
     staleTime:       0,
     refetchOnFocus:  true,
-    refetchInterval: 30000,  // poll every 30 s so new invitations appear without manual refresh
+    refetchInterval: 8000,  // fallback poll — realtime handles it instantly when available
   });
 
 // All invitations sent by the current user (all books, all statuses)
 export const useGivenInvitations = () =>
   useQuery({
-    queryKey:       ['invitations', 'given'],
-    queryFn:        apiGetGivenInvitations,
-    staleTime:      0,
-    refetchOnFocus: true,
-    // no interval — mutations (respond, add, remove) invalidate this query directly
+    queryKey:        ['invitations', 'given'],
+    queryFn:         apiGetGivenInvitations,
+    staleTime:       0,
+    refetchOnFocus:  true,
+    refetchInterval: 8000,  // fallback poll — realtime handles it instantly when available
   });
 
 export const useRespondToInvitation = () => {

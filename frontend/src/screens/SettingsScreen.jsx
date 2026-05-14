@@ -4,6 +4,7 @@ import {
   StatusBar, ScrollView, Alert, useWindowDimensions,
 } from 'react-native';
 import { useReceivedInvitations } from '../hooks/useSharing';
+import { useRealtimeInvitations } from '../hooks/useRealtimeSync';
 import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useSegments } from 'expo-router';
@@ -202,6 +203,8 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
   // mislead admins on the dashboard/settings tab into a wrong fallback route.
   const isTabRoot = segments[1] === 'dashboard' && segments.length <= 3;
   const clearUser = useAuthStore((s) => s.clearUser);
+  const user      = useAuthStore((s) => s.user);
+  useRealtimeInvitations(user?.id);
   const { width } = useWindowDimensions();
   const hPad      = width > 600 ? Math.floor((width - 540) / 2) : 16;
 

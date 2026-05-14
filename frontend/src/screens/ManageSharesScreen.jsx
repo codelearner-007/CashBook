@@ -8,6 +8,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
 import { useBookShares, useRemoveCollaborator } from '../hooks/useSharing';
+import { useRealtimeCollaborators, useRealtimeGivenInvitations } from '../hooks/useRealtimeSync';
+import { useAuthStore } from '../store/authStore';
 import { useBookBasePath } from '../hooks/useBookBasePath';
 import { RIGHTS_MAP, getInitials } from '../constants/sharing';
 import EditShareSheet from '../components/sharing/EditShareSheet';
@@ -103,8 +105,11 @@ export default function ManageSharesScreen() {
   const { id, name } = useLocalSearchParams();
   const { C, Font, isDark } = useTheme();
 
+  const user = useAuthStore((s) => s.user);
   const { data: shares = [], isLoading } = useBookShares(id);
   const removeCollaborator = useRemoveCollaborator(id);
+  useRealtimeCollaborators(id);
+  useRealtimeGivenInvitations(user?.id);
 
   const [editShare, setEditShare]     = useState(null);
   const [removeShare, setRemoveShare] = useState(null);
