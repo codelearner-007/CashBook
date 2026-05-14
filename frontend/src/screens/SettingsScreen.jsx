@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   StatusBar, ScrollView, Alert, useWindowDimensions,
 } from 'react-native';
+import { useReceivedInvitations } from '../hooks/useSharing';
 import { Image as ExpoImage } from 'expo-image';
 import SafeAreaView from '../components/ui/AppSafeAreaView';
 import { useRouter, useSegments } from 'expo-router';
@@ -142,29 +143,18 @@ const LogoutIcon = ({ color, size = 14 }) => (
 
 // ── Section data ──────────────────────────────────────────────────────────────
 
-const APP_SECTIONS = [
-  {
-    title: 'App',
-    items: [
-      { Icon: BellIcon,   label: 'Notifications',     sub: 'Manage alerts',   route: '/(app)/settings/notifications', accent: 'primary' },
-      { Icon: ShieldIcon, label: 'Privacy & Security', sub: 'PIN, biometric', route: null, accent: 'primary' },
-      { Icon: CloudIcon,  label: 'Backup & Sync',     sub: 'Last synced: Now', route: null, accent: 'primary' },
-      { Icon: GlobeIcon,  label: 'Language',          sub: 'English',          route: null, accent: 'primary' },
-    ],
-  },
-  {
-    title: 'Support',
-    items: [
-      { Icon: QuestionIcon, label: 'Help & FAQ',  sub: null, route: null, accent: 'primary' },
-      { Icon: StarIcon,     label: 'Rate the App', sub: null, route: null, accent: 'primary' },
-      { Icon: ShareIcon,    label: 'Share App',   sub: null, route: null, accent: 'primary' },
-    ],
-  },
-];
+const SUPPORT_SECTION = {
+  title: 'Support',
+  items: [
+    { Icon: QuestionIcon, label: 'Help & FAQ',  sub: null, route: null, accent: 'primary' },
+    { Icon: StarIcon,     label: 'Rate the App', sub: null, route: null, accent: 'primary' },
+    { Icon: ShareIcon,    label: 'Share App',   sub: null, route: null, accent: 'primary' },
+  ],
+};
 
 // ── Setting Row ───────────────────────────────────────────────────────────────
 
-function SettingRow({ Icon, label, sub, route, isLast, onPress, C }) {
+function SettingRow({ Icon, label, sub, route, isLast, onPress, badgeCount, C }) {
   return (
     <>
       <TouchableOpacity
@@ -179,6 +169,11 @@ function SettingRow({ Icon, label, sub, route, isLast, onPress, C }) {
           <Text style={[rowStyles.label, { color: C.text, fontFamily: Font.semiBold }]}>{label}</Text>
           {sub ? <Text style={[rowStyles.sub, { color: C.textMuted, fontFamily: Font.regular }]}>{sub}</Text> : null}
         </View>
+        {badgeCount > 0 && (
+          <View style={[rowStyles.badge, { backgroundColor: C.danger }]}>
+            <Text style={[rowStyles.badgeText, { fontFamily: Font.bold }]}>{badgeCount}</Text>
+          </View>
+        )}
         <ChevronRight color={C.textSubtle} />
       </TouchableOpacity>
       {!isLast && <View style={[rowStyles.divider, { backgroundColor: C.border }]} />}
@@ -190,9 +185,11 @@ const rowStyles = StyleSheet.create({
   row:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 14 },
   iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   body:    { flex: 1 },
-  label:   { fontSize: 14, lineHeight: 20 },
-  sub:     { fontSize: 12, lineHeight: 17, marginTop: 1 },
-  divider: { height: 1, marginHorizontal: 18 },
+  label:     { fontSize: 14, lineHeight: 20 },
+  sub:       { fontSize: 12, lineHeight: 17, marginTop: 1 },
+  divider:   { height: 1, marginHorizontal: 18 },
+  badge:     { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  badgeText: { fontSize: 10, color: '#fff', lineHeight: 14 },
 });
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -210,6 +207,11 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
 
   const { data: profile } = useProfile();
   const isSuperAdmin = profile?.role === 'superadmin';
+  const { data: receivedInvitations = [] } = useReceivedInvitations();
+  const pendingInviteCount = useMemo(
+    () => receivedInvitations.filter(i => i.status === 'pending').length,
+    [receivedInvitations],
+  );
 
   const initials = (profile?.full_name ?? '?')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -227,8 +229,18 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
         { Icon: CurrencyIcon, label: 'Currency',          sub: currencySub,   route: '/(app)/settings/currency', accent: 'primary' },
       ],
     },
-    ...APP_SECTIONS,
-  ], [currencySub]);
+    {
+      title: 'App',
+      items: [
+        { Icon: ShareIcon,  label: 'Manage Access',     sub: 'Invitations & shared books', route: '/(app)/settings/manage-access', accent: 'primary', badge: pendingInviteCount },
+        { Icon: BellIcon,   label: 'Notifications',     sub: 'Manage alerts',              route: '/(app)/settings/notifications', accent: 'primary' },
+        { Icon: ShieldIcon, label: 'Privacy & Security', sub: 'PIN, biometric',            route: null, accent: 'primary' },
+        { Icon: CloudIcon,  label: 'Backup & Sync',     sub: 'Last synced: Now',           route: null, accent: 'primary' },
+        { Icon: GlobeIcon,  label: 'Language',          sub: 'English',                    route: null, accent: 'primary' },
+      ],
+    },
+    SUPPORT_SECTION,
+  ], [currencySub, pendingInviteCount, profileRoute]);
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -316,6 +328,7 @@ export default function SettingsScreen({ applyTop = true, showBottomNav = false,
                   route={item.route}
                   isLast={idx === section.items.length - 1}
                   onPress={() => item.route && router.push(item.route)}
+                  badgeCount={item.badge ?? 0}
                   C={C}
                 />
               ))}

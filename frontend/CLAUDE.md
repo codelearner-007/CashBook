@@ -62,6 +62,7 @@ frontend/
 │           ├── index.jsx         # → SettingsScreen
 │           ├── profile.jsx       # → ProfileScreen
 │           ├── currency.jsx      # → CurrencyScreen
+│           ├── manage-access.jsx # → ManageAccessScreen
 │           └── business/
 │               ├── index.jsx     # → BusinessSettingsScreen
 │               ├── profile.jsx   # → BusinessProfileScreen
@@ -89,7 +90,7 @@ frontend/
 │   │   ├── useCategories.js      # useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, useCategoryEntries
 │   │   ├── useContacts.js        # useCustomers/Suppliers, useCreateContact, useDeleteContact, etc.
 │   │   ├── useProfile.js         # useProfile, useUpdateProfile
-│   │   ├── useSharing.js         # useSharedBooks, useBookShares, useAddCollaborator, useUpdateShare, useRemoveCollaborator, useLeaveSharedBook
+│   │   ├── useSharing.js         # useSharedBooks, useBookShares, useAddCollaborator, useUpdateShare, useRemoveCollaborator, useRemoveShareByOwner, useLeaveSharedBook, useReceivedInvitations, useGivenInvitations, useRespondToInvitation
 │   │   └── useTheme.js           # Returns { C, Font, isDark, toggleTheme }
 │   ├── lib/
 │   │   ├── api.js                # All Axios API calls (real backend, no mocks)
@@ -297,12 +298,15 @@ All functions call the real FastAPI backend. Axios interceptor attaches the Supa
 | `apiUpdateBook(bookId, payload)` | PUT | `/api/v1/books/:id` |
 | `apiDeleteBook(bookId)` | DELETE | `/api/v1/books/:id` |
 | `apiUpdateBookFieldSettings(bookId, fieldSettings)` | PATCH | `/api/v1/books/:id/field-settings` |
-| `apiGetSharedBooks()` | GET | `/api/v1/books/shared` — books shared with me |
-| `apiGetBookShares(bookId)` | GET | `/api/v1/books/:id/shares` — collaborators on my book |
-| `apiAddCollaborator(bookId, payload)` | POST | `/api/v1/books/:id/shares` — add collaborator by email |
-| `apiUpdateShare(bookId, shareId, payload)` | PATCH | `/api/v1/books/:id/shares/:shareId` |
+| `apiGetSharedBooks()` | GET | `/api/v1/books/shared` — accepted books shared with me |
+| `apiGetBookShares(bookId)` | GET | `/api/v1/books/:id/shares` — collaborators on my book (all statuses) |
+| `apiAddCollaborator(bookId, payload)` | POST | `/api/v1/books/:id/shares` — send invitation (creates pending share) |
+| `apiUpdateShare(bookId, shareId, payload)` | PATCH | `/api/v1/books/:id/shares/:shareId` — update rights/screens |
 | `apiRemoveCollaborator(bookId, shareId)` | DELETE | `/api/v1/books/:id/shares/:shareId` |
 | `apiLeaveSharedBook(bookId)` | DELETE | `/api/v1/books/:id/leave` — recipient removes self |
+| `apiRespondToInvitation(bookId, shareId, action)` | PATCH | `/api/v1/books/:id/shares/:shareId/respond` — `action: "accept"\|"reject"` |
+| `apiGetReceivedInvitations()` | GET | `/api/v1/invitations/received` — all invitations to me |
+| `apiGetGivenInvitations()` | GET | `/api/v1/invitations/given` — all invitations I sent |
 | `apiSearchUsers(q)` | GET | `/api/v1/profile/search?q=...` — find user by email |
 | `apiGetProfile()` | GET | `/api/v1/profile` |
 | `apiUpdateProfile(payload)` | PUT | `/api/v1/profile` |
@@ -458,6 +462,8 @@ Before writing any new screen or component, open a similar existing screen and m
 | `['supplier-entries', bookId, id]` | 2 min | — | Entries linked to a supplier |
 | `['report-entries', bookId, dateFrom, dateTo]` | 2 min | — | Filtered entries for ReportsScreen; dateFrom/dateTo are YYYY-MM-DD strings or null |
 | `['notifications']` | 1 min | — | User's full notification inbox |
+| `['invitations', 'received']` | 0 | 30 s | All invitations received; polls so new invitations appear while app is open; feeds pending badge in BooksView + SettingsScreen |
+| `['invitations', 'given']` | 0 | — | All invitations sent by the user; invalidated on add/update/remove collaborator |
 | `['notifications', 'unread']` | 0 | 15 s | Unread-only; used by popup in `_layout.jsx`; polls so new notifications auto-show while app is open |
 | `['sent-notifications']` | 2 min | — | Admin's sent notification history |
 

@@ -18,6 +18,7 @@ async def get_shared_books(user_id: str = Depends(get_current_user)):
         sb.table("book_shares")
         .select("*")
         .eq("shared_with_id", user_id)
+        .eq("status", "accepted")
         .execute()
     ).data or []
 

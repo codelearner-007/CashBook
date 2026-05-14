@@ -136,13 +136,22 @@ All routes are prefixed `/api/v1`. All protected routes require `Authorization: 
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/{book_id}/shares` | List collaborators for a book (owner only) | ✅ |
-| POST | `/{book_id}/shares` | Add collaborator by email — `{ email, screens, rights }` | ✅ |
-| PATCH | `/{book_id}/shares/{share_id}` | Update rights/screens for a collaborator | ✅ |
-| DELETE | `/{book_id}/shares/{share_id}` | Remove a collaborator (owner only) | ✅ |
+| POST | `/{book_id}/shares` | Send invitation — `{ email, screens, rights }` → status `pending` | ✅ |
+| PATCH | `/{book_id}/shares/{share_id}/respond` | Recipient accepts/rejects — `{ action: "accept"\|"reject" }` | ✅ |
+| PATCH | `/{book_id}/shares/{share_id}` | Update rights/screens for an accepted collaborator | ✅ |
+| DELETE | `/{book_id}/shares/{share_id}` | Remove a collaborator/invitation (owner only) | ✅ |
 | DELETE | `/{book_id}/leave` | Recipient removes themselves from a shared book | ✅ |
 
 **Rights levels:** `view` | `view_create_edit` | `view_create_edit_delete`
 **Screens JSONB keys:** `entries`, `categories`, `contacts`, `payment_modes`, `reports`, `settings`
+**Invitation flow:** `POST /shares` creates a `pending` share (no access until accepted). Recipient calls `/respond` with `action=accept` → status becomes `accepted`; `action=reject` → **row is deleted** (invitation disappears from both screens). On either response a notification is created for the book owner via `notifications` + `user_notifications` tables.
+
+### Invitations (`routers/invitations.py`) — prefix `/api/v1/invitations`
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/received` | All invitations sent TO the current user (all statuses) | ✅ |
+| GET | `/given` | All invitations sent BY the current user across all books (all statuses) | ✅ |
 
 ### Profile search — prefix `/api/v1/profile`
 

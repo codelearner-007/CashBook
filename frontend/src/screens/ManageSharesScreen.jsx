@@ -13,17 +13,28 @@ import { RIGHTS_MAP, getInitials } from '../constants/sharing';
 import EditShareSheet from '../components/sharing/EditShareSheet';
 import RemoveAccessSheet from '../components/sharing/RemoveAccessSheet';
 
+// ── Status badge meta ─────────────────────────────────────────────────────────
+// 'pending'  → amber "Awaiting" badge
+// 'accepted' → no badge (normal active state)
+// Rejection deletes the row — no 'rejected' state is stored.
+
+const STATUS_META = {
+  pending: { icon: 'clock', label: 'Awaiting', color: '#D97706', light: '#FEF3C7', darkLight: '#2D1A00' },
+};
+
 // ── CollaboratorRow ───────────────────────────────────────────────────────────
 
 const CollaboratorRow = ({ item, onEdit, onRemove, C, Font, isDark }) => {
   const meta     = RIGHTS_MAP[item.rights] ?? RIGHTS_MAP.view;
   const initials = getInitials(item.shared_with?.full_name || item.shared_with?.email || '');
   const badgeBg  = isDark ? meta.darkLight : meta.light;
+  const statusMeta = STATUS_META[item.status];  // defined for 'pending'; undefined for 'accepted'
+  const isActive   = item.status === 'accepted';
 
   return (
     <TouchableOpacity
-      style={[styles.row, { borderBottomColor: C.border }]}
-      onPress={() => onEdit(item)}
+      style={[styles.row, { borderBottomColor: C.border, opacity: isActive ? 1 : 0.75 }]}
+      onPress={() => isActive && onEdit(item)}
       activeOpacity={0.75}
     >
       {/* Avatar */}
@@ -41,24 +52,36 @@ const CollaboratorRow = ({ item, onEdit, onRemove, C, Font, isDark }) => {
         <Text style={[styles.rowEmail, { color: C.textMuted, fontFamily: Font.regular }]} numberOfLines={1}>
           {item.shared_with?.email}
         </Text>
-        <View style={[styles.rightsBadge, { backgroundColor: badgeBg }]}>
-          <Feather name={meta.icon} size={11} color={meta.color} />
-          <Text style={[styles.rightsText, { color: meta.color, fontFamily: Font.semiBold }]}>
-            {meta.title}
-          </Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+          <View style={[styles.rightsBadge, { backgroundColor: badgeBg }]}>
+            <Feather name={meta.icon} size={11} color={meta.color} />
+            <Text style={[styles.rightsText, { color: meta.color, fontFamily: Font.semiBold }]}>
+              {meta.title}
+            </Text>
+          </View>
+          {statusMeta && (
+            <View style={[styles.rightsBadge, { backgroundColor: isDark ? statusMeta.darkLight : statusMeta.light }]}>
+              <Feather name={statusMeta.icon} size={11} color={statusMeta.color} />
+              <Text style={[styles.rightsText, { color: statusMeta.color, fontFamily: Font.semiBold }]}>
+                {statusMeta.label}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
       {/* Action buttons */}
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: C.primaryLight }]}
-          onPress={() => onEdit(item)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.75}
-        >
-          <Feather name="edit-2" size={14} color={C.primary} />
-        </TouchableOpacity>
+        {isActive && (
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: C.primaryLight }]}
+            onPress={() => onEdit(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.75}
+          >
+            <Feather name="edit-2" size={14} color={C.primary} />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: C.dangerLight }]}
           onPress={() => onRemove(item)}
@@ -185,9 +208,19 @@ export default function ManageSharesScreen() {
           )}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
-            <Text style={[styles.listHeader, { color: C.textMuted, fontFamily: Font.semiBold }]}>
-              {shares.length} {shares.length === 1 ? 'COLLABORATOR' : 'COLLABORATORS'}
-            </Text>
+            <View style={{ marginHorizontal: 16, marginTop: 20, marginBottom: 6 }}>
+              <Text style={[styles.listHeader, { color: C.textMuted, fontFamily: Font.semiBold }]}>
+                {shares.length} {shares.length === 1 ? 'COLLABORATOR' : 'COLLABORATORS'}
+              </Text>
+              {shares.some(s => s.status === 'pending') && (
+                <View style={[styles.statusNote, { backgroundColor: '#FEF3C7', borderColor: '#D97706' }]}>
+                  <Feather name="clock" size={12} color="#D97706" />
+                  <Text style={[styles.statusNoteText, { fontFamily: Font.regular, color: '#D97706' }]}>
+                    {shares.filter(s => s.status === 'pending').length} awaiting response
+                  </Text>
+                </View>
+              )}
+            </View>
           }
           showsVerticalScrollIndicator={false}
         />
@@ -242,8 +275,14 @@ const styles = StyleSheet.create({
   list:       { paddingBottom: 40 },
   listHeader: {
     fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
-    marginHorizontal: 16, marginTop: 20, marginBottom: 6,
+    marginBottom: 6,
   },
+  statusNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 5, marginTop: 4, alignSelf: 'flex-start',
+  },
+  statusNoteText: { fontSize: 11, lineHeight: 16 },
 
   row: {
     flexDirection: 'row', alignItems: 'center',

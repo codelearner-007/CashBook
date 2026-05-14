@@ -34,6 +34,7 @@ Supabase provides three things for CashBook:
 
 17. `supabase/migrations/019_push_tokens.sql` — Expo push tokens table, unique(user_id, token), RLS
 18. `supabase/migrations/020_book_sharing.sql` — `book_shares` table; owner shares a book with a recipient; configurable `screens` JSONB and `rights` level; unique(book_id, shared_with_id); two RLS policies (owner: ALL, recipient: SELECT)
+19. `supabase/migrations/021_sharing_status.sql` — adds `status` column (`pending`|`accepted`) to `book_shares`; backfills existing rows to `accepted`; adds RLS UPDATE policy for recipients to respond to invitations. **Invitation flow:** accept → `status='accepted'`; decline → row is deleted (no rejected state stored)
 
 **All migrations must be run in order** before the app works correctly. Run them in the Supabase SQL Editor.
 
@@ -158,6 +159,7 @@ Identical columns to `customers`, including `total_in`, `total_out`, `net_balanc
 | `shared_with_id` | uuid | FK → `public.profiles(id)` ON DELETE CASCADE, NOT NULL |
 | `screens` | jsonb | NOT NULL, default `{"entries":true,"categories":false,"contacts":false,"payment_modes":false,"reports":false,"settings":false}` |
 | `rights` | text | NOT NULL, default `'view'`, CHECK IN (`'view'`,`'view_create_edit'`,`'view_create_edit_delete'`) |
+| `status` | text | NOT NULL, default `'pending'`, CHECK IN (`'pending'`, `'accepted'`) |
 | `created_at` | timestamptz | default `now()` |
 | `updated_at` | timestamptz | default `now()` |
 | UNIQUE | `(book_id, shared_with_id)` | One share per book per recipient |
@@ -165,6 +167,7 @@ Identical columns to `customers`, including `total_in`, `total_out`, `net_balanc
 
 **Rights levels:** `view` = read-only; `view_create_edit` = add/edit entries; `view_create_edit_delete` = full access including delete.
 **Screens JSONB** controls which book sections are visible to the recipient.
+**Invitation flow:** `POST /shares` creates row with `status='pending'` — no access until recipient accepts. On accept: `status='accepted'`. On decline: **row is deleted** — invitation disappears from both screens; owner is notified via in-app notification. Access checks in `book_access.py` and `GET /books/shared` only consider `status='accepted'` rows.
 
 ---
 

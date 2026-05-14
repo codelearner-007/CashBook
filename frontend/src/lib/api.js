@@ -91,6 +91,21 @@ export const apiLeaveSharedBook = async (bookId) => {
   await api.delete(`/api/v1/books/${bookId}/leave`);
 };
 
+/** PATCH /api/v1/books/:bookId/shares/:shareId/respond  { action: "accept"|"reject" } */
+export const apiRespondToInvitation = async (bookId, shareId, action) => {
+  return (await api.patch(`/api/v1/books/${bookId}/shares/${shareId}/respond`, { action })).data;
+};
+
+/** GET /api/v1/invitations/received  — all invitations sent to me */
+export const apiGetReceivedInvitations = async () => {
+  return (await api.get('/api/v1/invitations/received')).data;
+};
+
+/** GET /api/v1/invitations/given  — all invitations I sent */
+export const apiGetGivenInvitations = async () => {
+  return (await api.get('/api/v1/invitations/given')).data;
+};
+
 /** GET /api/v1/profile/search?q=... */
 export const apiSearchUsers = async (q) => {
   return (await api.get('/api/v1/profile/search', { params: { q } })).data;

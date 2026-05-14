@@ -23,6 +23,10 @@ class ShareUpdate(BaseModel):
     rights:  Optional[str] = None
 
 
+class ShareRespondPayload(BaseModel):
+    action: str  # "accept" → status becomes 'accepted'; "reject" → row is deleted
+
+
 class CollaboratorProfile(BaseModel):
     id:         str
     full_name:  Optional[str] = None
@@ -37,6 +41,7 @@ class ShareResponse(BaseModel):
     shared_with:  CollaboratorProfile
     screens:      Dict[str, Any]
     rights:       str
+    status:       str = "accepted"  # 'pending' | 'accepted'
     created_at:   datetime
 
 
@@ -58,3 +63,25 @@ class SharedBookResponse(BaseModel):
     owner_id:    str
     owner_name:  Optional[str] = None
     owner_email: str
+
+
+class ReceivedInvitation(BaseModel):
+    share_id:   str
+    book_id:    str
+    book_name:  str
+    owner:      CollaboratorProfile
+    screens:    Dict[str, Any]
+    rights:     str
+    status:     str
+    created_at: datetime
+
+
+class GivenInvitation(BaseModel):
+    share_id:     str
+    book_id:      str
+    book_name:    str
+    collaborator: CollaboratorProfile
+    screens:      Dict[str, Any]
+    rights:       str
+    status:       str
+    created_at:   datetime

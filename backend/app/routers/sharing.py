@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from typing import List
 from app.auth.jwt import get_current_user
 from app.db.supabase import get_supabase
-from app.models.sharing import ShareCreate, ShareUpdate, ShareResponse, CollaboratorProfile
+from app.models.sharing import (
+    ShareCreate, ShareUpdate, ShareRespondPayload,
+    ShareResponse, CollaboratorProfile,
+)
 
 router = APIRouter()
 
@@ -23,6 +26,37 @@ def _require_owner(sb, book_id: str, user_id: str):
         raise HTTPException(status_code=404, detail="Book not found")
 
 
+def _notify_owner(sb, share: dict, book_id: str, recipient_id: str, action_word: str):
+    """Create an in-app notification for the book owner after an accept or reject."""
+    try:
+        book = (sb.table("books").select("name").eq("id", book_id).limit(1).execute()).data
+        recipient = (
+            sb.table("profiles").select("full_name, email").eq("id", recipient_id).limit(1).execute()
+        ).data
+        book_name      = book[0]["name"] if book else "a book"
+        r              = recipient[0] if recipient else {}
+        recipient_name = r.get("full_name") or r.get("email") or "Someone"
+
+        notif = (
+            sb.table("notifications")
+            .insert({
+                "title":       f"Invitation {action_word.capitalize()}",
+                "body":        f'{recipient_name} {action_word} your invitation to "{book_name}".',
+                "target_type": "specific",
+                "created_by":  recipient_id,
+            })
+            .execute()
+        ).data
+
+        if notif:
+            sb.table("user_notifications").insert({
+                "user_id":         share["owner_id"],
+                "notification_id": notif[0]["id"],
+            }).execute()
+    except Exception:
+        pass  # notification failure must not break the caller
+
+
 def _build_share_response(share: dict, profile: dict) -> ShareResponse:
     return ShareResponse(
         id=share["id"],
@@ -36,6 +70,7 @@ def _build_share_response(share: dict, profile: dict) -> ShareResponse:
         ),
         screens=share.get("screens", {}),
         rights=share["rights"],
+        status=share.get("status", "accepted"),
         created_at=share["created_at"],
     )
 
@@ -106,17 +141,30 @@ async def create_share(
     # Check for duplicate
     existing = (
         sb.table("book_shares")
-        .select("id")
+        .select("id, status")
         .eq("book_id", book_id)
         .eq("shared_with_id", target_profile["id"])
         .limit(1)
         .execute()
     ).data
 
-    if existing:
-        raise HTTPException(status_code=409, detail="This book is already shared with that user")
-
     screens_dict = payload.screens.model_dump()
+
+    if existing:
+        current_status = existing[0].get("status", "accepted")
+        if current_status == "pending":
+            raise HTTPException(status_code=409, detail="An invitation is already pending for this user")
+        if current_status == "accepted":
+            raise HTTPException(status_code=409, detail="This book is already shared with that user")
+        # Re-invitation after rejection: update the existing row back to pending
+        if current_status == "rejected":
+            updated = (
+                sb.table("book_shares")
+                .update({"status": "pending", "rights": payload.rights, "screens": screens_dict})
+                .eq("id", existing[0]["id"])
+                .execute()
+            ).data[0]
+            return _build_share_response(updated, target_profile)
     new_share = (
         sb.table("book_shares")
         .insert({
@@ -125,11 +173,53 @@ async def create_share(
             "shared_with_id": target_profile["id"],
             "screens":        screens_dict,
             "rights":         payload.rights,
+            "status":         "pending",
         })
         .execute()
     ).data[0]
 
     return _build_share_response(new_share, target_profile)
+
+
+@router.patch("/{book_id}/shares/{share_id}/respond", status_code=200)
+async def respond_to_invitation(
+    book_id: str,
+    share_id: str,
+    payload: ShareRespondPayload,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user),
+):
+    sb = get_supabase()
+
+    if payload.action not in ("accept", "reject"):
+        raise HTTPException(status_code=422, detail="action must be 'accept' or 'reject'")
+
+    share_rows = (
+        sb.table("book_shares")
+        .select("id, status, owner_id, book_id, shared_with_id")
+        .eq("id", share_id)
+        .eq("book_id", book_id)
+        .eq("shared_with_id", user_id)
+        .limit(1)
+        .execute()
+    ).data
+
+    if not share_rows:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    share = share_rows[0]
+
+    if payload.action == "accept":
+        if share["status"] == "accepted":
+            return {"status": "accepted"}
+        sb.table("book_shares").update({"status": "accepted"}).eq("id", share_id).execute()
+        background_tasks.add_task(_notify_owner, sb, share, book_id, user_id, "accepted")
+        return {"status": "accepted"}
+
+    else:  # reject — delete row so invitation disappears from both screens
+        sb.table("book_shares").delete().eq("id", share_id).execute()
+        background_tasks.add_task(_notify_owner, sb, share, book_id, user_id, "declined")
+        return {"status": "rejected"}
 
 
 @router.patch("/{book_id}/shares/{share_id}", response_model=ShareResponse)

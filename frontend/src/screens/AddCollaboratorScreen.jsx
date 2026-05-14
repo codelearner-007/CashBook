@@ -64,7 +64,7 @@ export default function AddCollaboratorScreen() {
       },
       {
         onSuccess: () => {
-          setSuccessMsg(`${selectedUser.full_name || selectedUser.email} can now access "${name}"`);
+          setSuccessMsg(`Invitation sent to ${selectedUser.full_name || selectedUser.email}. They will need to accept before accessing "${name}".`);
           setShowSuccess(true);
         },
         onError: (err) => {
@@ -303,7 +303,7 @@ export default function AddCollaboratorScreen() {
       <SuccessDialog
         visible={showSuccess}
         onDismiss={() => { setShowSuccess(false); router.back(); }}
-        title="Access Granted!"
+        title="Invitation Sent!"
         subtitle={successMsg}
       />
     </SafeAreaView>

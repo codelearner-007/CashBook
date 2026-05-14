@@ -11,7 +11,7 @@ import { useBooks, useCreateBook, useRenameBook, useDeleteBook } from '../../hoo
 import { useBookSort } from '../../hooks/useBookSort';
 import { useAuthStore } from '../../store/authStore';
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile';
-import { useSharedBooks, useLeaveSharedBook } from '../../hooks/useSharing';
+import { useSharedBooks, useLeaveSharedBook, useReceivedInvitations } from '../../hooks/useSharing';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import Toast from '../../lib/toast';
 import { shadow } from '../../constants/shadows';
@@ -420,6 +420,11 @@ export default function BooksView({
 
   const { data: sharedBooks = [], isLoading: sharedLoading } = useSharedBooks();
   const leaveSharedBook = useLeaveSharedBook();
+  const { data: receivedInvitations = [] } = useReceivedInvitations();
+  const pendingInviteCount = useMemo(
+    () => receivedInvitations.filter(i => i.status === 'pending').length,
+    [receivedInvitations]
+  );
   const activeWorkspace    = useWorkspaceStore((s) => s.activeWorkspace);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
@@ -707,6 +712,21 @@ export default function BooksView({
 
       {/* ── Section header ──────────────────────────────────────────────── */}
       {ListHeader}
+
+      {/* ── Pending invitations banner ──────────────────────────────────── */}
+      {pendingInviteCount > 0 && (
+        <TouchableOpacity
+          style={[s.inviteBanner, { backgroundColor: C.primaryLight, borderColor: C.primaryMid }]}
+          onPress={() => router.push('/(app)/settings/manage-access')}
+          activeOpacity={0.8}
+        >
+          <Feather name="bell" size={14} color={C.primary} />
+          <Text style={[s.inviteBannerText, { color: C.primary, fontFamily: Font.medium }]}>
+            {pendingInviteCount} pending book {pendingInviteCount === 1 ? 'invitation' : 'invitations'} — tap to respond
+          </Text>
+          <Feather name="chevron-right" size={14} color={C.primary} />
+        </TouchableOpacity>
+      )}
 
       {/* ── Search bar ──────────────────────────────────────────────────── */}
       <SearchBar
@@ -1002,6 +1022,15 @@ const makeStyles = (C, Font) => StyleSheet.create({
   sortBtnTextActive:{ fontSize: 12, fontFamily: Font.extraBold, color: C.onPrimary, lineHeight: 18, letterSpacing: 0.6 },
   doneArrangeBtn:   { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 24, backgroundColor: C.primary, flexDirection: 'row', alignItems: 'center', ...shadow(C.primary, 2, 8, 0.28) },
   doneArrangeBtnText: { fontSize: 12, fontFamily: Font.extraBold, color: C.onPrimary, lineHeight: 18, letterSpacing: 0.6 },
+
+  // Pending invitations banner
+  inviteBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 4,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  inviteBannerText: { flex: 1, fontSize: 12, lineHeight: 18 },
 
   // Loading / error
   loadingBox:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },

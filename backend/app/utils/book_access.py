@@ -38,12 +38,13 @@ def get_book_owner_id(sb, book_id: str, user_id: str) -> str:
     if owner_check.data:
         return user_id
 
-    # Collaborator path — check book_shares
+    # Collaborator path — only accepted shares grant access
     share_check = (
         sb.table("book_shares")
         .select("owner_id")
         .eq("book_id", book_id)
         .eq("shared_with_id", user_id)
+        .eq("status", "accepted")
         .limit(1)
         .execute()
     )
@@ -77,12 +78,13 @@ def get_book_access(sb, book_id: str, user_id: str) -> tuple[str, str]:
     if owner_check.data:
         return user_id, "owner"
 
-    # Collaborator path — fetch owner_id AND rights
+    # Collaborator path — only accepted shares grant access
     share_check = (
         sb.table("book_shares")
         .select("owner_id, rights")
         .eq("book_id", book_id)
         .eq("shared_with_id", user_id)
+        .eq("status", "accepted")
         .limit(1)
         .execute()
     )
